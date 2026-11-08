@@ -13,52 +13,76 @@ import {
   PictureInPicture2
 } from 'lucide-react';
 import { AnimatedSoundBars } from './AnimatedSoundBars';
+import { AudioVisualizer } from './AudioVisualizer';
 import { CanvasWaveScrubber } from './CanvasWaveScrubber';
 import { get4kArtworkUrl, handleArtworkError } from '../utils/artworkUtils';
 import { formatTime, formatRemainingTime } from '../utils/formatTime';
 import { triggerHaptic } from '../utils/haptics';
 
-// Decoupled scrubber subcomponent for the Island Peek Card with real-time waveform & particles
+// Decoupled scrubber subcomponent for the Island Peek Card with instant 120fps touch tracking & zero stutter
 const IslandScrubber = memo(({ primaryColor, isPlaying }: { primaryColor: string; isPlaying: boolean }) => {
   const { currentTime, duration, seek } = useAudio();
   const [isHovered, setIsHovered] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+  const [instantPercent, setInstantPercent] = useState<number | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+  const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+  const activePercent = isScrubbing && instantPercent !== null ? instantPercent : progressPercent;
+  const activeTime = isScrubbing && instantPercent !== null ? (instantPercent / 100) * duration : currentTime;
+
+  const calculatePercent = (clientX: number) => {
+    if (!barRef.current) return 0;
+    const rect = barRef.current.getBoundingClientRect();
+    const clickX = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    return Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const newPercent = Math.max(0, Math.min(1, clickX / rect.width));
-    seek(newPercent * duration);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    setIsScrubbing(true);
+    const p = calculatePercent(e.clientX);
+    setInstantPercent(p);
     triggerHaptic('selection');
   };
 
-  const handleTouchSeek = (e: React.TouchEvent<HTMLDivElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
     e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const touchX = e.touches[0].clientX - rect.left;
-    const newPercent = Math.max(0, Math.min(1, touchX / rect.width));
-    seek(newPercent * duration);
-    triggerHaptic('selection');
+    const p = calculatePercent(e.clientX);
+    setInstantPercent(p);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    e.stopPropagation();
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+    const finalPercent = instantPercent !== null ? instantPercent : calculatePercent(e.clientX);
+    seek((finalPercent / 100) * duration);
+    setIsScrubbing(false);
+    setInstantPercent(null);
+    triggerHaptic('medium');
   };
 
   return (
     <div className="w-full space-y-1.5 px-1">
       <div
-        onClick={handleSeek}
-        onTouchStart={(e) => {
-          setIsScrubbing(true);
-          handleTouchSeek(e);
-        }}
-        onTouchMove={handleTouchSeek}
-        onTouchEnd={() => setIsScrubbing(false)}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => {
-          setIsHovered(false);
+        ref={barRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => {
           setIsScrubbing(false);
+          setInstantPercent(null);
         }}
-        className="relative group w-full h-5 flex items-center cursor-pointer select-none"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="relative group w-full h-5 flex items-center cursor-pointer select-none touch-none"
       >
         <div className="relative w-full h-1.5 rounded-full bg-white/20 overflow-hidden group-hover:h-2 transition-all duration-200">
           <div
@@ -66,7 +90,7 @@ const IslandScrubber = memo(({ primaryColor, isPlaying }: { primaryColor: string
               isPlaying ? 'animate-shimmer animate-line-playing' : ''
             }`}
             style={{
-              width: `${progressPercent}%`,
+              width: `${activePercent}%`,
               background: isPlaying
                 ? `linear-gradient(90deg, ${primaryColor}, #ffffff 60%, ${primaryColor})`
                 : primaryColor
@@ -77,7 +101,7 @@ const IslandScrubber = memo(({ primaryColor, isPlaying }: { primaryColor: string
         {/* Real-Time Canvas Wave Scrubber Overlay */}
         <CanvasWaveScrubber
           isPlaying={isPlaying}
-          percentPlayed={progressPercent}
+          percentPlayed={activePercent}
           primaryColor={primaryColor}
           isHovered={isHovered}
           isScrubbing={isScrubbing}
@@ -85,8 +109,8 @@ const IslandScrubber = memo(({ primaryColor, isPlaying }: { primaryColor: string
       </div>
 
       <div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-white/55 px-0.5">
-        <span>{formatTime(currentTime)}</span>
-        <span>-{formatRemainingTime(currentTime, duration)}</span>
+        <span>{formatTime(activeTime)}</span>
+        <span>-{formatRemainingTime(activeTime, duration)}</span>
       </div>
     </div>
   );
@@ -118,6 +142,8 @@ export const DynamicIsland: React.FC = () => {
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const lastArtworkTapRef = useRef<number>(0);
   const islandRef = useRef<HTMLDivElement | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const isLongPressTriggeredRef = useRef(false);
 
   // Scroll detection: Show Dynamic Island when user scrolls down
   useEffect(() => {
@@ -159,6 +185,35 @@ export const DynamicIsland: React.FC = () => {
       window.removeEventListener('touchstart', handleOutsideClick as any);
     };
   }, [isExpanded]);
+
+  // Long-press vs tap detection for compact island
+  const handleCompactPointerDown = () => {
+    if (isExpanded) return;
+    isLongPressTriggeredRef.current = false;
+    longPressTimerRef.current = window.setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      setIsExpanded(true);
+      triggerHaptic('heavy');
+    }, 340);
+  };
+
+  const handleCompactPointerUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (!isExpanded && !isLongPressTriggeredRef.current) {
+      setIsExpanded(true);
+      triggerHaptic('medium');
+    }
+  };
+
+  const handleCompactPointerCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
 
   // Visibility logic:
   // Shows when track exists and user is either:
@@ -243,20 +298,20 @@ export const DynamicIsland: React.FC = () => {
       {/* SVG GOOEY FILTER ENGINE WRAPPER ("Liquid Mercury" Fusion Layer)       */}
       {/* ==================================================================== */}
       <div 
-        className="relative flex items-center justify-center"
+        className="relative flex items-center justify-center island-goo-dropzone"
         style={{ filter: 'url(#aura-goo)' }}
       >
         {/* ================================================================== */}
         {/* LIQUID MERCURY BLACK SILHOUETTE PILL(S)                            */}
         {/* ================================================================== */}
         <div className="flex items-center">
-          {/* Main Black Pill Body */}
+          {/* Main Black Pill Body - Spring Damped Expansion to 380px */}
           <div
-            className={`bg-black transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+            className={`bg-black transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
               isRebounding ? 'animate-island-rebound' : ''
             } ${
               isExpanded
-                ? 'w-[calc(100vw-24px)] max-w-[370px] min-h-[175px] rounded-[42px]'
+                ? 'w-[calc(100vw-20px)] max-w-[380px] min-h-[220px] rounded-[42px]'
                 : 'w-[126px] h-[36px] rounded-full'
             }`}
           />
@@ -264,7 +319,7 @@ export const DynamicIsland: React.FC = () => {
           {/* State B: Detached Droplet Pill Body (Separates & fuses via Gooey) */}
           {hasSecondaryDroplet && (
             <div
-              className="w-[36px] h-[36px] ml-2 bg-black rounded-full transition-all duration-400 ease-[cubic-bezier(0.32,0.72,0,1)] animate-droplet-split shrink-0"
+              className="w-[36px] h-[36px] ml-2 bg-black rounded-full transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)] animate-droplet-split shrink-0"
             />
           )}
         </div>
@@ -278,18 +333,20 @@ export const DynamicIsland: React.FC = () => {
         onTouchEnd={handleTouchEnd}
         className="absolute inset-0 flex items-center justify-center pointer-events-auto"
       >
-        {/* Outer dynamic ambient rim border */}
+        {/* Outer dynamic ambient rim border with Spring Damping */}
         <div 
-          onClick={!isExpanded ? () => { setIsExpanded(true); triggerHaptic('medium'); } : undefined}
+          onPointerDown={!isExpanded ? handleCompactPointerDown : undefined}
+          onPointerUp={!isExpanded ? handleCompactPointerUp : undefined}
+          onPointerCancel={!isExpanded ? handleCompactPointerCancel : undefined}
           style={{
             borderColor: 'rgba(255, 255, 255, 0.12)',
             boxShadow: `0 0 0 1px ${primaryColor}24, 0 16px 45px rgba(0,0,0,0.92)`
           }}
-          className={`relative border transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] flex items-center overflow-hidden cursor-pointer ${
+          className={`relative border transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] flex items-center overflow-hidden cursor-pointer ${
             isRebounding ? 'animate-island-rebound' : ''
           } ${
             isExpanded
-              ? 'w-[calc(100vw-24px)] max-w-[370px] p-4 rounded-[42px] cursor-default'
+              ? 'w-[calc(100vw-20px)] max-w-[380px] p-4 rounded-[42px] cursor-default'
               : 'w-[126px] h-[36px] px-2.5 rounded-full justify-between'
           }`}
         >
@@ -402,10 +459,19 @@ export const DynamicIsland: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 2: Interactive Scrubber with Tabular Numbers */}
+              {/* Row 2: High-FPS Mini Canvas Wave Visualizer */}
+              <div className="w-full px-1">
+                <AudioVisualizer 
+                  className="w-full h-7 rounded-xl bg-white/[0.04] px-1.5 py-0.5 border border-white/5 live-activity-canvas" 
+                  barCount={38} 
+                  mode="wave" 
+                />
+              </div>
+
+              {/* Row 3: Instant 120fps Touch-Responsive Scrubber with Tabular Numbers */}
               <IslandScrubber primaryColor={primaryColor} isPlaying={isPlaying} />
 
-              {/* Row 3: Tactile Previous, Play/Pause, Next, and Output Controls */}
+              {/* Row 4: Tactile Previous, Play/Pause, Next, and Output Controls */}
               <div className="flex items-center justify-between pt-0.5">
                 {/* Expand into Fullscreen Player */}
                 <button

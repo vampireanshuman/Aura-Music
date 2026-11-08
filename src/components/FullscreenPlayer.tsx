@@ -70,7 +70,14 @@ export const FullscreenPlayer: React.FC = () => {
 
   const [viewTab, setViewTab] = useState<'cover' | 'vinyl' | 'lyrics' | 'video'>('cover');
   const [resolvedVideoId, setResolvedVideoId] = useState<string | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchStartTimeRef = useRef<number>(0);
+  const lastTouchYRef = useRef<number>(0);
+  const lastTouchTimeRef = useRef<number>(0);
+  const velocityYRef = useRef<number>(0);
+  const isGestureEligibleRef = useRef<boolean>(false);
   const [isLyricsLoading, setIsLyricsLoading] = useState(false);
   const [showSingModal, setShowSingModal] = useState(false);
   const [showAudiophileHud, setShowAudiophileHud] = useState(false);
@@ -113,7 +120,71 @@ export const FullscreenPlayer: React.FC = () => {
     }, 100);
   };
 
-  // Apple-grade Genie Suction into Dynamic Island Cutout
+  // High-Performance Spring-Based Touch Gesture Tracking (120fps direct manipulation)
+  const handlePlayerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    // Don't intercept sliders, interactive buttons, or lyrics scrolling
+    if (target.closest('button, input, [role="slider"], .interactive-scrubber, .lyrics-scroll-container')) {
+      isGestureEligibleRef.current = false;
+      return;
+    }
+
+    const touch = e.touches[0];
+    touchStartYRef.current = touch.clientY;
+    touchStartTimeRef.current = performance.now();
+    lastTouchYRef.current = touch.clientY;
+    lastTouchTimeRef.current = touchStartTimeRef.current;
+    velocityYRef.current = 0;
+    isGestureEligibleRef.current = true;
+  };
+
+  const handlePlayerTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isGestureEligibleRef.current || touchStartYRef.current === null || isMinimizing) return;
+    const touch = e.touches[0];
+    const deltaY = touch.clientY - touchStartYRef.current;
+
+    if (deltaY > 0) {
+      if (!isDragging) setIsDragging(true);
+      const now = performance.now();
+      const dt = now - lastTouchTimeRef.current;
+      if (dt > 8) {
+        velocityYRef.current = (touch.clientY - lastTouchYRef.current) / dt; // px/ms
+        lastTouchYRef.current = touch.clientY;
+        lastTouchTimeRef.current = now;
+      }
+      setDragY(deltaY);
+    } else if (isDragging && deltaY <= 0) {
+      setDragY(0);
+      setIsDragging(false);
+    }
+  };
+
+  const handlePlayerTouchEnd = () => {
+    if (!isGestureEligibleRef.current || touchStartYRef.current === null) {
+      touchStartYRef.current = null;
+      isGestureEligibleRef.current = false;
+      return;
+    }
+
+    const currentDrag = dragY;
+    const velocity = velocityYRef.current; // px per ms
+
+    // Threshold: downward drag > 80px OR downward flick velocity > 0.45 px/ms
+    if (currentDrag > 80 || velocity > 0.45) {
+      setIsDragging(false);
+      setDragY(0);
+      handleGenieSuctionClose();
+    } else {
+      // Elastic snap back to full screen
+      setIsDragging(false);
+      setDragY(0);
+    }
+
+    touchStartYRef.current = null;
+    isGestureEligibleRef.current = false;
+  };
+
+  // Apple-grade Genie Suction into Dynamic Island Cutout with 120fps spring physics
   const handleGenieSuctionClose = () => {
     if (isMinimizing) return;
     setIsMinimizing(true);
@@ -123,12 +194,13 @@ export const FullscreenPlayer: React.FC = () => {
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('aura-island-rebound'));
       triggerHaptic('heavy');
-    }, 320);
+    }, 340);
 
     setTimeout(() => {
       setIsFullscreen(false);
       setIsMinimizing(false);
-    }, 520);
+      setDragY(0);
+    }, 550);
   };
 
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
@@ -270,20 +342,32 @@ export const FullscreenPlayer: React.FC = () => {
   const percentPlayed = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
   const isSingActive = vocalReductionLevel > 0;
 
+  const dragProgress = Math.min(1, Math.max(0, dragY / 320));
+  const dynamicScale = 1 - dragProgress * 0.12;
+  const squeezeX = 1 + dragProgress * 0.08;
+  const squeezeY = 1 - dragProgress * 0.08;
+  const dynamicRadius = dragProgress * 42;
+
   return (
     <div 
-      onTouchStart={(e) => setTouchStartY(e.touches[0].clientY)}
-      onTouchEnd={(e) => {
-        if (touchStartY !== null) {
-          const diff = e.changedTouches[0].clientY - touchStartY;
-          if (diff > 55) {
-            handleGenieSuctionClose();
-          }
-        }
-        setTouchStartY(null);
+      onTouchStart={handlePlayerTouchStart}
+      onTouchMove={handlePlayerTouchMove}
+      onTouchEnd={handlePlayerTouchEnd}
+      style={{
+        transform: isDragging
+          ? `translate3d(0, ${dragY}px, 0) scale3d(${dynamicScale * squeezeX}, ${dynamicScale * squeezeY}, 1)`
+          : undefined,
+        borderRadius: isDragging ? `${dynamicRadius}px` : undefined,
+        transition: isDragging
+          ? 'none'
+          : 'transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.55s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
-      className={`fixed inset-0 z-50 flex flex-col bg-[#07080c] text-white overflow-hidden select-none ${
-        isMinimizing ? 'genie-suction-active' : 'genie-expand-entry'
+      className={`fixed inset-0 z-50 flex flex-col bg-[#07080c] text-white overflow-hidden select-none gpu-spring-layer ${
+        isMinimizing 
+          ? 'spring-player-morph-active' 
+          : isDragging 
+          ? '' 
+          : 'spring-player-expand-entry'
       }`}
     >
       {/* 40px x 5px Apple iOS Grabber Pill */}
