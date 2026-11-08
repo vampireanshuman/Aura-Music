@@ -305,13 +305,13 @@ export const DynamicIsland: React.FC = () => {
         {/* LIQUID MERCURY BLACK SILHOUETTE PILL(S)                            */}
         {/* ================================================================== */}
         <div className="flex items-center">
-          {/* Main Black Pill Body - Spring Damped Expansion to 380px */}
+          {/* Main Black Pill Body - Spring Damped Expansion to 380px (border-radius: 36px) */}
           <div
-            className={`bg-black transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+            className={`bg-black transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               isRebounding ? 'animate-island-rebound' : ''
             } ${
               isExpanded
-                ? 'w-[calc(100vw-20px)] max-w-[380px] min-h-[220px] rounded-[42px]'
+                ? 'w-[calc(100vw-20px)] max-w-[380px] min-h-[220px] rounded-[36px]'
                 : 'w-[126px] h-[36px] rounded-full'
             }`}
           />
@@ -319,7 +319,7 @@ export const DynamicIsland: React.FC = () => {
           {/* State B: Detached Droplet Pill Body (Separates & fuses via Gooey) */}
           {hasSecondaryDroplet && (
             <div
-              className="w-[36px] h-[36px] ml-2 bg-black rounded-full transition-all duration-400 ease-[cubic-bezier(0.34,1.56,0.64,1)] animate-droplet-split shrink-0"
+              className="w-[36px] h-[36px] ml-2 bg-black rounded-full transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] animate-droplet-split shrink-0"
             />
           )}
         </div>
@@ -342,11 +342,11 @@ export const DynamicIsland: React.FC = () => {
             borderColor: 'rgba(255, 255, 255, 0.12)',
             boxShadow: `0 0 0 1px ${primaryColor}24, 0 16px 45px rgba(0,0,0,0.92)`
           }}
-          className={`relative border transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] flex items-center overflow-hidden cursor-pointer ${
+          className={`relative border transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center overflow-hidden cursor-pointer ${
             isRebounding ? 'animate-island-rebound' : ''
           } ${
             isExpanded
-              ? 'w-[calc(100vw-20px)] max-w-[380px] p-4 rounded-[42px] cursor-default'
+              ? 'w-[calc(100vw-20px)] max-w-[380px] p-4 rounded-[36px] cursor-default bg-[#05060b]/92 backdrop-blur-3xl'
               : 'w-[126px] h-[36px] px-2.5 rounded-full justify-between'
           }`}
         >
@@ -361,7 +361,7 @@ export const DynamicIsland: React.FC = () => {
               {/* Left: 24x24 Spinning Vinyl / Rounded Album Art */}
               <div 
                 onClick={handleArtworkTap}
-                className="relative w-6 h-6 rounded-full overflow-hidden shrink-0 ring-1 ring-white/25 shadow-md active:scale-90 transition-transform"
+                className="relative w-6 h-6 rounded-full overflow-hidden shrink-0 ring-1 ring-white/25 shadow-md active:scale-90 transition-transform flex items-center justify-center bg-black"
                 title="Double-tap to open Fullscreen Player"
               >
                 <img
@@ -369,10 +369,11 @@ export const DynamicIsland: React.FC = () => {
                   onError={handleArtworkError}
                   alt={currentTrack.title}
                   className={`w-full h-full object-cover ${
-                    isPlaying ? 'animate-[spin_6s_linear_infinite]' : ''
+                    isPlaying ? 'animate-[spin_5s_linear_infinite]' : ''
                   }`}
                 />
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-white/20 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-white/20 pointer-events-none rounded-full" />
+                <div className="absolute w-1.5 h-1.5 rounded-full bg-black ring-1 ring-white/40 pointer-events-none" />
               </div>
 
               {/* Center subtle indicator */}

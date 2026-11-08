@@ -148,7 +148,8 @@ export const FullscreenPlayer: React.FC = () => {
       const now = performance.now();
       const dt = now - lastTouchTimeRef.current;
       if (dt > 8) {
-        velocityYRef.current = (touch.clientY - lastTouchYRef.current) / dt; // px/ms
+        const instantVelocity = (touch.clientY - lastTouchYRef.current) / dt; // px/ms
+        velocityYRef.current = 0.65 * instantVelocity + 0.35 * velocityYRef.current;
         lastTouchYRef.current = touch.clientY;
         lastTouchTimeRef.current = now;
       }
@@ -169,13 +170,12 @@ export const FullscreenPlayer: React.FC = () => {
     const currentDrag = dragY;
     const velocity = velocityYRef.current; // px per ms
 
-    // Threshold: downward drag > 80px OR downward flick velocity > 0.45 px/ms
-    if (currentDrag > 80 || velocity > 0.45) {
+    // Threshold: downward drag > 70px OR downward flick velocity > 0.35 px/ms
+    if (currentDrag > 70 || velocity > 0.35) {
       setIsDragging(false);
-      setDragY(0);
-      handleGenieSuctionClose();
+      handleGenieSuctionClose(velocity);
     } else {
-      // Elastic snap back to full screen
+      // Elastic spring snap back to full screen
       setIsDragging(false);
       setDragY(0);
     }
@@ -185,22 +185,25 @@ export const FullscreenPlayer: React.FC = () => {
   };
 
   // Apple-grade Genie Suction into Dynamic Island Cutout with 120fps spring physics
-  const handleGenieSuctionClose = () => {
+  const handleGenieSuctionClose = (velocity: number = 0) => {
     if (isMinimizing) return;
     setIsMinimizing(true);
     triggerHaptic('medium');
 
-    // Trigger elastic squish-and-rebound on Dynamic Island as suction reaches the top
+    // Dynamic duration based on downward velocity (snappier on fast flick)
+    const suctionDuration = Math.max(380, Math.min(550, 520 - (typeof velocity === 'number' ? velocity : 0) * 130));
+
+    // Trigger elastic squish-and-rebound on Dynamic Island as suction reaches the top notch
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('aura-island-rebound'));
       triggerHaptic('heavy');
-    }, 340);
+    }, suctionDuration * 0.65);
 
     setTimeout(() => {
       setIsFullscreen(false);
       setIsMinimizing(false);
       setDragY(0);
-    }, 550);
+    }, suctionDuration);
   };
 
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
@@ -342,11 +345,17 @@ export const FullscreenPlayer: React.FC = () => {
   const percentPlayed = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
   const isSingActive = vocalReductionLevel > 0;
 
-  const dragProgress = Math.min(1, Math.max(0, dragY / 320));
-  const dynamicScale = 1 - dragProgress * 0.12;
-  const squeezeX = 1 + dragProgress * 0.08;
-  const squeezeY = 1 - dragProgress * 0.08;
-  const dynamicRadius = dragProgress * 42;
+  const dragProgress = Math.min(1, Math.max(0, dragY / 380));
+  const dynamicScale = Math.max(0.72, 1 - dragProgress * 0.25);
+  const squeezeX = 1 + dragProgress * 0.12;
+  const squeezeY = Math.max(0.78, 1 - dragProgress * 0.14);
+  const dynamicRadius = Math.min(999, dragProgress * 54);
+
+  const winW = typeof window !== 'undefined' ? window.innerWidth : 390;
+  const winH = typeof window !== 'undefined' ? window.innerHeight : 844;
+  // Morph target into top camera notch (top: 12px, width: 126px, height: 36px) with elastic scaleX(1.12) squeeze
+  const notchScaleX = ((126 / winW) * 1.12).toFixed(4);
+  const notchScaleY = (36 / winH).toFixed(4);
 
   return (
     <div 
@@ -354,25 +363,29 @@ export const FullscreenPlayer: React.FC = () => {
       onTouchMove={handlePlayerTouchMove}
       onTouchEnd={handlePlayerTouchEnd}
       style={{
-        transform: isDragging
-          ? `translate3d(0, ${dragY}px, 0) scale3d(${dynamicScale * squeezeX}, ${dynamicScale * squeezeY}, 1)`
-          : undefined,
-        borderRadius: isDragging ? `${dynamicRadius}px` : undefined,
+        transform: isMinimizing
+          ? `translate3d(0, 12px, 0) scale3d(${notchScaleX}, ${notchScaleY}, 1)`
+          : isDragging
+          ? `translate3d(0, ${dragY}px, 0) scale3d(${(dynamicScale * squeezeX).toFixed(3)}, ${(dynamicScale * squeezeY).toFixed(3)}, 1)`
+          : 'translate3d(0, 0, 0) scale3d(1, 1, 1)',
+        borderRadius: isMinimizing
+          ? '999px'
+          : isDragging
+          ? `${dynamicRadius}px`
+          : '0px',
+        opacity: isMinimizing ? 0 : 1,
+        transformOrigin: '50% 0%',
         transition: isDragging
           ? 'none'
-          : 'transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.55s cubic-bezier(0.16, 1, 0.3, 1)'
+          : 'transform 0.52s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.52s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.48s cubic-bezier(0.16, 1, 0.3, 1)',
+        willChange: 'transform, border-radius, opacity',
+        pointerEvents: isMinimizing ? 'none' : 'auto'
       }}
-      className={`fixed inset-0 z-50 flex flex-col bg-[#07080c] text-white overflow-hidden select-none gpu-spring-layer ${
-        isMinimizing 
-          ? 'spring-player-morph-active' 
-          : isDragging 
-          ? '' 
-          : 'spring-player-expand-entry'
-      }`}
+      className="fixed inset-0 z-50 flex flex-col bg-[#07080c] text-white overflow-hidden select-none gpu-spring-layer"
     >
       {/* 40px x 5px Apple iOS Grabber Pill */}
       <div 
-        onClick={handleGenieSuctionClose}
+        onClick={() => handleGenieSuctionClose()}
         className="w-[40px] h-[5px] rounded-full bg-white/30 hover:bg-white/60 mx-auto mt-2.5 mb-1 cursor-pointer active:scale-95 transition-all z-20"
         title="Swipe down or tap to close fullscreen player"
       />
@@ -393,7 +406,7 @@ export const FullscreenPlayer: React.FC = () => {
       <div className="relative z-10 flex items-center justify-between px-4 sm:px-8 py-3 border-b border-white/5">
         {/* Left: Dismiss Button */}
         <button
-          onClick={handleGenieSuctionClose}
+          onClick={() => handleGenieSuctionClose()}
           className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white backdrop-blur-xl transition-all active:scale-90 flex items-center justify-center shrink-0"
           title="Dismiss back to app"
         >

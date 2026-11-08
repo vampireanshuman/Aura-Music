@@ -717,6 +717,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const ctx = new AudioCtx();
       audioContextRef.current = ctx;
 
+      // Keep Web Audio API analyzer active across background app state switches
+      ctx.onstatechange = () => {
+        if (ctx.state === 'suspended' && isPlayingRef.current) {
+          ctx.resume().catch(() => {});
+        }
+      };
+
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 128;
       analyser.smoothingTimeConstant = 0.8;
@@ -1496,12 +1503,31 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
 
+    const handleWindowBlur = () => {
+      if (isPlayingRef.current && audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(() => {});
+      }
+    };
+
+    const handleWindowFocus = () => {
+      if (isPlayingRef.current) {
+        requestWakeLock();
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume().catch(() => {});
+        }
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
       releaseWakeLock();
     };
   }, []);

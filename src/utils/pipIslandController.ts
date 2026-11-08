@@ -38,6 +38,7 @@ class PipIslandController {
   };
   private autoPipEnabled = true;
   private isPipOpen = false;
+  private backgroundIntervalId: any = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -163,6 +164,11 @@ class PipIslandController {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
+    }
+
+    if (this.backgroundIntervalId) {
+      clearInterval(this.backgroundIntervalId);
+      this.backgroundIntervalId = null;
     }
 
     if (this.videoEl) {
@@ -395,13 +401,24 @@ class PipIslandController {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
       }
+      if (this.backgroundIntervalId) {
+        clearInterval(this.backgroundIntervalId);
+        this.backgroundIntervalId = null;
+      }
     }, { once: true });
 
     return true;
   }
 
   private startCanvasLoop() {
-    if (this.animationFrameId) cancelAnimationFrame(this.animationFrameId);
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    if (this.backgroundIntervalId) {
+      clearInterval(this.backgroundIntervalId);
+      this.backgroundIntervalId = null;
+    }
 
     const loop = () => {
       this.renderCanvasFrame();
@@ -410,6 +427,15 @@ class PipIslandController {
       }
     };
     this.animationFrameId = requestAnimationFrame(loop);
+
+    // Reliable background fallback: when tab is minimized or screen locked,
+    // browser throttles requestAnimationFrame. This interval ensures the floating PiP canvas
+    // keeps ticking with real-time soundbars and scrubber progression.
+    this.backgroundIntervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && this.isPipOpen) {
+        this.renderCanvasFrame();
+      }
+    }, 40); // 25fps continuous background ticker
   }
 
   private renderCanvasFrame() {
