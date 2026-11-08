@@ -49,7 +49,7 @@ export const PlaylistView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8" style={{ paddingBottom: '170px' }}>
+    <div className="space-y-8" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
       {/* Playlist Hero Header */}
       <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 pt-4">
         <div className="relative group shrink-0">

@@ -101,7 +101,7 @@ export const ListenNowView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-10" style={{ paddingBottom: '170px' }}>
+    <div className="space-y-10" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
       {/* 1. Algorithmic Mood & Vibe Chips Filter Bar (Unified Frosted Glass Accent) */}
       <section className="space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/40">

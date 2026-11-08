@@ -102,7 +102,7 @@ export const BrowseView: React.FC = () => {
   const currentSlide = heroSlides[carouselIndex];
 
   return (
-    <div className="space-y-10" style={{ paddingBottom: '170px' }}>
+    <div className="space-y-10" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

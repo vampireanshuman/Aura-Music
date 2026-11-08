@@ -97,7 +97,7 @@ export const PluginsView: React.FC = () => {
   const spotifyPlaylists = playlists.filter(p => p.source === 'spotify');
 
   return (
-    <div className="space-y-8" style={{ paddingBottom: '170px' }}>
+    <div className="space-y-8" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#fa2d48]">

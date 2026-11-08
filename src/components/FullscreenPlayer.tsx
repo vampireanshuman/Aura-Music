@@ -1219,7 +1219,10 @@ export const FullscreenPlayer: React.FC = () => {
         </div>
 
         {/* Volume & Queue & Sing Drawer Access */}
-        <div className="max-w-md mx-auto flex items-center gap-3 px-4 pt-1">
+        <div 
+          className="max-w-md mx-auto flex items-center gap-3 px-4 pt-1"
+          style={{ paddingBottom: 'calc(var(--safe-bottom, 22px) + 16px)' }}
+        >
           <button 
             onClick={toggleMute} 
             className="text-white/50 hover:text-white transition-colors p-1"

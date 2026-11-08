@@ -63,7 +63,10 @@ export const QueueDrawer: React.FC = () => {
         </div>
 
         {/* Content list */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div 
+          className="flex-1 overflow-y-auto p-4 space-y-4"
+          style={{ paddingBottom: 'calc(var(--safe-bottom, 22px) + 24px)' }}
+        >
           {/* Now Playing Card */}
           {currentTrack && (
             <div>

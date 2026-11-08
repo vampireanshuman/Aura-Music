@@ -89,7 +89,7 @@ export const SearchView: React.FC = () => {
   const otherResults = onlineResults.slice(1);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300" style={{ paddingBottom: '170px' }}>
+    <div className="space-y-6 animate-in fade-in duration-300" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
       
       {/* Search Header */}
       <div>

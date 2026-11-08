@@ -241,7 +241,7 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-9 font-sans" style={{ paddingBottom: '170px' }}>
+    <div className="max-w-4xl mx-auto space-y-9 font-sans" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
       {/* iOS 18 Premium Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
         <div>

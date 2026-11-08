@@ -37,8 +37,14 @@ export const MobileNavBar: React.FC = () => {
   };
 
   return (
-    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#07080e]/90 backdrop-blur-3xl border-t border-white/[0.08] px-2 py-1.5 safe-area-pb shadow-[0_-12px_36px_rgba(0,0,0,0.65)]">
-      <div className="flex items-center justify-around max-w-lg mx-auto">
+    <nav 
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[#07080e]/92 backdrop-blur-3xl border-t border-white/[0.08] px-2 shadow-[0_-12px_36px_rgba(0,0,0,0.65)] pointer-events-auto"
+      style={{
+        height: 'calc(56px + var(--safe-bottom, 22px))',
+        paddingBottom: 'var(--safe-bottom, 22px)'
+      }}
+    >
+      <div className="flex items-center justify-around max-w-lg mx-auto h-[56px]">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;

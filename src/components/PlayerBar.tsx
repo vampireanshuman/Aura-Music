@@ -137,7 +137,10 @@ export const PlayerBar: React.FC = () => {
       {/* 1. MOBILE FLOATING MINI-PLAYER (<lg screens)                */}
       {/* Floats 12px above MobileNavBar, 60px height, 18px radius    */}
       {/* ============================================================ */}
-      <div className="lg:hidden fixed bottom-[66px] sm:bottom-[70px] inset-x-3 sm:inset-x-6 z-40 pointer-events-auto">
+      <div 
+        className="lg:hidden fixed inset-x-3 sm:inset-x-6 z-40 pointer-events-auto"
+        style={{ bottom: 'calc(56px + var(--safe-bottom, 22px) + 10px)' }}
+      >
         <div 
           onTouchStart={(e) => {
             setMiniTouchStartX(e.touches[0].clientX);

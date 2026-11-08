@@ -38,7 +38,7 @@ export const LibraryView: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6" style={{ paddingBottom: '170px' }}>
+    <div className="space-y-6" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
       <div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-title-primary tracking-tight flex items-center gap-3">
           <Music2 className="w-8 h-8 text-[#fa2d48]" /> Songs Library

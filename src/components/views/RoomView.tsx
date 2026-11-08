@@ -246,7 +246,7 @@ export const RoomView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8" style={{ paddingBottom: '170px' }}>
+    <div className="max-w-5xl mx-auto space-y-8" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
       {/* Floating Emojis Reaction Layer */}
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
         {floatingEmojis.map((e) => (
