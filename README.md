@@ -9,11 +9,11 @@
 <br/>
 
 <p align="center">
-  <a href="https://github.com/vampireanshuman/aura-music/releases"><img src="https://img.shields.io/github/v/release/vampireanshuman/aura-music?style=for-the-badge&color=fa2d48&label=Release" alt="Release Version" /></a>
+  <a href="https://github.com/vampireanshuman/Aura-Music/releases"><img src="https://img.shields.io/github/v/release/vampireanshuman/Aura-Music?style=for-the-badge&color=fa2d48&label=Release" alt="Release Version" /></a>
   &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge" alt="License GPL-3.0" /></a>
   &nbsp;
-  <a href="https://github.com/vampireanshuman/aura-music/releases"><img src="https://img.shields.io/badge/Platform-Android%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android APK" /></a>
+  <a href="https://github.com/vampireanshuman/Aura-Music/releases"><img src="https://img.shields.io/badge/Platform-Android%20APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android APK" /></a>
   &nbsp;
   <a href="https://charity-myers-connectivity-fifth.trycloudflare.com"><img src="https://img.shields.io/badge/Live-Web%20App%20(PWA)-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Live Web App" /></a>
 </p>
@@ -101,8 +101,8 @@ Engineered for music enthusiasts who demand uncompromising visual aesthetics and
 
 | Channel | Source | Compatibility |
 | :--- | :--- | :--- |
-| **Stable APK Release** | [GitHub Releases](https://github.com/vampireanshuman/aura-music/releases) | Recommended for Android 8.0+ (API 26+) |
-| **Nightly Builds** | [GitHub Actions](https://github.com/vampireanshuman/aura-music/actions) | Latest automated builds with bleeding-edge features |
+| **Stable APK Release** | [GitHub Releases](https://github.com/vampireanshuman/Aura-Music/releases) | Recommended for Android 8.0+ (API 26+) |
+| **Nightly Builds** | [GitHub Actions](https://github.com/vampireanshuman/Aura-Music/actions) | Latest automated builds with bleeding-edge features |
 | **Web App (PWA)** | [Launch Web App](https://charity-myers-connectivity-fifth.trycloudflare.com) | Instant browser & iOS/Desktop access |
 
 ### Quick Setup
@@ -126,8 +126,8 @@ Engineered for music enthusiasts who demand uncompromising visual aesthetics and
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/vampireanshuman/aura-music.git
-cd aura-music
+git clone https://github.com/vampireanshuman/Aura-Music.git
+cd Aura-Music
 
 # 2. Install dependencies
 npm install
