@@ -94,6 +94,7 @@ class PipIslandController {
 
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pagehide', handleVisibility);
+    window.addEventListener('blur', handleVisibility);
   }
 
   public isPipActive(): boolean {

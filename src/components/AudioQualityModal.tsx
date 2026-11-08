@@ -24,7 +24,10 @@ export const AudioQualityModal: React.FC = () => {
   const modes: SoundQualityMode[] = ['dolby-atmos', 'hi-res-lossless', 'cd-lossless', 'high-quality'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
+    <div 
+      style={{ paddingTop: 'calc(var(--safe-top, 0px) + 12px)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200"
+    >
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/70 backdrop-blur-md"

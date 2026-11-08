@@ -32,7 +32,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   };
 
   return (
-    <header className="sticky top-0 z-30 h-16 px-4 lg:px-8 flex items-center justify-between border-b border-white/[0.06] bg-[#07080e]/40 backdrop-blur-2xl">
+    <header 
+      style={{
+        paddingTop: 'var(--safe-top, 0px)',
+        minHeight: 'calc(4rem + var(--safe-top, 0px))',
+        background: 'rgba(8, 8, 12, 0.82)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)'
+      }}
+      className="sticky top-0 z-50 px-4 lg:px-8 flex items-center justify-between border-b border-white/[0.08] shadow-[0_4px_30px_rgba(0,0,0,0.5)] transition-all duration-300"
+    >
       {/* Left: Mobile Sidebar Toggle */}
       <div className="flex items-center gap-3">
         <button

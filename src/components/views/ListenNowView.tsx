@@ -13,10 +13,10 @@ import {
   Headphones
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { formatTime } from '../../utils/formatTime';
 import { AnimatedSoundBars } from '../AnimatedSoundBars';
 import { get4kArtworkUrl, handleArtworkError } from '../../utils/artworkUtils';
 import { TrackActionMenu } from '../TrackActionMenu';
+import { SwipeableTrackRow } from '../SwipeableTrackRow';
 import { 
   MOOD_CATEGORIES, 
   generatePersonalizedRecommendations, 
@@ -29,6 +29,8 @@ export const ListenNowView: React.FC = () => {
     currentTrack, 
     isPlaying, 
     playTrack, 
+    playNext,
+    activeThemeColor,
     toggleFavorite, 
     isFavorite,
     playlists,
@@ -107,7 +109,10 @@ export const ListenNowView: React.FC = () => {
           <span>Curated Mood Soundscape</span>
         </div>
 
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none select-none">
+        <div 
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="flex items-center gap-2.5 overflow-x-auto pb-2 no-scrollbar select-none"
+        >
           {MOOD_CATEGORIES.map((mood) => {
             const isSelected = selectedMood === mood.id;
             return (
@@ -645,64 +650,23 @@ export const ListenNowView: React.FC = () => {
           </div>
         </div>
 
-        <div className="glass-sheet rounded-2xl overflow-hidden p-2 divide-y divide-white/5">
-          {tracks.map((track, idx) => {
-            const isCurrent = currentTrack?.id === track.id;
-            const isLiked = isFavorite(track.id);
-
-            return (
-              <div
-                key={track.id}
-                onClick={() => playTrack(track, tracks)}
-                className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/[0.06] transition-colors cursor-pointer spring-button"
-              >
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <span className="w-6 text-center text-xs font-mono tabular-nums text-white/40 group-hover:hidden">
-                    {idx + 1}
-                  </span>
-                  <button className="w-6 hidden group-hover:flex items-center justify-center text-white">
-                    <Play className="w-4 h-4 fill-current" />
-                  </button>
-
-                  <div className="relative w-10 h-10 shrink-0">
-                    <img
-                      src={get4kArtworkUrl(track)}
-                      onError={handleArtworkError}
-                      alt={track.title}
-                      className="w-10 h-10 rounded-lg object-cover object-center scale-[1.08] shadow-md"
-                    />
-                    <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-white/10 pointer-events-none" />
-                  </div>
-
-                  <div className="min-w-0">
-                    <h4 className={`text-sm font-bold tracking-tight truncate ${
-                      isCurrent ? 'text-[#fa2d48]' : 'text-white'
-                    }`}>
-                      {track.title}
-                    </h4>
-                    <p className="text-xs text-white/65 font-medium truncate">
-                      {track.artist} • {track.album}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <span className="hidden sm:block text-xs font-medium text-white/40">
-                    {track.genre}
-                  </span>
-                  <span className="text-xs font-mono tabular-nums text-white/40">
-                    {formatTime(track.duration)}
-                  </span>
-                  <button
-                    onClick={(e) => handleLikeClick(e, track)}
-                    className="p-1.5 text-white/40 hover:text-white spring-button"
-                  >
-                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-[#fa2d48] text-[#fa2d48]' : ''}`} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="glass-sheet rounded-2xl overflow-hidden p-2 space-y-1">
+          {tracks.map((track, idx) => (
+            <SwipeableTrackRow
+              key={track.id}
+              track={track}
+              index={idx}
+              isCurrent={currentTrack?.id === track.id}
+              isPlaying={isPlaying}
+              primaryColor={activeThemeColor || currentTrack?.dominantColor || '#fa2d48'}
+              isLiked={isFavorite(track.id)}
+              onPlay={() => playTrack(track, tracks)}
+              onPlayNext={playNext}
+              onToggleFavorite={handleLikeClick}
+              showAlbum={true}
+              showGenre={true}
+            />
+          ))}
         </div>
       </section>
     </div>

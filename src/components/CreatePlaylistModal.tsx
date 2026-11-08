@@ -63,7 +63,10 @@ export const CreatePlaylistModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200">
+    <div 
+      style={{ paddingTop: 'calc(var(--safe-top, 0px) + 12px)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200"
+    >
       <div 
         className="absolute inset-0 bg-black/70 backdrop-blur-md"
         onClick={() => !isImporting && setIsCreatePlaylistOpen(false)}

@@ -535,32 +535,39 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // Timer finished! Gently fade out audio and pause
           youtubeEngine.pause();
           if (audioRef.current) {
-            let currentVol = audioRef.current.volume;
-            const fadeInterval = setInterval(() => {
-              currentVol = Math.max(0, currentVol - 0.1);
-              if (audioRef.current) audioRef.current.volume = currentVol;
-              if (currentVol <= 0) {
-                clearInterval(fadeInterval);
-                audioRef.current?.pause();
-                setIsPlaying(false);
-              }
-            }, 200);
-          } else {
-            setIsPlaying(false);
+            audioRef.current.pause();
+            audioRef.current.volume = volume;
           }
+          setIsPlaying(false);
           setSleepTimerMinutes(null);
           return null;
         }
+
+        // Gradually fade out volume over the final 10 seconds
+        if (prev <= 10 && audioRef.current) {
+          const fadeRatio = Math.max(0.05, (prev - 1) / 10);
+          audioRef.current.volume = volume * fadeRatio;
+        }
+
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [sleepTimerRemaining]);
+  }, [sleepTimerRemaining, volume]);
 
   const setSleepTimer = (minutes: number | null) => {
     setSleepTimerMinutes(minutes);
-    setSleepTimerRemaining(minutes ? minutes * 60 : null);
+    if (minutes === -1) {
+      // End of Track
+      const remain = Math.max(5, Math.round((durationRef.current || 180) - (currentTimeRef.current || 0)));
+      setSleepTimerRemaining(remain);
+    } else if (minutes && minutes > 0) {
+      setSleepTimerRemaining(minutes * 60);
+    } else {
+      setSleepTimerRemaining(null);
+      if (audioRef.current) audioRef.current.volume = volume;
+    }
   };
 
   // Set Playback Speed (Tempo Control from LastWave)
@@ -1479,6 +1486,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // App is minimized or tab switched:
         // 1. Keep background audio pipelines alive
         if (isPlayingRef.current) {
+          // Immediately sync native MediaStyle notification & system live status capsule
+          syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, playbackSpeedRef.current, true);
           if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
             audioContextRef.current.resume().catch(() => {});
           }

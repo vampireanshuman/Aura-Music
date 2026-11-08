@@ -137,7 +137,10 @@ export const DynamicIsland: React.FC = () => {
   } = useAudio();
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isScrolledDown, setIsScrolledDown] = useState(false);
+  const [isToastVisible, setIsToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+  const prevTrackIdRef = useRef<string | null>(null);
   const [isRebounding, setIsRebounding] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const lastArtworkTapRef = useRef<number>(0);
@@ -145,20 +148,51 @@ export const DynamicIsland: React.FC = () => {
   const longPressTimerRef = useRef<number | null>(null);
   const isLongPressTriggeredRef = useRef(false);
 
-  // Scroll detection: Show Dynamic Island when user scrolls down
+  // Trigger non-intrusive 2.5s top toast notification
+  const triggerIslandToast = (message: string) => {
+    if (isExpanded) return;
+    setToastMessage(message);
+    setIsToastVisible(true);
+    triggerHaptic('light');
+
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setIsToastVisible(false);
+      setToastMessage(null);
+    }, 2500);
+  };
+
+  // Track change trigger: brief 2.5s pill notification
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolledDown(window.scrollY > 90);
+    if (!currentTrack) return;
+    if (prevTrackIdRef.current && prevTrackIdRef.current !== currentTrack.id) {
+      triggerIslandToast(currentTrack.title);
+    }
+    prevTrackIdRef.current = currentTrack.id;
+  }, [currentTrack?.id]);
+
+  // Global DSP / Audio preset event listener for top pill toast
+  useEffect(() => {
+    const handleCustomToast = (e: any) => {
+      if (e?.detail?.message) {
+        triggerIslandToast(e.detail.message);
+      }
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    window.addEventListener('aura-island-toast', handleCustomToast);
+    return () => {
+      window.removeEventListener('aura-island-toast', handleCustomToast);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, [isExpanded]);
 
   // Genie Suction Rebound Event Listener
   useEffect(() => {
     const handleRebound = () => {
       setIsRebounding(true);
       triggerHaptic('medium');
+      triggerIslandToast(currentTrack?.title || 'Aura Music');
       setTimeout(() => {
         setIsRebounding(false);
       }, 550);
@@ -166,7 +200,7 @@ export const DynamicIsland: React.FC = () => {
 
     window.addEventListener('aura-island-rebound', handleRebound);
     return () => window.removeEventListener('aura-island-rebound', handleRebound);
-  }, []);
+  }, [currentTrack?.title]);
 
   // Auto-collapse when clicking outside Peek Card
   useEffect(() => {
@@ -192,9 +226,10 @@ export const DynamicIsland: React.FC = () => {
     isLongPressTriggeredRef.current = false;
     longPressTimerRef.current = window.setTimeout(() => {
       isLongPressTriggeredRef.current = true;
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       setIsExpanded(true);
       triggerHaptic('heavy');
-    }, 340);
+    }, 320);
   };
 
   const handleCompactPointerUp = () => {
@@ -203,6 +238,7 @@ export const DynamicIsland: React.FC = () => {
       longPressTimerRef.current = null;
     }
     if (!isExpanded && !isLongPressTriggeredRef.current) {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       setIsExpanded(true);
       triggerHaptic('medium');
     }
@@ -216,15 +252,15 @@ export const DynamicIsland: React.FC = () => {
   };
 
   // Visibility logic:
-  // Shows when track exists and user is either:
-  // - explicitly minimized (isIslandActive), OR
-  // - peek card is expanded, OR
-  // - playing and scrolled down on page, OR
-  // - playing in general on mobile
+  // Strictly restricted to:
+  // 1. Explicit app minimize / PiP mode (isIslandActive), OR
+  // 2. Peek card expanded (isExpanded), OR
+  // 3. Temporary 2.5-second top toast notification on track/DSP change (isToastVisible)
+  // NEVER blocks the tracklist during regular browsing!
   const shouldRender = 
     Boolean(currentTrack) && 
     !isFullscreen && 
-    (isIslandActive || isExpanded || isScrolledDown || isPlaying);
+    (isIslandActive || isExpanded || isToastVisible);
 
   if (!shouldRender || !currentTrack) return null;
 
@@ -290,9 +326,9 @@ export const DynamicIsland: React.FC = () => {
       role="region"
       aria-label="Dynamic Island Media Player"
       style={{
-        top: 'max(env(safe-area-inset-top, 10px), 10px)',
+        top: 'calc(var(--safe-top, 0px) + 8px)',
       }}
-      className="fixed left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto select-none transition-transform duration-300"
+      className="fixed left-1/2 -translate-x-1/2 z-[9999] pointer-events-auto select-none transition-all duration-300 animate-in slide-in-from-top-4 fade-in"
     >
       {/* ==================================================================== */}
       {/* SVG GOOEY FILTER ENGINE WRAPPER ("Liquid Mercury" Fusion Layer)       */}
@@ -312,7 +348,9 @@ export const DynamicIsland: React.FC = () => {
             } ${
               isExpanded
                 ? 'w-[calc(100vw-20px)] max-w-[380px] min-h-[220px] rounded-[36px]'
-                : 'w-[126px] h-[36px] rounded-full'
+                : toastMessage
+                ? 'w-[195px] h-[36px] rounded-full'
+                : 'w-[130px] h-[36px] rounded-full'
             }`}
           />
 
@@ -347,14 +385,16 @@ export const DynamicIsland: React.FC = () => {
           } ${
             isExpanded
               ? 'w-[calc(100vw-20px)] max-w-[380px] p-4 rounded-[36px] cursor-default bg-[#05060b]/92 backdrop-blur-3xl'
-              : 'w-[126px] h-[36px] px-2.5 rounded-full justify-between'
+              : toastMessage
+              ? 'w-[195px] h-[36px] px-2.5 rounded-full justify-between'
+              : 'w-[130px] h-[36px] px-2.5 rounded-full justify-between'
           }`}
         >
           {/* Ambient rim light reflection */}
           <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] via-transparent to-white/[0.08] pointer-events-none" />
 
           {/* ================================================================ */}
-          {/* STATE A: COMPACT PILL (126px × 36px)                             */}
+          {/* STATE A: COMPACT PILL (130px / 195px × 36px)                     */}
           {/* ================================================================ */}
           {!isExpanded ? (
             <div className="relative z-10 w-full flex items-center justify-between gap-1.5">
@@ -376,10 +416,10 @@ export const DynamicIsland: React.FC = () => {
                 <div className="absolute w-1.5 h-1.5 rounded-full bg-black ring-1 ring-white/40 pointer-events-none" />
               </div>
 
-              {/* Center subtle indicator */}
-              <div className="flex-1 flex justify-center overflow-hidden">
-                <span className="text-[10px] font-bold text-white/70 truncate max-w-[55px] tracking-tight">
-                  {currentTrack.title}
+              {/* Center subtle indicator / toast badge */}
+              <div className="flex-1 flex justify-center items-center overflow-hidden px-1">
+                <span className="text-[10px] font-bold text-white/90 truncate tracking-tight text-center">
+                  {toastMessage || currentTrack.title}
                 </span>
               </div>
 

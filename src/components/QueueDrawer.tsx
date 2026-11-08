@@ -29,7 +29,10 @@ export const QueueDrawer: React.FC = () => {
       />
 
       {/* Drawer */}
-      <div className="relative z-10 w-full max-w-md h-full bg-[#12141f]/95 border-l border-white/10 shadow-2xl backdrop-blur-2xl flex flex-col">
+      <div 
+        style={{ paddingTop: 'calc(var(--safe-top, 0px) + 8px)' }}
+        className="relative z-10 w-full max-w-md h-full bg-[#12141f]/95 border-l border-white/10 shadow-2xl backdrop-blur-2xl flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
           <div className="flex items-center gap-2.5">

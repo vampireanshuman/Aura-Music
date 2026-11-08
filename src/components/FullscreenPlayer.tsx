@@ -17,7 +17,10 @@ import {
   RefreshCw,
   Activity,
   X,
-  Gauge
+  Gauge,
+  SlidersHorizontal,
+  Timer,
+  Sparkles
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatTime, formatRemainingTime } from '../utils/formatTime';
@@ -28,7 +31,8 @@ import { triggerHaptic } from '../utils/haptics';
 import { SyncedNativeVideoPlayer } from './SyncedNativeVideoPlayer';
 import { TrackActionMenu } from './TrackActionMenu';
 import { getApiUrl } from '../utils/apiConfig';
-import type { VisualizerMode } from '../types/music';
+import { showIslandToast } from '../utils/islandToast';
+import type { VisualizerMode, SpatialRoom } from '../types/music';
 
 export const FullscreenPlayer: React.FC = () => {
   const {
@@ -55,6 +59,7 @@ export const FullscreenPlayer: React.FC = () => {
     isFavorite,
     setIsQueueOpen,
     settings,
+    updateSettings,
     activeThemeColor,
     pauseAudioForVideo,
     resumeAudioAfterVideo,
@@ -65,7 +70,11 @@ export const FullscreenPlayer: React.FC = () => {
     vocalReductionLevel,
     setVocalReductionLevel,
     spatialRoom,
-    tubeWarmth
+    setSpatialRoom,
+    tubeWarmth,
+    sleepTimerMinutes,
+    sleepTimerRemaining,
+    setSleepTimer
   } = useAudio();
 
   const [viewTab, setViewTab] = useState<'cover' | 'vinyl' | 'lyrics' | 'video'>('cover');
@@ -81,6 +90,7 @@ export const FullscreenPlayer: React.FC = () => {
   const [isLyricsLoading, setIsLyricsLoading] = useState(false);
   const [showSingModal, setShowSingModal] = useState(false);
   const [showAudiophileHud, setShowAudiophileHud] = useState(false);
+  const [showDspSheet, setShowDspSheet] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
   const [isMinimizing, setIsMinimizing] = useState(false);
   const [artTilt, setArtTilt] = useState({ x: 0, y: 0 });
@@ -88,6 +98,71 @@ export const FullscreenPlayer: React.FC = () => {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [visualizerToast, setVisualizerToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+
+  // Cycle Sleep Timer: Off -> 15m -> 30m -> End of Track -> Off
+  const handleCycleSleepTimer = () => {
+    triggerHaptic('medium');
+    if (sleepTimerMinutes === null) {
+      setSleepTimer(15);
+      showIslandToast('🌙 Sleep Timer: 15m');
+      setVisualizerToast('🌙 Sleep Timer: 15m');
+    } else if (sleepTimerMinutes === 15) {
+      setSleepTimer(30);
+      showIslandToast('🌙 Sleep Timer: 30m');
+      setVisualizerToast('🌙 Sleep Timer: 30m');
+    } else if (sleepTimerMinutes === 30) {
+      setSleepTimer(-1);
+      showIslandToast('🌙 Sleep Timer: End of Track');
+      setVisualizerToast('🌙 Sleep Timer: End of Track');
+    } else {
+      setSleepTimer(null);
+      showIslandToast('🌙 Sleep Timer: Off');
+      setVisualizerToast('🌙 Sleep Timer: Off');
+    }
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setVisualizerToast(null), 1800);
+  };
+
+  // Device Motion Shake-to-Shuffle
+  useEffect(() => {
+    if (!isFullscreen) return;
+    let lastX: number | null = null;
+    let lastY: number | null = null;
+    let lastZ: number | null = null;
+    let lastShakeTime = 0;
+
+    const handleMotion = (e: DeviceMotionEvent) => {
+      const acc = e.accelerationIncludingGravity;
+      if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
+
+      const now = Date.now();
+      if (now - lastShakeTime < 2000) return; // 2s debounce
+
+      if (lastX !== null && lastY !== null && lastZ !== null) {
+        const deltaX = Math.abs(acc.x - lastX);
+        const deltaY = Math.abs(acc.y - lastY);
+        const deltaZ = Math.abs(acc.z - lastZ);
+        const speed = deltaX + deltaY + deltaZ;
+
+        if (speed > 26) {
+          lastShakeTime = now;
+          toggleShuffle();
+          triggerHaptic('success');
+          showIslandToast('🔀 Shuffled via Shake');
+          setVisualizerToast('🔀 Shuffled via Shake');
+          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = window.setTimeout(() => setVisualizerToast(null), 1800);
+        }
+      }
+
+      lastX = acc.x;
+      lastY = acc.y;
+      lastZ = acc.z;
+    };
+
+    window.addEventListener('devicemotion', handleMotion);
+    return () => window.removeEventListener('devicemotion', handleMotion);
+  }, [isFullscreen, toggleShuffle]);
 
   const handleCycleVisualizer = () => {
     const modes: VisualizerMode[] = ['wave', 'bars', 'radial', 'analog-vu'];
@@ -379,7 +454,8 @@ export const FullscreenPlayer: React.FC = () => {
           ? 'none'
           : 'transform 0.52s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.52s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.48s cubic-bezier(0.16, 1, 0.3, 1)',
         willChange: 'transform, border-radius, opacity',
-        pointerEvents: isMinimizing ? 'none' : 'auto'
+        pointerEvents: isMinimizing ? 'none' : 'auto',
+        paddingTop: 'calc(var(--safe-top, 0px) + 8px)'
       }}
       className="fixed inset-0 z-50 flex flex-col bg-[#07080c] text-white overflow-hidden select-none gpu-spring-layer"
     >
@@ -839,6 +915,93 @@ export const FullscreenPlayer: React.FC = () => {
         </div>
       )}
 
+      {/* Quick DSP & Automix Popover Modal */}
+      {showDspSheet && (
+        <div className="absolute inset-0 z-40 bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-[#131521]/95 border border-white/15 rounded-3xl p-5 shadow-2xl backdrop-blur-2xl space-y-4 animate-in slide-in-from-bottom-5 duration-300">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div 
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold shadow-lg"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Automix & Spatial Engine</h3>
+                  <p className="text-xs text-white/50">Continuous DJ Crossfade & 8D Room Acoustics</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDspSheet(false)}
+                className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Automix Crossfade Slider */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span className="text-white/70">Automix Crossfade:</span>
+                <span className="font-mono font-bold text-amber-400">
+                  {settings.crossfade === 0 ? 'Gapless (0s)' : `${settings.crossfade} seconds`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={12}
+                step={1}
+                value={settings.crossfade}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  updateSettings({ crossfade: val });
+                  triggerHaptic('light');
+                  showIslandToast(`Automix: ${val === 0 ? 'Gapless' : val + 's'}`);
+                }}
+                className="w-full h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+              />
+              <div className="flex justify-between text-[10px] text-white/40 font-mono">
+                <span>0s Gapless</span>
+                <span>6s Smooth</span>
+                <span>12s Club Mix</span>
+              </div>
+            </div>
+
+            {/* Spatial 8D / Reverb Room Toggle */}
+            <div className="space-y-2 pt-1">
+              <span className="text-xs font-semibold text-white/70">Spatial 8D / Reverb Room:</span>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'off' as SpatialRoom, label: 'Off (Direct)' },
+                  { id: 'room' as SpatialRoom, label: 'Studio Room' },
+                  { id: 'hall' as SpatialRoom, label: 'Concert Hall' },
+                  { id: 'cathedral' as SpatialRoom, label: '8D Cathedral' },
+                  { id: 'club' as SpatialRoom, label: 'Bass Club' },
+                ].map((room) => (
+                  <button
+                    key={room.id}
+                    onClick={() => {
+                      setSpatialRoom(room.id);
+                      triggerHaptic('medium');
+                      showIslandToast(`Spatial: ${room.label}`);
+                    }}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center ${
+                      spatialRoom === room.id
+                        ? 'bg-amber-400/20 border-amber-400 text-amber-300 font-bold shadow-md'
+                        : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+                    }`}
+                  >
+                    {room.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Audiophile Studio Master DSP Telemetry HUD Modal */}
       {showAudiophileHud && (
         <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-md flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200">
@@ -1073,6 +1236,40 @@ export const FullscreenPlayer: React.FC = () => {
             onChange={(e) => setVolume(Number(e.target.value))}
             className="flex-1 h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-[#fa2d48]"
           />
+          {/* Quick DSP / Automix & Spatial 8D */}
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              setShowDspSheet(prev => !prev);
+            }}
+            className={`p-1.5 transition-colors rounded-lg ${
+              showDspSheet || settings.crossfade > 0 || spatialRoom !== 'off'
+                ? 'text-amber-400 bg-amber-400/20 shadow-sm'
+                : 'text-white/50 hover:text-white hover:bg-white/10'
+            }`}
+            title="Automix Crossfade & Spatial 8D Acoustics"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+
+          {/* One-Tap Ambient Sleep Timer */}
+          <button
+            onClick={handleCycleSleepTimer}
+            className={`p-1.5 transition-colors rounded-lg flex items-center gap-1 ${
+              sleepTimerMinutes !== null
+                ? 'text-indigo-400 bg-indigo-500/20 shadow-sm font-mono'
+                : 'text-white/50 hover:text-white hover:bg-white/10'
+            }`}
+            title={`Sleep Timer: ${sleepTimerMinutes ? `${sleepTimerMinutes}m` : 'Off'}`}
+          >
+            <Timer className="w-4 h-4" />
+            {sleepTimerRemaining !== null && (
+              <span className="text-[10px] font-mono font-bold tabular-nums">
+                {formatTime(sleepTimerRemaining)}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => {
               triggerHaptic('light');

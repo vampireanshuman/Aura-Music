@@ -1,10 +1,8 @@
 import React from 'react';
 import { useAudio } from '../../context/AudioContext';
-import { Play, Shuffle, Heart, Trash2, ListMusic } from 'lucide-react';
+import { Play, Shuffle, ListMusic } from 'lucide-react';
 import { formatTime } from '../../utils/formatTime';
-import { AnimatedSoundBars } from '../AnimatedSoundBars';
-import { get4kArtworkUrl, handleArtworkError } from '../../utils/artworkUtils';
-import { TrackActionMenu } from '../TrackActionMenu';
+import { SwipeableTrackRow } from '../SwipeableTrackRow';
 
 export const PlaylistView: React.FC = () => {
   const { 
@@ -13,11 +11,12 @@ export const PlaylistView: React.FC = () => {
     tracks, 
     trackRegistry,
     playTrack, 
+    playNext,
+    activeThemeColor,
     currentTrack, 
     isPlaying, 
     toggleFavorite, 
-    isFavorite,
-    removeTrackFromPlaylist
+    isFavorite
   } = useAudio();
 
   const playlist = playlists.find(p => p.id === selectedPlaylistId) || playlists[0];
@@ -120,93 +119,23 @@ export const PlaylistView: React.FC = () => {
             <p className="text-xs text-subtle-inactive">Browse songs and add them to this playlist</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
-            {playlistTracks.map((track, idx) => {
-              const isCurrent = currentTrack?.id === track.id;
-              const isLiked = isFavorite(track.id);
-
-              return (
-                <div
-                  key={`${track.id}-${idx}`}
-                  onClick={() => playTrack(track, playlistTracks)}
-                  className="grid grid-cols-12 gap-4 px-4 sm:px-5 py-3 items-center hover:bg-white/[0.05] rounded-xl transition-all duration-300 cursor-pointer group text-sm"
-                >
-                  <div className="col-span-1 text-center font-mono text-xs text-subtle-inactive tabular-nums flex items-center justify-center">
-                    <span className="group-hover:hidden">
-                      {isCurrent ? (
-                        <AnimatedSoundBars isPlaying={isPlaying} color="#fa2d48" size="sm" />
-                      ) : (
-                        idx + 1
-                      )}
-                    </span>
-                    <Play className="w-3.5 h-3.5 hidden group-hover:inline-block fill-current text-white mx-auto animate-button-pop" />
-                  </div>
-
-                  <div className="col-span-6 sm:col-span-5 flex items-center gap-3 min-w-0">
-                    <div className="relative shrink-0 w-10 h-10">
-                      <img
-                        src={get4kArtworkUrl(track)}
-                        onError={handleArtworkError}
-                        alt=""
-                        className="absolute inset-0 w-full h-full rounded-lg object-cover blur-md scale-95 opacity-60 -z-10 pointer-events-none"
-                      />
-                      <img
-                        src={get4kArtworkUrl(track)}
-                        onError={handleArtworkError}
-                        alt={track.title}
-                        className="w-10 h-10 rounded-lg object-cover shadow-[0px_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/10"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`font-semibold truncate tracking-tight ${
-                        isCurrent ? 'text-[#fa2d48]' : 'text-title-primary'
-                      }`}>
-                        {track.title}
-                      </p>
-                      <p className="text-xs text-meta-secondary truncate">
-                        {track.artist}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="hidden sm:block sm:col-span-4 text-meta-secondary truncate text-xs">
-                    {track.album}
-                  </div>
-
-                  <div className="col-span-5 sm:col-span-2 flex items-center justify-end gap-3 font-mono text-xs text-subtle-inactive tabular-nums">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(track.id, track);
-                      }}
-                      className="p-1 text-white/30 hover:text-white spring-interactive"
-                      title="Like"
-                    >
-                      <Heart className={`w-4 h-4 ${isLiked ? 'fill-[#fa2d48] text-[#fa2d48]' : ''}`} />
-                    </button>
-
-                    <span>{formatTime(track.duration)}</span>
-
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <TrackActionMenu track={track} />
-                    </div>
-
-                    {playlist.isCustom && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeTrackFromPlaylist(playlist.id, track.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-white/30 hover:text-red-400 spring-interactive"
-                        title="Remove from playlist"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="space-y-1">
+            {playlistTracks.map((track, idx) => (
+              <SwipeableTrackRow
+                key={`${track.id}-${idx}`}
+                track={track}
+                index={idx}
+                isCurrent={currentTrack?.id === track.id}
+                isPlaying={isPlaying}
+                primaryColor={activeThemeColor || currentTrack?.dominantColor || '#fa2d48'}
+                isLiked={isFavorite(track.id)}
+                onPlay={() => playTrack(track, playlistTracks)}
+                onPlayNext={playNext}
+                onToggleFavorite={(_, t) => toggleFavorite(t.id, t)}
+                showAlbum={true}
+                showGenre={true}
+              />
+            ))}
           </div>
         )}
       </div>

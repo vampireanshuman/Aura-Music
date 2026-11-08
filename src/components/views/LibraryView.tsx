@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { useAudio } from '../../context/AudioContext';
-import { Play, Heart, Clock, ArrowUpDown, Music2 } from 'lucide-react';
-import { formatTime } from '../../utils/formatTime';
-import { AnimatedSoundBars } from '../AnimatedSoundBars';
-import { TrackActionMenu } from '../TrackActionMenu';
-import { get4kArtworkUrl, handleArtworkError } from '../../utils/artworkUtils';
+import { Clock, ArrowUpDown, Music2 } from 'lucide-react';
+import { SwipeableTrackRow } from '../SwipeableTrackRow';
 
 type SortField = 'title' | 'artist' | 'album' | 'duration';
 
 export const LibraryView: React.FC = () => {
-  const { tracks, currentTrack, isPlaying, playTrack, toggleFavorite, isFavorite } = useAudio();
+  const { 
+    tracks, 
+    currentTrack, 
+    isPlaying, 
+    playTrack, 
+    playNext, 
+    activeThemeColor, 
+    toggleFavorite, 
+    isFavorite 
+  } = useAudio();
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -73,87 +79,24 @@ export const LibraryView: React.FC = () => {
           </div>
         </div>
 
-        {/* Table Rows */}
-        <div className="divide-y divide-white/5">
-          {sortedTracks.map((track, idx) => {
-            const isCurrent = currentTrack?.id === track.id;
-            const isLiked = isFavorite(track.id);
-
-            return (
-              <div
-                key={track.id}
-                onClick={() => playTrack(track, sortedTracks)}
-                className="grid grid-cols-12 gap-4 px-4 sm:px-5 py-3 items-center hover:bg-white/[0.05] rounded-xl transition-all duration-300 cursor-pointer group text-sm"
-              >
-                {/* Index / Play action */}
-                <div className="col-span-1 text-center font-mono text-xs text-subtle-inactive tabular-nums flex items-center justify-center">
-                  <span className="group-hover:hidden">
-                    {isCurrent ? (
-                      <AnimatedSoundBars isPlaying={isPlaying} color="#fa2d48" size="sm" />
-                    ) : (
-                      idx + 1
-                    )}
-                  </span>
-                  <Play className="w-3.5 h-3.5 hidden group-hover:inline-block fill-current text-white mx-auto animate-button-pop" />
-                </div>
-
-                {/* Title & Cover */}
-                <div className="col-span-5 sm:col-span-4 flex items-center gap-3 min-w-0">
-                  <div className="relative shrink-0 w-10 h-10">
-                    <img
-                      src={get4kArtworkUrl(track)}
-                      onError={handleArtworkError}
-                      alt=""
-                      className="absolute inset-0 w-full h-full rounded-lg object-cover blur-md scale-95 opacity-60 -z-10 pointer-events-none"
-                    />
-                    <img
-                      src={get4kArtworkUrl(track)}
-                      onError={handleArtworkError}
-                      alt={track.title}
-                      className="w-10 h-10 rounded-lg object-cover shadow-[0px_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/10"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className={`font-semibold truncate tracking-tight ${
-                      isCurrent ? 'text-[#fa2d48]' : 'text-title-primary'
-                    }`}>
-                      {track.title}
-                    </p>
-                    <p className="sm:hidden text-xs text-meta-secondary truncate">
-                      {track.artist}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Artist */}
-                <div className="hidden sm:block sm:col-span-3 text-meta-secondary truncate">
-                  {track.artist}
-                </div>
-
-                {/* Album */}
-                <div className="hidden md:block md:col-span-3 text-subtle-inactive truncate">
-                  {track.album}
-                </div>
-
-                {/* Duration & Like & Action Menu */}
-                <div className="col-span-6 sm:col-span-1 flex items-center justify-end gap-2 sm:gap-3 font-mono text-xs text-subtle-inactive tabular-nums">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(track.id, track);
-                    }}
-                    className="p-1 text-white/30 hover:text-white spring-interactive"
-                  >
-                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-[#fa2d48] text-[#fa2d48]' : ''}`} />
-                  </button>
-                  <span>{formatTime(track.duration)}</span>
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <TrackActionMenu track={track} />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        {/* Table Rows with Swipe-to-Queue */}
+        <div className="space-y-1">
+          {sortedTracks.map((track, idx) => (
+            <SwipeableTrackRow
+              key={track.id}
+              track={track}
+              index={idx}
+              isCurrent={currentTrack?.id === track.id}
+              isPlaying={isPlaying}
+              primaryColor={activeThemeColor || currentTrack?.dominantColor || '#fa2d48'}
+              isLiked={isFavorite(track.id)}
+              onPlay={() => playTrack(track, sortedTracks)}
+              onPlayNext={playNext}
+              onToggleFavorite={(_, t) => toggleFavorite(t.id, t)}
+              showAlbum={true}
+              showGenre={true}
+            />
+          ))}
         </div>
       </div>
     </div>
