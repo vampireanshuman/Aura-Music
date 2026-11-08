@@ -99,7 +99,7 @@ export const ListenNowView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-10" style={{ paddingBottom: '160px' }}>
+    <div className="space-y-10" style={{ paddingBottom: '170px' }}>
       {/* 1. Algorithmic Mood & Vibe Chips Filter Bar (Unified Frosted Glass Accent) */}
       <section className="space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/40">
@@ -132,7 +132,7 @@ export const ListenNowView: React.FC = () => {
       {featuredTrack && (() => {
         const { title: heroTitle, suffix: heroSuffix } = parseHeroTitle(featuredTrack.title);
         return (
-          <section className="relative rounded-[28px] overflow-hidden shadow-2xl border border-white/10 group spring-interactive">
+          <section className="relative rounded-[28px] overflow-hidden shadow-2xl border border-white/10 group spring-interactive animate-card-cascade">
             {/* Ambient blurred backdrop sheen */}
             <img
               src={get4kArtworkUrl(featuredTrack)}
@@ -150,11 +150,11 @@ export const ListenNowView: React.FC = () => {
               className="absolute inset-0 w-full h-full object-cover object-center select-none filter blur-[2px] scale-105 opacity-60 transition-transform duration-700"
             />
 
-            {/* Strong directional dark gradient scrim */}
+            {/* Multi-stop dark glass gradient scrim */}
             <div 
               className="absolute inset-0 z-10 pointer-events-none"
               style={{
-                background: 'linear-gradient(180deg, rgba(10,10,14,0.25) 0%, rgba(10,10,14,0.75) 55%, rgba(10,10,14,0.96) 100%)'
+                background: 'linear-gradient(180deg, rgba(8,8,12,0.2) 0%, rgba(8,8,12,0.75) 55%, rgba(8,8,12,0.96) 100%)'
               }}
             />
 
@@ -234,7 +234,7 @@ export const ListenNowView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {discoverWeekly.slice(0, 6).map((track) => {
+            {discoverWeekly.slice(0, 6).map((track, idx) => {
               const isCurrent = currentTrack?.id === track.id;
               const isPlayingThis = isCurrent && isPlaying;
               const isLiked = isFavorite(track.id);
@@ -243,7 +243,8 @@ export const ListenNowView: React.FC = () => {
                 <div
                   key={track.id}
                   onClick={() => playTrack(track, discoverWeekly)}
-                  className={`group relative flex flex-col p-3 rounded-2xl glass-sheet spring-card cursor-pointer ${
+                  style={{ animationDelay: `${idx * 60}ms` }}
+                  className={`group relative flex flex-col p-3 rounded-2xl glass-sheet spring-card cursor-pointer animate-card-cascade ${
                     isCurrent ? 'ring-1 ring-amber-400/50 bg-white/[0.08]' : ''
                   }`}
                 >
@@ -315,7 +316,7 @@ export const ListenNowView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {dailyMixes.map((mix) => (
+            {dailyMixes.map((mix, idx) => (
               <div
                 key={mix.id}
                 onClick={() => {
@@ -323,7 +324,8 @@ export const ListenNowView: React.FC = () => {
                     playTrack(mix.tracks[0], mix.tracks);
                   }
                 }}
-                className={`group cursor-pointer rounded-3xl p-5 bg-gradient-to-br ${mix.color} border border-white/10 shadow-xl spring-card flex flex-col justify-between min-h-[160px] relative overflow-hidden backdrop-blur-xl`}
+                style={{ animationDelay: `${idx * 60}ms` }}
+                className={`group cursor-pointer rounded-3xl p-5 bg-gradient-to-br ${mix.color} border border-white/10 shadow-xl spring-card flex flex-col justify-between min-h-[160px] relative overflow-hidden backdrop-blur-xl animate-card-cascade`}
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -368,11 +370,12 @@ export const ListenNowView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-            {becauseYouListened.recommendations.map((track) => (
+            {becauseYouListened.recommendations.map((track, idx) => (
               <div
                 key={track.id}
                 onClick={() => playTrack(track, becauseYouListened?.recommendations)}
-                className="group relative flex flex-col p-3 rounded-2xl glass-sheet spring-card cursor-pointer"
+                style={{ animationDelay: `${idx * 60}ms` }}
+                className="group relative flex flex-col p-3 rounded-2xl glass-sheet spring-card cursor-pointer animate-card-cascade"
               >
                 <div className="relative aspect-square w-full mb-3 shrink-0">
                   <img
@@ -438,14 +441,15 @@ export const ListenNowView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {recentlyPlayed.slice(0, 6).map((track) => {
+            {recentlyPlayed.slice(0, 6).map((track, idx) => {
               const isCurrent = currentTrack?.id === track.id;
 
               return (
                 <div
                   key={track.id}
                   onClick={() => playTrack(track, recentlyPlayed)}
-                  className={`group relative flex flex-col p-3 rounded-2xl glass-sheet spring-card cursor-pointer ${
+                  style={{ animationDelay: `${idx * 60}ms` }}
+                  className={`group relative flex flex-col p-3 rounded-2xl glass-sheet spring-card cursor-pointer animate-card-cascade ${
                     isCurrent ? 'ring-1 ring-[#fa2d48]/50 bg-white/[0.08]' : ''
                   }`}
                 >

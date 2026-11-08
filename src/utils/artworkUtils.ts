@@ -62,3 +62,12 @@ export function handleArtworkError(e: React.SyntheticEvent<HTMLImageElement, Eve
     target.src = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&auto=format&fit=crop&q=85';
   }
 }
+
+/**
+ * Standard Apple Music 1:1 true square styling to crop out baked-in 16:9 letterbox/pillarbox bars.
+ */
+export const APPLE_SQUARE_ART_CONTAINER_CLASS =
+  "relative aspect-square w-[min(82vw,340px)] rounded-[22px] overflow-hidden select-none flex items-center justify-center bg-black/60";
+
+export const APPLE_SQUARE_ART_IMG_CLASS =
+  "w-full h-full object-cover object-center scale-[1.12] select-none rounded-[22px]";

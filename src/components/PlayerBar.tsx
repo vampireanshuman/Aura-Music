@@ -81,7 +81,10 @@ export const PlayerBar: React.FC = () => {
   const [showMiniVisualizer, setShowMiniVisualizer] = useState(false);
   const [showSleepTimerMenu, setShowSleepTimerMenu] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [miniTouchStartX, setMiniTouchStartX] = useState<number | null>(null);
   const [miniTouchStartY, setMiniTouchStartY] = useState<number | null>(null);
+  const [miniSwipeOffset, setMiniSwipeOffset] = useState<number>(0);
+  const isSwipingRef = useRef(false);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
 
   if (!currentTrack) return null;
@@ -131,29 +134,58 @@ export const PlayerBar: React.FC = () => {
   return (
     <>
       {/* ============================================================ */}
-      {/* 1. MOBILE FLOATING ISLAND DOCK (<lg screens)                */}
+      {/* 1. MOBILE FLOATING MINI-PLAYER (<lg screens)                */}
+      {/* Floats 12px above MobileNavBar, 60px height, 18px radius    */}
       {/* ============================================================ */}
-      <div className="lg:hidden fixed bottom-[74px] inset-x-3 sm:inset-x-6 z-40 pointer-events-auto">
+      <div className="lg:hidden fixed bottom-[66px] sm:bottom-[70px] inset-x-3 sm:inset-x-6 z-40 pointer-events-auto">
         <div 
-          onClick={() => {
-            triggerHaptic('light');
-            setIsFullscreen(true);
+          onTouchStart={(e) => {
+            setMiniTouchStartX(e.touches[0].clientX);
+            setMiniTouchStartY(e.touches[0].clientY);
+            isSwipingRef.current = false;
           }}
-          onTouchStart={(e) => setMiniTouchStartY(e.touches[0].clientY)}
+          onTouchMove={(e) => {
+            if (miniTouchStartX === null || miniTouchStartY === null) return;
+            const diffX = e.touches[0].clientX - miniTouchStartX;
+            const diffY = e.touches[0].clientY - miniTouchStartY;
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 8) {
+              isSwipingRef.current = true;
+              setMiniSwipeOffset(diffX * 0.45);
+            }
+          }}
           onTouchEnd={(e) => {
-            if (miniTouchStartY !== null) {
-              const diff = miniTouchStartY - e.changedTouches[0].clientY;
-              if (diff > 30) {
+            if (miniTouchStartX !== null && miniTouchStartY !== null) {
+              const diffX = e.changedTouches[0].clientX - miniTouchStartX;
+              const diffY = miniTouchStartY - e.changedTouches[0].clientY;
+
+              if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY)) {
+                // Horizontal swipe: left = Next, right = Prev
+                if (diffX < -40) {
+                  triggerHaptic('selection');
+                  skipNext();
+                } else if (diffX > 40) {
+                  triggerHaptic('selection');
+                  skipPrev();
+                }
+              } else if (diffY > 30 && Math.abs(diffY) > Math.abs(diffX)) {
+                // Swiping UP morphs into FullscreenPlayer
                 triggerHaptic('medium');
+                setIsFullscreen(true);
+              } else if (!isSwipingRef.current && Math.abs(diffX) < 10 && Math.abs(diffY) < 10) {
+                // Tap opens FullscreenPlayer
+                triggerHaptic('light');
                 setIsFullscreen(true);
               }
             }
+            setMiniTouchStartX(null);
             setMiniTouchStartY(null);
+            setMiniSwipeOffset(0);
+            setTimeout(() => { isSwipingRef.current = false; }, 50);
           }}
-          className="relative glass-dock rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.85)] overflow-hidden cursor-pointer spring-interactive"
+          className="relative h-[60px] rounded-[18px] backdrop-blur-[32px] saturate-[200%] bg-[#0e101a]/85 border border-white/[0.09] shadow-[0_16px_40px_rgba(0,0,0,0.85)] overflow-hidden cursor-pointer spring-interactive flex flex-col justify-between"
         >
-          {/* Razor-thin 4px Liquid Top Scrubber */}
-          <div className="relative w-full h-1 bg-white/[0.08] overflow-hidden">
+          {/* Razor-thin 3px Liquid Top Scrubber */}
+          <div className="relative w-full h-[3px] bg-white/[0.08] overflow-hidden shrink-0">
             <div
               className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-300"
               style={{ width: `${buffered}%` }}
@@ -173,11 +205,17 @@ export const PlayerBar: React.FC = () => {
             />
           </div>
 
-          {/* Mini-Player Main Row */}
-          <div className="flex items-center justify-between p-2 pl-2.5 gap-2.5">
-            {/* Step 3: Album Artwork with Duplicate Blurred Shadow */}
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="relative w-[44px] h-[44px] shrink-0 group">
+          {/* Mini-Player Main Row: ONLY 44x44 cover + auto-scrolling CSS marquee + Heart + Play/Pause (40x40) + Next */}
+          <div className="flex items-center justify-between px-2.5 pb-1 flex-1 gap-2 min-h-0">
+            {/* 44x44 Square Cover + Auto-Scrolling Marquee Column with Horizontal Swipe spring physics */}
+            <div 
+              className="flex items-center gap-2.5 min-w-0 flex-1 transition-transform"
+              style={{
+                transform: `translateX(${miniSwipeOffset}px)`,
+                transition: miniSwipeOffset === 0 ? 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1)' : 'none'
+              }}
+            >
+              <div className="relative w-[44px] h-[44px] shrink-0">
                 {/* Duplicate blurred artwork shadow underneath */}
                 <img
                   src={get4kArtworkUrl(currentTrack)}
@@ -187,7 +225,7 @@ export const PlayerBar: React.FC = () => {
                   className="absolute inset-0 w-full h-full object-cover rounded-xl blur-md scale-95 opacity-70 pointer-events-none -z-10"
                 />
                 
-                {/* Primary Card Artwork: 1:1 true square with scale(1.08) cropping 16:9 bars */}
+                {/* Primary Card Artwork: 1:1 true square with scale(1.12) cropping 16:9 bars */}
                 <div className={`relative w-[44px] h-[44px] rounded-xl overflow-hidden shadow-[0_8px_20px_rgba(0,0,0,0.5)] flex items-center justify-center bg-black/60 transition-transform duration-500 ${
                   isPlaying ? 'scale-105' : 'scale-95 opacity-90'
                 }`}>
@@ -195,21 +233,24 @@ export const PlayerBar: React.FC = () => {
                     src={get4kArtworkUrl(currentTrack)}
                     onError={handleArtworkError}
                     alt={currentTrack.title}
-                    className="w-full h-full object-cover object-center scale-[1.08]"
+                    className="w-full h-full object-cover object-center scale-[1.12]"
                   />
-                  {/* Inner rim highlight */}
                   <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10 pointer-events-none" />
                 </div>
               </div>
 
-              {/* Step 2: Title & Artist column with flex: 1; min-width: 0; */}
-              <div className="min-w-0 flex-1 pr-1">
-                <h4 className="text-xs sm:text-sm font-bold text-white truncate leading-tight tracking-tight">
-                  {currentTrack.title}
-                </h4>
-                <p className="text-[11px] text-white/65 font-medium truncate mt-0.5">
-                  {currentTrack.artist}
-                </p>
+              {/* Title & Artist with auto-scrolling CSS marquee (so "Kesariya" never truncates) */}
+              <div className="min-w-0 flex-1 overflow-hidden pr-1">
+                <div className="overflow-hidden whitespace-nowrap">
+                  <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight leading-tight inline-block animate-marquee-smooth">
+                    {currentTrack.title}
+                  </h4>
+                </div>
+                <div className="overflow-hidden whitespace-nowrap mt-0.5">
+                  <p className="text-[11px] text-white/65 font-medium truncate">
+                    {currentTrack.artist}
+                  </p>
+                </div>
               </div>
             </div>
 

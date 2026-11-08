@@ -76,6 +76,42 @@ export const FullscreenPlayer: React.FC = () => {
   const [showAudiophileHud, setShowAudiophileHud] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
   const [isMinimizing, setIsMinimizing] = useState(false);
+  const [artTilt, setArtTilt] = useState({ x: 0, y: 0 });
+  const isArtTiltingRef = useRef(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [visualizerToast, setVisualizerToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const handleCycleVisualizer = () => {
+    const modes: VisualizerMode[] = ['wave', 'bars', 'radial', 'analog-vu'];
+    const nextIdx = (modes.indexOf(visualizerMode) + 1) % modes.length;
+    const newMode = modes[nextIdx];
+    setVisualizerMode(newMode);
+    triggerHaptic('light');
+
+    const displayLabel = newMode === 'analog-vu' ? 'VU Meter' : newMode.charAt(0).toUpperCase() + newMode.slice(1);
+    setVisualizerToast(`Mode: ${displayLabel}`);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setVisualizerToast(null);
+    }, 1500);
+  };
+
+  const handleArtworkTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0];
+    const px = (touch.clientX - rect.left) / rect.width - 0.5;
+    const py = (touch.clientY - rect.top) / rect.height - 0.5;
+    isArtTiltingRef.current = true;
+    setArtTilt({ x: -py * 16, y: px * 16 });
+  };
+
+  const handleArtworkTouchEnd = () => {
+    setArtTilt({ x: 0, y: 0 });
+    setTimeout(() => {
+      isArtTiltingRef.current = false;
+    }, 100);
+  };
 
   // Apple-grade Genie Suction into Dynamic Island Cutout
   const handleGenieSuctionClose = () => {
@@ -250,10 +286,10 @@ export const FullscreenPlayer: React.FC = () => {
         isMinimizing ? 'genie-suction-active' : 'genie-expand-entry'
       }`}
     >
-      {/* 36px x 4px Subtle Top Drag-Handle Pill */}
+      {/* 40px x 5px Apple iOS Grabber Pill */}
       <div 
         onClick={handleGenieSuctionClose}
-        className="w-[36px] h-[4px] rounded-full bg-white/30 hover:bg-white/60 mx-auto mt-2.5 mb-1 cursor-pointer active:scale-95 transition-all z-20"
+        className="w-[40px] h-[5px] rounded-full bg-white/30 hover:bg-white/60 mx-auto mt-2.5 mb-1 cursor-pointer active:scale-95 transition-all z-20"
         title="Swipe down or tap to close fullscreen player"
       />
 
@@ -269,7 +305,7 @@ export const FullscreenPlayer: React.FC = () => {
         <div className="absolute inset-0 bg-[#07080c]/50" />
       </div>
 
-      {/* Clean 3-Part Header: Left Chevron-Down | Centered Song/Video/Lyrics | Right More (...) */}
+      {/* Clean 3-Part Header: Left Chevron-Down | Centered Song | Lyrics | Video | Right More (...) */}
       <div className="relative z-10 flex items-center justify-between px-4 sm:px-8 py-3 border-b border-white/5">
         {/* Left: Dismiss Button */}
         <button
@@ -280,7 +316,7 @@ export const FullscreenPlayer: React.FC = () => {
           <ChevronDown className="w-5 h-5" />
         </button>
 
-        {/* Center: Segmented Pill for Song | Video | Lyrics */}
+        {/* Center: Sleek 3-segment glass pill (Song | Lyrics | Video) */}
         <div className="flex items-center p-1 bg-white/10 rounded-full backdrop-blur-xl border border-white/10 shadow-sm">
           <button
             onClick={() => setViewTab('cover')}
@@ -291,14 +327,6 @@ export const FullscreenPlayer: React.FC = () => {
             Song
           </button>
           <button
-            onClick={() => setViewTab('video')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
-              viewTab === 'video' ? 'bg-white text-black shadow-sm font-bold' : 'text-white/60 hover:text-white'
-            }`}
-          >
-            Video
-          </button>
-          <button
             onClick={() => setViewTab('lyrics')}
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
               viewTab === 'lyrics' ? 'bg-white text-black shadow-sm font-bold' : 'text-white/60 hover:text-white'
@@ -306,9 +334,17 @@ export const FullscreenPlayer: React.FC = () => {
           >
             Lyrics
           </button>
+          <button
+            onClick={() => setViewTab('video')}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+              viewTab === 'video' ? 'bg-white text-black shadow-sm font-bold' : 'text-white/60 hover:text-white'
+            }`}
+          >
+            Video
+          </button>
         </div>
 
-        {/* Right: More (...) Button */}
+        {/* Right: Single More (...) Action Button */}
         <div className="flex items-center gap-1.5 shrink-0">
           <TrackActionMenu track={currentTrack} />
         </div>
@@ -417,39 +453,42 @@ export const FullscreenPlayer: React.FC = () => {
                 </div>
               </div>
             ) : (
-              /* True 1:1 Square Record Sleeve Album Artwork View with Double-Tap to Like */
-              <div 
-                onClick={handleArtworkDoubleTap}
-                className={`relative w-64 h-64 sm:w-76 sm:h-76 md:w-88 md:h-88 aspect-square rounded-[20px] overflow-hidden ring-1 ring-white/20 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] select-none flex items-center justify-center bg-black/60 shadow-[0_25px_60px_rgba(0,0,0,0.85)] cursor-pointer ${
-                  isPlaying 
-                    ? 'scale-100 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.95)]' 
-                    : 'scale-[0.93] shadow-[0_12px_28px_rgba(0,0,0,0.6)] opacity-90'
-                }`}
-                style={{
-                  borderRadius: '20px',
-                  boxShadow: isPlaying
-                    ? `0 30px 70px -15px rgba(0,0,0,0.95), 0 0 50px -10px ${primaryColor}70`
-                    : '0 15px 30px rgba(0,0,0,0.6)'
-                }}
-                title="Double tap artwork to favorite with heart burst!"
-              >
-                {/* 1:1 Square Record Sleeve with scale-108 to crop out inner YouTube 16:9 pillarbox bars */}
-                <img
-                  src={get4kArtworkUrl(currentTrack)}
-                  onError={handleArtworkError}
-                  alt={currentTrack.title}
-                  className="w-full h-full object-cover object-center scale-[1.08] select-none rounded-[20px] drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)] transition-transform duration-700 ease-out"
-                />
+              /* True 1:1 Square Record Sleeve Album Artwork View with Apple Music Breathing & 3D Touch Parallax */
+              <div className="perspective-800 flex items-center justify-center w-full">
+                <div 
+                  onClick={handleArtworkDoubleTap}
+                  onTouchMove={handleArtworkTouchMove}
+                  onTouchEnd={handleArtworkTouchEnd}
+                  className="album-cover-breathing relative aspect-square w-[min(82vw,340px)] rounded-[22px] overflow-hidden select-none flex items-center justify-center bg-black/60 cursor-pointer"
+                  style={{
+                    transform: `perspective(800px) rotateX(${artTilt.x}deg) rotateY(${artTilt.y}deg) scale(${isPlaying ? 1 : 0.84})`,
+                    boxShadow: isPlaying
+                      ? `0 28px 60px -12px ${currentTrack.dominantColor || primaryColor}90, 0 12px 30px rgba(0,0,0,0.7)`
+                      : '0 10px 25px rgba(0,0,0,0.4)',
+                    transition: isArtTiltingRef.current
+                      ? 'transform 0.1s ease-out, box-shadow 0.65s ease'
+                      : 'transform 0.65s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.65s ease'
+                  }}
+                  title="Double tap artwork to favorite! Drag finger to tilt in 3D."
+                >
+                  {/* 1:1 Square Record Sleeve with scale-[1.12] to crop out baked-in YouTube 16:9 pillarbox bars */}
+                  <img
+                    src={get4kArtworkUrl(currentTrack)}
+                    onError={handleArtworkError}
+                    alt={currentTrack.title}
+                    className="w-full h-full object-cover object-center scale-[1.12] select-none rounded-[22px] drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)] transition-transform duration-700 ease-out"
+                  />
 
-                {/* Double-tap Floating Heart Burst */}
-                {heartBurst && (
-                  <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none animate-in zoom-in-50 fade-in duration-200">
-                    <Heart className="w-24 h-24 fill-[#fa2d48] text-[#fa2d48] drop-shadow-[0_0_35px_rgba(250,45,72,1)] animate-bounce" />
-                  </div>
-                )}
+                  {/* Double-tap Floating Heart Burst */}
+                  {heartBurst && (
+                    <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none animate-in zoom-in-50 fade-in duration-200">
+                      <Heart className="w-24 h-24 fill-[#fa2d48] text-[#fa2d48] drop-shadow-[0_0_35px_rgba(250,45,72,1)] animate-bounce" />
+                    </div>
+                  )}
 
-                {/* Inner rim highlight */}
-                <div className="absolute inset-0 rounded-[20px] ring-1 ring-inset ring-white/10 pointer-events-none" />
+                  {/* Inner rim highlight */}
+                  <div className="absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10 pointer-events-none" />
+                </div>
               </div>
             )}
 
@@ -518,44 +557,6 @@ export const FullscreenPlayer: React.FC = () => {
                     </>
                   )}
                 </button>
-              </div>
-
-              {/* Compact Visualizer Pill Badge - Tap to cycle modes */}
-              <div className="mt-3 flex items-center justify-center">
-                <button
-                  onClick={() => {
-                    const modes: VisualizerMode[] = ['wave', 'bars', 'radial', 'analog-vu'];
-                    const nextIdx = (modes.indexOf(visualizerMode) + 1) % modes.length;
-                    setVisualizerMode(modes[nextIdx]);
-                    triggerHaptic('light');
-                  }}
-                  className="px-3 py-1 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-[10px] font-mono text-white/70 hover:text-white transition-all flex items-center gap-2 cursor-pointer spring-button"
-                  title="Tap to cycle: Wave -> Bars -> Radial -> VU Meter"
-                >
-                  <Activity className="w-3 h-3 text-white/80" />
-                  <span className="uppercase tracking-wider font-semibold">
-                    {visualizerMode === 'analog-vu' ? 'VU METER' : visualizerMode}
-                  </span>
-                  <span className="text-[9px] text-white/40">● TAP TO CYCLE</span>
-                </button>
-              </div>
-
-              {/* Live Audio Reactive Visualizer Ribbon (Taller & smoothly integrated, tap to cycle) */}
-              <div 
-                onClick={() => {
-                  const modes: VisualizerMode[] = ['wave', 'bars', 'radial', 'analog-vu'];
-                  const nextIdx = (modes.indexOf(visualizerMode) + 1) % modes.length;
-                  setVisualizerMode(modes[nextIdx]);
-                  triggerHaptic('light');
-                }}
-                className="mt-2.5 flex justify-center cursor-pointer select-none"
-                title="Tap visualizer to cycle modes"
-              >
-                <AudioVisualizer 
-                  className={visualizerMode === 'analog-vu' ? 'w-full max-w-sm h-16' : 'w-72 sm:w-84 h-12'} 
-                  barCount={visualizerMode === 'bars' ? 36 : 48} 
-                  mode={visualizerMode} 
-                />
               </div>
             </div>
           </div>
@@ -810,11 +811,44 @@ export const FullscreenPlayer: React.FC = () => {
 
       {/* Bottom Transport Dock */}
       <div className="relative z-10 px-4 sm:px-8 lg:px-14 pb-6 sm:pb-8 pt-2">
-        {/* Scrubber bar with clean glowing progress fill & hidden thumb until hover/active */}
-        <div className="max-w-2xl mx-auto flex flex-col gap-1.5 mb-3">
-          <div className="relative group w-full flex items-center h-6 cursor-pointer select-none">
-            {/* Background Track */}
-            <div className="absolute inset-x-0 h-1.5 sm:h-2 rounded-full bg-white/15 overflow-hidden group-hover:h-2.5 transition-all">
+        {/* Seamlessly Integrated Audio Visualizer & Elastic Scrubber */}
+        <div className="max-w-2xl mx-auto flex flex-col gap-1 mb-3">
+          {/* Audio Visualizer Canvas - Tap to cycle: Wave -> Bars -> Radial -> VU Meter */}
+          <div 
+            onClick={handleCycleVisualizer}
+            className="relative w-full flex items-center justify-center cursor-pointer select-none group py-0.5"
+            title="Tap visualizer to cycle modes (Wave, Bars, Radial, VU Meter)"
+          >
+            {/* Small Floating Toast Pill */}
+            {visualizerToast && (
+              <div className="absolute -top-7 px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-xl border border-white/20 text-[10.5px] font-mono font-bold text-white shadow-lg animate-in fade-in zoom-in-95 pointer-events-none z-30">
+                {visualizerToast}
+              </div>
+            )}
+            <AudioVisualizer 
+              className={visualizerMode === 'analog-vu' ? 'w-full max-w-sm h-12' : 'w-full h-7 opacity-75 group-hover:opacity-100 transition-opacity'} 
+              barCount={visualizerMode === 'bars' ? 44 : 56} 
+              mode={visualizerMode} 
+            />
+          </div>
+
+          {/* Elastic Scrubber Track: 4px idle -> 10px on drag/touch, glowing white, scaleX(1.02) */}
+          <div 
+            className="relative group w-full flex items-center h-6 cursor-pointer select-none"
+            onTouchStart={() => setIsScrubbing(true)}
+            onTouchEnd={() => setIsScrubbing(false)}
+            onMouseDown={() => setIsScrubbing(true)}
+            onMouseUp={() => setIsScrubbing(false)}
+          >
+            {/* Background Track with Elastic Expansion & Glow */}
+            <div 
+              className={`apple-elastic-scrubber-track absolute inset-x-0 rounded-full bg-white/15 overflow-hidden transition-all ${
+                isScrubbing ? 'is-scrubbing' : ''
+              }`}
+              style={{
+                ['--glow-color' as any]: primaryColor
+              }}
+            >
               <div 
                 className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-200"
                 style={{ width: `${buffered}%` }}
@@ -834,9 +868,11 @@ export const FullscreenPlayer: React.FC = () => {
               />
             </div>
 
-            {/* Scrubber Thumb: INVISIBLE until touched/hovered */}
+            {/* Scrubber Thumb: hidden when idle, glows white when touched or hovered */}
             <div 
-              className="absolute w-3.5 h-3.5 rounded-full bg-white pointer-events-none -translate-x-1/2 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-200 shadow-[0_0_12px_rgba(255,255,255,0.9),0_0_20px_var(--glow-color)]"
+              className={`absolute w-3.5 h-3.5 rounded-full bg-white pointer-events-none -translate-x-1/2 transition-all duration-200 shadow-[0_0_16px_rgba(255,255,255,0.9),0_0_24px_var(--glow-color)] ${
+                isScrubbing ? 'opacity-100 scale-125' : 'opacity-0 group-hover:opacity-100'
+              }`}
               style={{ 
                 left: `${percentPlayed}%`,
                 ['--glow-color' as any]: primaryColor
