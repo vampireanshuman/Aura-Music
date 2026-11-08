@@ -41,9 +41,53 @@ class YouTubeAudioEngine {
   private pendingVideoId: string | null = null;
   private pendingVolume: number = 0.85;
   private pendingSpeed: number = 1.0;
+  private userRequestedPause = false;
+  private wakeLock: any = null;
 
   constructor() {
     this.setupApiCallback();
+    this.setupBackgroundKeepAlive();
+  }
+
+  private setupBackgroundKeepAlive() {
+    if (typeof document === 'undefined') return;
+
+    document.addEventListener('visibilitychange', () => {
+      // If user did NOT pause and document goes to background, keep playback alive
+      if (document.visibilityState === 'hidden' && !this.userRequestedPause && this.currentVideoId) {
+        if (this.player && typeof this.player.getPlayerState === 'function') {
+          const state = this.player.getPlayerState();
+          if (state !== 1) { // Not playing
+            setTimeout(() => this.play(), 50);
+          }
+        }
+      } else if (document.visibilityState === 'visible' && !this.userRequestedPause && this.currentVideoId) {
+        this.acquireWakeLock();
+      }
+    });
+  }
+
+  private async acquireWakeLock() {
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      try {
+        if (!this.wakeLock) {
+          this.wakeLock = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  private releaseWakeLock() {
+    if (this.wakeLock) {
+      try {
+        this.wakeLock.release();
+      } catch {
+        // ignore
+      }
+      this.wakeLock = null;
+    }
   }
 
   private setupApiCallback() {
@@ -119,14 +163,28 @@ class YouTubeAudioEngine {
   }
 
   private handleStateChange(stateCode: number) {
+    // Intercept false visibilitychange pause when app/browser is minimized
+    if (stateCode === 2 && !this.userRequestedPause && typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      setTimeout(() => {
+        if (!this.userRequestedPause) {
+          this.play();
+        }
+      }, 50);
+      return;
+    }
+
     const isPlaying = stateCode === 1; // YT.PlayerState.PLAYING
     const isBuffering = stateCode === 3; // YT.PlayerState.BUFFERING
     const isEnded = stateCode === 0; // YT.PlayerState.ENDED
 
     if (isPlaying) {
       this.startTimeSync();
+      this.acquireWakeLock();
     } else {
       this.stopTimeSync();
+      if (this.userRequestedPause) {
+        this.releaseWakeLock();
+      }
     }
 
     this.notifyState(isPlaying, isBuffering);
@@ -171,6 +229,9 @@ class YouTubeAudioEngine {
 
   public loadAndPlay(videoId: string) {
     this.currentVideoId = videoId;
+    this.userRequestedPause = false;
+    this.acquireWakeLock();
+
     if (!this.isReady || !this.player || typeof this.player.loadVideoById !== 'function') {
       this.pendingVideoId = videoId;
       return;
@@ -185,18 +246,24 @@ class YouTubeAudioEngine {
   }
 
   public play() {
+    this.userRequestedPause = false;
+    this.acquireWakeLock();
     if (this.player && typeof this.player.playVideo === 'function') {
       this.player.playVideo();
     }
   }
 
   public pause() {
+    this.userRequestedPause = true;
+    this.releaseWakeLock();
     if (this.player && typeof this.player.pauseVideo === 'function') {
       this.player.pauseVideo();
     }
   }
 
   public stop() {
+    this.userRequestedPause = true;
+    this.releaseWakeLock();
     this.stopTimeSync();
     if (this.player && typeof this.player.stopVideo === 'function') {
       try {

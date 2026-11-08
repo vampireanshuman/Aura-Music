@@ -9,7 +9,8 @@ import {
   ChevronUp, 
   Volume2, 
   Users, 
-  Timer
+  Timer,
+  PictureInPicture2
 } from 'lucide-react';
 import { AnimatedSoundBars } from './AnimatedSoundBars';
 import { get4kArtworkUrl, handleArtworkError } from '../utils/artworkUtils';
@@ -75,7 +76,8 @@ export const DynamicIsland: React.FC = () => {
     isIslandActive,
     dismissIsland,
     activeTab,
-    sleepTimerMinutes
+    sleepTimerMinutes,
+    requestPipIsland
   } = useAudio();
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -427,9 +429,23 @@ export const DynamicIsland: React.FC = () => {
                   </button>
                 </div>
 
-                {/* AirPlay / Output Indicator */}
-                <div className="p-2.5 text-white/45 hover:text-white/80 transition-colors">
-                  <Volume2 className="w-4 h-4" />
+                {/* Right Action Icons: PiP Floating Island + AirPlay Output Indicator */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      triggerHaptic('medium');
+                      requestPipIsland();
+                    }}
+                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all active:scale-90"
+                    title="Float Live Dynamic Island over other apps (Picture-in-Picture)"
+                  >
+                    <PictureInPicture2 className="w-4 h-4" />
+                  </button>
+
+                  <div className="p-2 text-white/45 hover:text-white/80 transition-colors">
+                    <Volume2 className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
             </div>

@@ -22,6 +22,8 @@ import { youtubeEngine } from '../utils/youtubeAudioEngine';
 import confetti from 'canvas-confetti';
 import { getSmartAutoplayTrack } from '../utils/recommendationEngine';
 import { getApiUrl } from '../utils/apiConfig';
+import { get4kArtworkUrl } from '../utils/artworkUtils';
+import { pipIslandController } from '../utils/pipIslandController';
 
 export const getThemeAccentColor = (themeAccent: ThemeAccent, dominantColor?: string): string => {
   switch (themeAccent) {
@@ -202,6 +204,11 @@ interface AudioContextType {
   searchOnline: (query: string) => Promise<Track[]>;
   exportLibraryData: () => string;
   importLibraryData: (jsonData: string) => boolean;
+
+  // Picture-in-Picture Floating Dynamic Island
+  requestPipIsland: () => Promise<boolean>;
+  exitPipIsland: () => Promise<void>;
+  isPipActive: () => boolean;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -895,44 +902,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [repeatMode, skipNext]);
 
-  // MediaSession API for mobile lockscreen and notification drawer playback controls
-  useEffect(() => {
-    if ('mediaSession' in navigator && currentTrack) {
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: currentTrack.title,
-          artist: currentTrack.artist,
-          album: currentTrack.album,
-          artwork: [
-            { src: currentTrack.coverUrl, sizes: '512x512', type: 'image/jpeg' },
-            { src: currentTrack.coverUrl, sizes: '256x256', type: 'image/jpeg' }
-          ]
-        });
-
-        navigator.mediaSession.setActionHandler('play', () => {
-          audioRef.current?.play().catch(() => {});
-        });
-        navigator.mediaSession.setActionHandler('pause', () => {
-          audioRef.current?.pause();
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          skipPrev();
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-          skipNext();
-        });
-        navigator.mediaSession.setActionHandler('seekto', (details) => {
-          if (details.seekTime !== undefined && audioRef.current) {
-            audioRef.current.currentTime = details.seekTime;
-            setCurrentTime(details.seekTime);
-          }
-        });
-      } catch (err) {
-        console.warn('MediaSession error:', err);
-      }
-    }
-  }, [currentTrack, skipPrev, skipNext]);
-
   const togglePlay = () => {
     initWebAudio();
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
@@ -1278,49 +1247,166 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // =========================================================================
+  // 1. Full navigator.mediaSession Hardware Bridge (iOS Live Activity & Android 14/15 Media Capsule)
+  // =========================================================================
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentTrack) return;
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentTrack.title,
-      artist: currentTrack.artist,
-      album: currentTrack.album,
-      artwork: [
-        { src: currentTrack.coverUrl, sizes: '512x512', type: 'image/jpeg' },
-        { src: currentTrack.coverUrl, sizes: '256x256', type: 'image/jpeg' }
-      ]
-    });
+    try {
+      const artworkUrl = get4kArtworkUrl(currentTrack);
 
-    navigator.mediaSession.setActionHandler('play', () => {
-      audioRef.current?.play().catch(() => {});
-    });
-    navigator.mediaSession.setActionHandler('pause', () => {
-      audioRef.current?.pause();
-    });
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      skipPrev();
-    });
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      skipNext();
-    });
-    navigator.mediaSession.setActionHandler('seekto', (details) => {
-      if (details.seekTime !== undefined) {
-        seek(details.seekTime);
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: currentTrack.album || 'Aura Music',
+        artwork: [
+          { src: artworkUrl, sizes: '96x96', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '256x256', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '512x512', type: 'image/jpeg' }
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (!isPlaying) togglePlay();
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (isPlaying) togglePlay();
+      });
+
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        skipPrev();
+      });
+
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        skipNext();
+      });
+
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        const offset = details.seekOffset || 10;
+        seek(Math.max(0, currentTime - offset));
+      });
+
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        const offset = details.seekOffset || 10;
+        seek(Math.min(duration || Infinity, currentTime + offset));
+      });
+
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) {
+          seek(details.seekTime);
+        }
+      });
+    } catch (err) {
+      console.warn('[MediaSession] Metadata registration error:', err);
+    }
+  }, [currentTrack, isPlaying, togglePlay, skipNext, skipPrev, seek, currentTime, duration]);
+
+  // Synchronize playbackState & continuous setPositionState with Hardware Audio Engine
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+
+    try {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+      if ('setPositionState' in navigator.mediaSession && duration > 0 && !isNaN(duration) && isFinite(duration)) {
+        const validPos = Math.min(Math.max(0, currentTime), duration);
+        navigator.mediaSession.setPositionState({
+          duration: duration,
+          playbackRate: playbackSpeed || 1.0,
+          position: validPos
+        });
       }
-    });
+    } catch (err) {
+      // ignore
+    }
+  }, [isPlaying, currentTime, duration, playbackSpeed]);
 
-    return () => {
-      try {
-        navigator.mediaSession.setActionHandler('play', null);
-        navigator.mediaSession.setActionHandler('pause', null);
-        navigator.mediaSession.setActionHandler('previoustrack', null);
-        navigator.mediaSession.setActionHandler('nexttrack', null);
-        navigator.mediaSession.setActionHandler('seekto', null);
-      } catch {
-        // ignore
+  // =========================================================================
+  // 2. Picture-in-Picture Floating Dynamic Island Synchronization
+  // =========================================================================
+  useEffect(() => {
+    pipIslandController.init({
+      onTogglePlay: () => togglePlay(),
+      onNext: () => skipNext(),
+      onPrev: () => skipPrev(),
+      onSeek: (t) => seek(t),
+    });
+  }, [togglePlay, skipNext, skipPrev, seek]);
+
+  useEffect(() => {
+    const dominantColor = currentTrack?.dominantColor || activeThemeColor || '#fa2d48';
+    pipIslandController.updateState({
+      track: currentTrack,
+      isPlaying,
+      currentTime,
+      duration,
+      primaryColor: dominantColor,
+    });
+  }, [currentTrack, isPlaying, currentTime, duration, activeThemeColor]);
+
+  // =========================================================================
+  // 3. Screen Wake Lock & Background Audio Keep-Alive
+  // =========================================================================
+  useEffect(() => {
+    let wakeLock: any = null;
+
+    const requestWakeLock = async () => {
+      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator && isPlaying && document.visibilityState === 'visible') {
+        try {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        } catch {
+          // ignore
+        }
       }
     };
-  }, [currentTrack, skipNext, skipPrev]);
+
+    const releaseWakeLock = () => {
+      if (wakeLock) {
+        try {
+          wakeLock.release();
+        } catch {
+          // ignore
+        }
+        wakeLock = null;
+      }
+    };
+
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // App is minimized or screen locked: Keep audio pipelines alive
+        if (isPlaying) {
+          if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume().catch(() => {});
+          }
+          if (audioRef.current && audioRef.current.paused) {
+            audioRef.current.play().catch(() => {});
+          }
+        }
+      } else {
+        // App returned to foreground
+        if (isPlaying) {
+          requestWakeLock();
+          if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume().catch(() => {});
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      releaseWakeLock();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isPlaying]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1494,6 +1580,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeThemeColor,
         exportLibraryData,
         importLibraryData,
+        requestPipIsland: () => pipIslandController.requestPipIsland(),
+        exitPipIsland: () => pipIslandController.exitPipIsland(),
+        isPipActive: () => pipIslandController.isPipActive(),
       }}
     >
       {children}
