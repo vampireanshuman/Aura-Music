@@ -294,3 +294,70 @@ input[type="range"]:active::-webkit-slider-thumb {
   opacity: 1;
   transform: scale(1.2);
 }
+
+/* ========================================================================== */
+/* Apple Dynamic Island Liquid Mercury Gooey & Elastic Rebound               */
+/* ========================================================================== */
+@keyframes island-squish-rebound {
+  0% { transform: scaleX(1) scaleY(1); }
+  25% { transform: scaleX(1.18) scaleY(0.86); }
+  50% { transform: scaleX(0.94) scaleY(1.06); }
+  75% { transform: scaleX(1.03) scaleY(0.98); }
+  100% { transform: scaleX(1) scaleY(1); }
+}
+
+.animate-island-rebound {
+  animation: island-squish-rebound 0.52s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes island-droplet-split {
+  0% {
+    transform: scale(0.4) translateX(-16px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15) translateX(3px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1) translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-droplet-split {
+  animation: island-droplet-split 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Genie Suction and Expansion Curves */
+.genie-suction-active {
+  transform-origin: 50% 24px !important;
+  transform: scale3d(0.18, 0.05, 1) !important;
+  border-radius: 999px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: transform 520ms cubic-bezier(0.32, 0.72, 0, 1),
+              border-radius 520ms cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 480ms ease-in !important;
+}
+
+.genie-expand-entry {
+  transform-origin: 50% 24px;
+  animation: genie-open-anim 0.48s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes genie-open-anim {
+  0% {
+    transform-origin: 50% 24px;
+    transform: scale3d(0.18, 0.05, 1);
+    border-radius: 999px;
+    opacity: 0.7;
+  }
+  100% {
+    transform-origin: 50% 24px;
+    transform: scale3d(1, 1, 1);
+    border-radius: 0px;
+    opacity: 1;
+  }
+}
+

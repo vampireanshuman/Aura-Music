@@ -75,6 +75,25 @@ export const FullscreenPlayer: React.FC = () => {
   const [showSingModal, setShowSingModal] = useState(false);
   const [showAudiophileHud, setShowAudiophileHud] = useState(false);
   const [heartBurst, setHeartBurst] = useState(false);
+  const [isMinimizing, setIsMinimizing] = useState(false);
+
+  // Apple-grade Genie Suction into Dynamic Island Cutout
+  const handleGenieSuctionClose = () => {
+    if (isMinimizing) return;
+    setIsMinimizing(true);
+    triggerHaptic('medium');
+
+    // Trigger elastic squish-and-rebound on Dynamic Island as suction reaches the top
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('aura-island-rebound'));
+      triggerHaptic('heavy');
+    }, 320);
+
+    setTimeout(() => {
+      setIsFullscreen(false);
+      setIsMinimizing(false);
+    }, 520);
+  };
 
   const activeLyricRef = useRef<HTMLDivElement | null>(null);
   const lastArtworkTapRef = useRef<number>(0);
@@ -221,21 +240,19 @@ export const FullscreenPlayer: React.FC = () => {
       onTouchEnd={(e) => {
         if (touchStartY !== null) {
           const diff = e.changedTouches[0].clientY - touchStartY;
-          if (diff > 65) {
-            triggerHaptic('medium');
-            setIsFullscreen(false);
+          if (diff > 55) {
+            handleGenieSuctionClose();
           }
         }
         setTouchStartY(null);
       }}
-      className="fixed inset-0 z-50 flex flex-col bg-[#07080c] text-white overflow-hidden animate-in fade-in zoom-in-95 duration-300 select-none"
+      className={`fixed inset-0 z-50 flex flex-col bg-[#07080c] text-white overflow-hidden select-none ${
+        isMinimizing ? 'genie-suction-active' : 'genie-expand-entry'
+      }`}
     >
       {/* 36px x 4px Subtle Top Drag-Handle Pill */}
       <div 
-        onClick={() => {
-          triggerHaptic('medium');
-          setIsFullscreen(false);
-        }}
+        onClick={handleGenieSuctionClose}
         className="w-[36px] h-[4px] rounded-full bg-white/30 hover:bg-white/60 mx-auto mt-2.5 mb-1 cursor-pointer active:scale-95 transition-all z-20"
         title="Swipe down or tap to close fullscreen player"
       />
@@ -256,10 +273,7 @@ export const FullscreenPlayer: React.FC = () => {
       <div className="relative z-10 flex items-center justify-between px-4 sm:px-8 py-3 border-b border-white/5">
         {/* Left: Dismiss Button */}
         <button
-          onClick={() => {
-            triggerHaptic('light');
-            setIsFullscreen(false);
-          }}
+          onClick={handleGenieSuctionClose}
           className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white backdrop-blur-xl transition-all active:scale-90 flex items-center justify-center shrink-0"
           title="Dismiss back to app"
         >
