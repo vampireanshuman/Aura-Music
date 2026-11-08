@@ -70,7 +70,6 @@ const MainLayout: React.FC = () => {
           <filter id="aura-goo" colorInterpolationFilters="sRGB" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
             <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9" result="goo" />
-            <feBlend in="SourceGraphic" in2="goo" />
           </filter>
         </defs>
       </svg>

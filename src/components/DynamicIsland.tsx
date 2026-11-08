@@ -13,13 +13,16 @@ import {
   PictureInPicture2
 } from 'lucide-react';
 import { AnimatedSoundBars } from './AnimatedSoundBars';
+import { CanvasWaveScrubber } from './CanvasWaveScrubber';
 import { get4kArtworkUrl, handleArtworkError } from '../utils/artworkUtils';
 import { formatTime, formatRemainingTime } from '../utils/formatTime';
 import { triggerHaptic } from '../utils/haptics';
 
-// Decoupled scrubber subcomponent for the Island Peek Card
+// Decoupled scrubber subcomponent for the Island Peek Card with real-time waveform & particles
 const IslandScrubber = memo(({ primaryColor, isPlaying }: { primaryColor: string; isPlaying: boolean }) => {
   const { currentTime, duration, seek } = useAudio();
+  const [isHovered, setIsHovered] = useState(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
   const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -31,13 +34,33 @@ const IslandScrubber = memo(({ primaryColor, isPlaying }: { primaryColor: string
     triggerHaptic('selection');
   };
 
+  const handleTouchSeek = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touchX = e.touches[0].clientX - rect.left;
+    const newPercent = Math.max(0, Math.min(1, touchX / rect.width));
+    seek(newPercent * duration);
+    triggerHaptic('selection');
+  };
+
   return (
     <div className="w-full space-y-1.5 px-1">
       <div
         onClick={handleSeek}
-        className="relative group w-full h-4 flex items-center cursor-pointer"
+        onTouchStart={(e) => {
+          setIsScrubbing(true);
+          handleTouchSeek(e);
+        }}
+        onTouchMove={handleTouchSeek}
+        onTouchEnd={() => setIsScrubbing(false)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setIsScrubbing(false);
+        }}
+        className="relative group w-full h-5 flex items-center cursor-pointer select-none"
       >
-        <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden group-hover:h-2 transition-all duration-200">
+        <div className="relative w-full h-1.5 rounded-full bg-white/20 overflow-hidden group-hover:h-2 transition-all duration-200">
           <div
             className={`h-full rounded-full transition-all duration-75 ${
               isPlaying ? 'animate-shimmer animate-line-playing' : ''
@@ -50,6 +73,15 @@ const IslandScrubber = memo(({ primaryColor, isPlaying }: { primaryColor: string
             }}
           />
         </div>
+
+        {/* Real-Time Canvas Wave Scrubber Overlay */}
+        <CanvasWaveScrubber
+          isPlaying={isPlaying}
+          percentPlayed={progressPercent}
+          primaryColor={primaryColor}
+          isHovered={isHovered}
+          isScrubbing={isScrubbing}
+        />
       </div>
 
       <div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-white/55 px-0.5">
@@ -326,14 +358,18 @@ export const DynamicIsland: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Title & Artist & Audiophile Badges */}
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-extrabold text-white truncate tracking-tight leading-snug">
-                      {currentTrack.title}
-                    </h3>
-                    <p className="text-xs text-white/60 truncate mt-0.5">
-                      {currentTrack.artist}
-                    </p>
+                  {/* Title & Artist & Audiophile Badges with Smooth Scrolling Marquee */}
+                  <div className="min-w-0 flex-1 overflow-hidden pr-1">
+                    <div className="overflow-hidden whitespace-nowrap">
+                      <h3 className="text-sm font-extrabold text-white tracking-tight leading-snug inline-block animate-marquee-smooth">
+                        {currentTrack.title}
+                      </h3>
+                    </div>
+                    <div className="overflow-hidden whitespace-nowrap mt-0.5">
+                      <p className="text-xs text-white/60 truncate">
+                        {currentTrack.artist}
+                      </p>
+                    </div>
 
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <span className="text-[9px] font-mono font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/10 shadow-sm uppercase">
