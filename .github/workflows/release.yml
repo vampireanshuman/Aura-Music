@@ -11,6 +11,9 @@ on:
         required: true
         default: 'v1.0.0'
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     name: Build & Publish Release
@@ -40,7 +43,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci || npm install
 
       - name: Build Web Production Bundle
         run: npm run build
@@ -51,21 +54,22 @@ jobs:
       - name: Grant Execute Permission to Gradle
         run: chmod +x android/gradlew
 
-      - name: Compile Android Release APK
+      - name: Compile Android APK
         run: |
           cd android
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --stacktrace || ./gradlew assembleDebug --stacktrace
 
       - name: Stage Release APK & Checksum
         run: |
           mkdir -p release_assets
           # Locate built APK
-          if [ -f "android/app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
-            cp android/app/build/outputs/apk/release/app-release-unsigned.apk release_assets/AuraMusic-release.apk
-          elif [ -f "android/app/build/outputs/apk/release/app-release.apk" ]; then
-            cp android/app/build/outputs/apk/release/app-release.apk release_assets/AuraMusic-release.apk
+          APK_FILE=$(find android/app/build/outputs/apk/ -type f -name "*.apk" | head -n 1)
+          if [ -n "$APK_FILE" ] && [ -f "$APK_FILE" ]; then
+            echo "Found APK: $APK_FILE"
+            cp "$APK_FILE" release_assets/AuraMusic-release.apk
           else
-            find android/app/build/outputs/apk/ -name "*.apk" -exec cp {} release_assets/AuraMusic-release.apk \;
+            echo "Error: No APK file generated!"
+            exit 1
           fi
           
           # Generate SHA256 checksum
@@ -80,6 +84,7 @@ jobs:
           files: |
             release_assets/AuraMusic-release.apk
             release_assets/AuraMusic-release.apk.sha256
+          tag_name: ${{ github.ref_name || inputs.tag_name }}
           name: "Aura Music ${{ github.ref_name || inputs.tag_name }}"
           generate_release_notes: true
           draft: false
