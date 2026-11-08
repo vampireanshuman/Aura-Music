@@ -137,6 +137,8 @@ class YouTubeAudioEngine {
           modestbranding: 1,
           playsinline: 1,
           rel: 0,
+          origin: 'https://www.youtube-nocookie.com',
+          host: 'https://www.youtube-nocookie.com',
         },
         events: {
           onReady: () => {

@@ -47,9 +47,10 @@ export const YouTubePlayerHost: React.FC = () => {
 
           <div className="flex-1 w-full h-full relative bg-black">
             <iframe
-              src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&playsinline=1&modestbranding=1&rel=0`}
+              src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&playsinline=1&modestbranding=1&rel=0&origin=https://www.youtube-nocookie.com&host=https://www.youtube-nocookie.com`}
               title={currentTrack?.title || 'Music Video'}
               className="w-full h-full border-0"
+              referrerPolicy="strict-origin-when-cross-origin"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />

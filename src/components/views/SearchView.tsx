@@ -71,7 +71,7 @@ export const SearchView: React.FC = () => {
       } finally {
         setIsSearching(false);
       }
-    }, 350);
+    }, 300);
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -100,7 +100,7 @@ export const SearchView: React.FC = () => {
           Search Any Song
         </h1>
         <p className="text-xs sm:text-sm text-meta-secondary mt-1">
-          Stream any track, official audio, or artist in the world powered by YouTube Music & LastWave engine
+          Stream any song, 320kbps master, or artist in the world powered by JioSaavn & iTunes engine
         </p>
       </div>
 
@@ -143,9 +143,39 @@ export const SearchView: React.FC = () => {
       {searchQuery.trim() && (
         <div className="space-y-6">
           {isSearching && onlineResults.length === 0 ? (
-            <div className="glass-sheet rounded-[24px] p-12 text-center text-meta-secondary space-y-3">
-              <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#fa2d48]" />
-              <p className="text-sm font-medium">Searching millions of songs on YouTube Music...</p>
+            <div className="space-y-4 animate-pulse">
+              <div className="flex items-center gap-2 text-xs text-meta-secondary mb-1">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#fa2d48]" />
+                <span>Searching JioSaavn 320kbps & Global catalog...</span>
+              </div>
+              {/* Skeleton Hero Card */}
+              <div className="glass-sheet rounded-[24px] p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 border border-white/5">
+                <div className="flex items-center gap-4 min-w-0 w-full sm:w-auto">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/10 shrink-0 animate-pulse" />
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <div className="w-20 h-4 rounded-full bg-white/10" />
+                    <div className="w-48 sm:w-64 h-6 rounded-lg bg-white/15" />
+                    <div className="w-32 h-4 rounded-md bg-white/10" />
+                  </div>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-white/15 shrink-0 self-end sm:self-center" />
+              </div>
+              {/* Skeleton List Items */}
+              <div className="glass-sheet rounded-[24px] divide-y divide-white/5 overflow-hidden p-2 space-y-1">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-3.5 flex-1">
+                      <div className="w-5 h-4 bg-white/10 rounded" />
+                      <div className="w-11 h-11 rounded-xl bg-white/10 shrink-0" />
+                      <div className="space-y-1.5 flex-1 max-w-xs">
+                        <div className="w-3/4 h-4 bg-white/15 rounded" />
+                        <div className="w-1/2 h-3 bg-white/10 rounded" />
+                      </div>
+                    </div>
+                    <div className="w-12 h-4 bg-white/10 rounded" />
+                  </div>
+                ))}
+              </div>
             </div>
           ) : onlineResults.length === 0 ? (
             <div className="glass-sheet rounded-[24px] p-12 text-center text-subtle-inactive space-y-2">

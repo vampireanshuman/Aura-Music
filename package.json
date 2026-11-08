@@ -37,7 +37,9 @@
     "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.6.0",
     "@distube/ytdl-core": "^5.2.1",
+    "@types/crypto-js": "^4.2.2",
     "canvas-confetti": "^1.9.4",
+    "crypto-js": "^4.2.0",
     "lucide-react": "^1.70.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

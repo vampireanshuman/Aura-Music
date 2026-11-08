@@ -21,9 +21,9 @@ import { fetchLrclibLyrics } from '../utils/lrclib';
 import { youtubeEngine } from '../utils/youtubeAudioEngine';
 import confetti from 'canvas-confetti';
 import { getSmartAutoplayTrack } from '../utils/recommendationEngine';
-import { getApiUrl } from '../utils/apiConfig';
 import { get4kArtworkUrl } from '../utils/artworkUtils';
 import { pipIslandController } from '../utils/pipIslandController';
+import { searchMusic, resolveDirectStream } from '../utils/serverlessMusicEngine';
 
 export const getThemeAccentColor = (themeAccent: ThemeAccent, dominantColor?: string): string => {
   switch (themeAccent) {
@@ -602,21 +602,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Online YouTube Music search helper (with regional localization support)
+  // Online music search helper (Serverless Multi-Provider: JioSaavn 320kbps + iTunes)
   const searchOnline = async (query: string): Promise<Track[]> => {
     if (!query.trim()) return [];
     try {
-      const regionParam = encodeURIComponent(settings.contentRegion || 'GLOBAL');
-      const res = await fetch(getApiUrl(`/api/search?q=${encodeURIComponent(query.trim())}&region=${regionParam}`));
-      if (res.ok) {
-        const data = await res.json();
-        if (data.tracks && data.tracks.length > 0) {
-          data.tracks.forEach((t: Track) => registerTrack(t));
-          return data.tracks;
-        }
+      const tracks = await searchMusic(query.trim());
+      if (tracks && tracks.length > 0) {
+        tracks.forEach((t: Track) => registerTrack(t));
+        return tracks;
       }
     } catch (err) {
-      console.warn('Online search fetch failed:', err);
+      console.warn('[Audio] Online search failed:', err);
     }
     return [];
   };
@@ -643,8 +639,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     (window as any).__audio = audio;
 
     // Set initial track source so bottom player is immediately ready on first click
-    if (INITIAL_TRACKS[0]?.youtubeId) {
-      audio.src = getApiUrl(`/api/stream?id=${INITIAL_TRACKS[0].youtubeId}`);
+    if (INITIAL_TRACKS[0]?.audioUrl) {
+      audio.src = INITIAL_TRACKS[0].audioUrl;
     }
 
     const handleTimeUpdate = () => {
@@ -858,47 +854,64 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Dynamically fetch and register related songs by artist and genre for coherent recommendations
     const cleanArt = track.artist.replace(/\s*\d+(\.\d+)?\s*[MKmk]?\s*views.*$/i, '').trim();
     if (cleanArt && cleanArt.length > 2 && !['Various Artists', 'Unknown Artist', '88M views'].includes(cleanArt)) {
-      fetch(getApiUrl(`/api/search?q=${encodeURIComponent(cleanArt + ' songs')}`))
-        .then(r => r.json())
-        .then(data => {
-          if (data && Array.isArray(data.tracks) && data.tracks.length > 0) {
-            data.tracks.forEach((t: Track) => registerTrack(t));
+      searchMusic(cleanArt + ' songs')
+        .then(resTracks => {
+          if (Array.isArray(resTracks) && resTracks.length > 0) {
+            resTracks.forEach((t: Track) => registerTrack(t));
           }
         })
         .catch(() => {});
     }
 
-    // Unified Native HTML5 Audio Streaming for all online and local tracks
+    // Direct Native HTML5 Audio Streaming for all online and local tracks
     const audio = audioRef.current;
     if (audio) {
-      const streamSrc = track.youtubeId
-        ? getApiUrl(`/api/stream?id=${track.youtubeId}`)
-        : (track.audioUrl || (track.id.startsWith('yt-') ? getApiUrl(`/api/stream?id=${track.id.replace('yt-', '')}`) : ''));
+      const executeAudioPlay = (src: string) => {
+        if (audio.src !== src) {
+          audio.src = src;
+        }
+        audio.playbackRate = playbackSpeed;
+        audio.volume = isMuted ? 0 : volume;
 
-      const fullStreamSrc = streamSrc.startsWith('http') ? streamSrc : `${window.location.origin}${streamSrc}`;
-
-      if (audio.src !== fullStreamSrc && audio.src !== streamSrc) {
-        audio.src = streamSrc;
-      }
-      audio.playbackRate = playbackSpeed;
-      audio.volume = isMuted ? 0 : volume;
-
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            setIsPlaying(true);
+            isPlayingRef.current = true;
+            syncMediaSessionPositionState(0, track.duration, playbackSpeed, true);
+          }).catch((err) => {
+            console.warn('[Audio] Direct audio play error or gesture needed:', err);
+          });
+        } else {
           setIsPlaying(true);
           isPlayingRef.current = true;
           syncMediaSessionPositionState(0, track.duration, playbackSpeed, true);
-        }).catch((err) => {
-          console.warn('[Audio] Playback gesture failed or autoplay policy:', err);
-          setIsPlaying(false);
-          isPlayingRef.current = false;
-          syncMediaSessionPositionState(0, track.duration, playbackSpeed, false);
-        });
+        }
+      };
+
+      // 1. If track already has direct stream URL (e.g. JioSaavn 320kbps or iTunes)
+      if (track.audioUrl && (track.audioUrl.startsWith('https://') || track.audioUrl.startsWith('http://'))) {
+        executeAudioPlay(track.audioUrl);
       } else {
-        setIsPlaying(true);
-        isPlayingRef.current = true;
-        syncMediaSessionPositionState(0, track.duration, playbackSpeed, true);
+        // 2. On-the-fly resolution via serverless music engine (<300ms)
+        resolveDirectStream(track)
+          .then((directStream) => {
+            if (directStream) {
+              track.audioUrl = directStream;
+              registerTrack({ ...track, audioUrl: directStream });
+              executeAudioPlay(directStream);
+            } else if (track.youtubeId) {
+              youtubeEngine.loadAndPlay(track.youtubeId);
+              setIsPlaying(true);
+            }
+          })
+          .catch((err) => {
+            console.warn('[Audio] Direct stream resolution fallback:', err);
+            if (track.youtubeId) {
+              youtubeEngine.loadAndPlay(track.youtubeId);
+              setIsPlaying(true);
+            }
+          });
       }
     }
   }, [initWebAudio, queue, playbackSpeed, isMuted, volume, syncMediaSessionPositionState]);
@@ -994,10 +1007,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       syncMediaSessionPositionState(audio.currentTime, durationRef.current, playbackSpeedRef.current, false);
     } else {
       if ((!audio.src || audio.src === window.location.href) && currentTrack) {
-        const streamSrc = currentTrack.youtubeId
-          ? getApiUrl(`/api/stream?id=${currentTrack.youtubeId}`)
-          : (currentTrack.audioUrl || (currentTrack.id.startsWith('yt-') ? getApiUrl(`/api/stream?id=${currentTrack.id.replace('yt-', '')}`) : ''));
-        audio.src = streamSrc;
+        if (currentTrack.audioUrl && (currentTrack.audioUrl.startsWith('https://') || currentTrack.audioUrl.startsWith('http://'))) {
+          audio.src = currentTrack.audioUrl;
+        } else {
+          resolveDirectStream(currentTrack).then(resUrl => {
+            if (resUrl) {
+              currentTrack.audioUrl = resUrl;
+              audio.src = resUrl;
+              audio.play().catch(() => {});
+            }
+          }).catch(() => {});
+        }
       }
       audio.playbackRate = playbackSpeed;
       audio.volume = isMuted ? 0 : volume;
