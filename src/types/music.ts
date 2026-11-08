@@ -45,11 +45,14 @@ export type RepeatMode = 'off' | 'all' | 'one';
 
 export type EqualizerPreset = 
   | 'flat' 
+  | 'cd-lossless'
   | 'bass-boost' 
+  | 'vocal-booster'
+  | 'spatial-surround'
   | 'acoustic' 
   | 'electronic' 
-  | 'vocal-booster' 
-  | 'rock';
+  | 'rock'
+  | 'custom';
 
 export type AudioQuality = 'lossless' | 'high' | 'normal' | 'saver';
 export type AmbientGlowIntensity = 'vibrant' | 'subtle' | 'off';

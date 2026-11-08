@@ -26,7 +26,6 @@ import {
 import { formatTime, formatRemainingTime } from '../utils/formatTime';
 import { AudioVisualizer } from './AudioVisualizer';
 import { AnimatedSoundBars } from './AnimatedSoundBars';
-import { SOUND_QUALITY_SPECS } from '../utils/audioDSP';
 import { get4kArtworkUrl, handleArtworkError } from '../utils/artworkUtils';
 import { triggerHaptic } from '../utils/haptics';
 import { TrackActionMenu } from './TrackActionMenu';
@@ -109,6 +108,7 @@ export const PlayerBar: React.FC = () => {
     if (!progressBarRef.current || duration <= 0) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    triggerHaptic('tick');
     seek((x / rect.width) * duration);
   };
 
@@ -266,10 +266,18 @@ export const PlayerBar: React.FC = () => {
                     {currentTrack.title}
                   </h4>
                 </div>
-                <div className="overflow-hidden whitespace-nowrap mt-0.5">
+                <div className="overflow-hidden whitespace-nowrap mt-0.5 flex items-center gap-1.5">
                   <p className="text-[11px] text-white/65 font-medium truncate">
                     {currentTrack.artist}
                   </p>
+                  <span className={`text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded-full border shrink-0 ${
+                    soundQualityMode === 'hi-res-lossless' ? 'bg-amber-500/20 text-amber-300 border-amber-400/40' :
+                    soundQualityMode === 'cd-lossless' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' :
+                    soundQualityMode === 'dolby-atmos' ? 'bg-purple-500/20 text-purple-300 border-purple-400/40' :
+                    'bg-white/10 text-white/60 border-white/15'
+                  }`}>
+                    {soundQualityMode === 'hi-res-lossless' ? '24-Bit' : soundQualityMode === 'cd-lossless' ? 'Lossless' : soundQualityMode === 'dolby-atmos' ? 'Spatial' : '320k'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -567,13 +575,27 @@ export const PlayerBar: React.FC = () => {
               {/* Master Audio Spec Pill & Speed Menu */}
               <div className="flex items-center justify-center gap-2 mt-1.5">
                 <button
-                  onClick={() => setIsAudioQualityModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-[10px] font-mono text-white/65 hover:text-white spring-button cursor-pointer"
-                  title="Audio Master Quality Specs"
+                  onClick={() => {
+                    triggerHaptic('heavy');
+                    setIsAudioQualityModalOpen(true);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full border text-[10px] font-mono font-bold transition-all spring-button cursor-pointer ${
+                    soundQualityMode === 'hi-res-lossless'
+                      ? 'bg-amber-500/15 border-amber-400/50 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                      : soundQualityMode === 'cd-lossless'
+                      ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                      : soundQualityMode === 'dolby-atmos'
+                      ? 'bg-purple-500/15 border-purple-400/50 text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                      : 'bg-white/[0.06] hover:bg-white/[0.12] border-white/10 text-white/70 hover:text-white'
+                  }`}
+                  title="Audiophile Quality Specs & Bitrate Switcher"
                 >
-                  <Sparkles className="w-2.5 h-2.5 text-[#fa2d48]" />
-                  <span className="font-semibold tracking-wider uppercase text-[9px]">
-                    {SOUND_QUALITY_SPECS[soundQualityMode].badge}
+                  <Sparkles className="w-2.5 h-2.5" />
+                  <span className="tracking-wider uppercase text-[9px]">
+                    {soundQualityMode === 'hi-res-lossless' ? 'Hi-Res 24-Bit / 192kHz' :
+                     soundQualityMode === 'cd-lossless' ? 'CD Lossless 16-Bit' :
+                     soundQualityMode === 'dolby-atmos' ? 'Dolby Atmos Spatial' :
+                     'Lossless AAC 320kbps'}
                   </span>
                 </button>
 

@@ -24,6 +24,7 @@ import { getSmartAutoplayTrack } from '../utils/recommendationEngine';
 import { get4kArtworkUrl } from '../utils/artworkUtils';
 import { pipIslandController } from '../utils/pipIslandController';
 import { searchMusic, resolveDirectStream } from '../utils/serverlessMusicEngine';
+import { triggerHaptic } from '../utils/haptics';
 
 export const getThemeAccentColor = (themeAccent: ThemeAccent, dominantColor?: string): string => {
   switch (themeAccent) {
@@ -186,6 +187,8 @@ interface AudioContextType {
   // Equalizer & Web Audio
   equalizerPreset: EqualizerPreset;
   setEqualizerPreset: (preset: EqualizerPreset) => void;
+  eqGains: number[];
+  setEqBandGain: (bandIndex: number, gainDb: number) => void;
   analyserNode: AnalyserNode | null;
 
   // Theme & Visual Accent
@@ -215,14 +218,17 @@ const AudioContext = createContext<AudioContextType | null>(null);
 
 const EQ_PRESET_GAINS: Record<EqualizerPreset, number[]> = {
   'flat': [0, 0, 0, 0, 0],
-  'bass-boost': [7, 4, 1, 0, 0],
+  'cd-lossless': [2.5, 1.5, 0, 1.5, 3.5],
+  'bass-boost': [7.5, 4.5, 1, 0, 0],
+  'vocal-booster': [-2, 0, 4.5, 5.5, 2],
+  'spatial-surround': [3.5, -1, 1.5, 4, 6],
   'acoustic': [3, -1, 2, 4, 3],
   'electronic': [6, 3, 0, 3, 5],
-  'vocal-booster': [-2, 0, 4, 5, 2],
   'rock': [5, 2, -2, 3, 6],
+  'custom': [0, 0, 0, 0, 0]
 };
 
-const FREQUENCIES = [60, 250, 1000, 4000, 12000];
+const FREQUENCIES = [60, 250, 1000, 4000, 16000];
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -417,7 +423,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const originalQueueRef = useRef<Track[]>(queue);
 
   // Equalizer
-  const [equalizerPreset, setEqualizerPreset] = useState<EqualizerPreset>('flat');
+  const [equalizerPreset, setEqualizerPresetState] = useState<EqualizerPreset>('flat');
+  const [eqGains, setEqGains] = useState<number[]>([0, 0, 0, 0, 0]);
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
 
   // Audio Engine & DSP Refs
@@ -582,12 +589,41 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, clamped, isPlayingRef.current);
   };
 
+  const setEqualizerPreset = (preset: EqualizerPreset) => {
+    setEqualizerPresetState(preset);
+    setSelectedAutoEQ(null);
+    if (preset !== 'custom') {
+      const presetGains = [...EQ_PRESET_GAINS[preset]];
+      setEqGains(presetGains);
+      if (eqFiltersRef.current.length === 5) {
+        eqFiltersRef.current.forEach((filter, index) => {
+          filter.gain.setTargetAtTime(presetGains[index], audioContextRef.current?.currentTime || 0, 0.05);
+        });
+      }
+    }
+  };
+
+  const setEqBandGain = (bandIndex: number, gainDb: number) => {
+    const clamped = Math.max(-12, Math.min(12, gainDb));
+    setEqGains(prev => {
+      const next = [...prev];
+      next[bandIndex] = clamped;
+      return next;
+    });
+    setEqualizerPresetState('custom');
+    setSelectedAutoEQ(null);
+    if (eqFiltersRef.current[bandIndex]) {
+      eqFiltersRef.current[bandIndex].gain.setTargetAtTime(clamped, audioContextRef.current?.currentTime || 0, 0.05);
+    }
+  };
+
   // Set AutoEQ Profile (Headphone Calibration from LastWave)
   const setAutoEQ = (profileId: string | null) => {
     setSelectedAutoEQ(profileId);
     if (!profileId) {
       // Revert to current equalizerPreset
-      const gains = EQ_PRESET_GAINS[equalizerPreset];
+      const gains = equalizerPreset === 'custom' ? eqGains : EQ_PRESET_GAINS[equalizerPreset];
+      setEqGains(gains);
       eqFiltersRef.current.forEach((filter, index) => {
         filter.gain.setTargetAtTime(gains[index], audioContextRef.current?.currentTime || 0, 0.05);
       });
@@ -596,6 +632,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const profile = AUTO_EQ_PROFILES.find(p => p.id === profileId);
     if (profile && eqFiltersRef.current.length === 5) {
+      setEqGains([...profile.gains]);
       eqFiltersRef.current.forEach((filter, index) => {
         filter.gain.setTargetAtTime(profile.gains[index], audioContextRef.current?.currentTime || 0, 0.05);
       });
@@ -781,12 +818,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (selectedAutoEQ) {
       setAutoEQ(selectedAutoEQ);
     } else if (eqFiltersRef.current.length === 5) {
-      const gains = EQ_PRESET_GAINS[equalizerPreset];
+      const gains = equalizerPreset === 'custom' ? eqGains : EQ_PRESET_GAINS[equalizerPreset];
       eqFiltersRef.current.forEach((filter, index) => {
         filter.gain.setTargetAtTime(gains[index], audioContextRef.current?.currentTime || 0, 0.05);
       });
     }
-  }, [equalizerPreset, selectedAutoEQ]);
+  }, [equalizerPreset, selectedAutoEQ, eqGains]);
 
   const setVolume = (val: number) => {
     const clamped = Math.max(0, Math.min(1, val));
@@ -917,6 +954,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [initWebAudio, queue, playbackSpeed, isMuted, volume, syncMediaSessionPositionState]);
 
   const skipNext = useCallback(() => {
+    triggerHaptic('medium');
     if (queue.length === 0) return;
     let nextIndex = queueIndex + 1;
     if (nextIndex >= queue.length) {
@@ -955,6 +993,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [queue, queueIndex, repeatMode, playTrack, tracks, trackRegistry, youtubeTracks, localTracks, currentTrack, recentlyPlayed]);
 
   const skipPrev = useCallback(() => {
+    triggerHaptic('medium');
     if (audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
       setCurrentTime(0);
@@ -992,6 +1031,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [repeatMode, skipNext]);
 
   const togglePlay = () => {
+    triggerHaptic('medium');
     initWebAudio();
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume().catch(() => {});
@@ -1719,6 +1759,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearQueue,
         equalizerPreset,
         setEqualizerPreset,
+        eqGains,
+        setEqBandGain,
         analyserNode,
         toggleFavorite,
         isFavorite,

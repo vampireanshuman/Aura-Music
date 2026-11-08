@@ -20,7 +20,9 @@ import {
   Gauge,
   SlidersHorizontal,
   Timer,
-  Sparkles
+  Sparkles,
+  Disc3,
+  Sliders
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatTime, formatRemainingTime } from '../utils/formatTime';
@@ -74,7 +76,10 @@ export const FullscreenPlayer: React.FC = () => {
     tubeWarmth,
     sleepTimerMinutes,
     sleepTimerRemaining,
-    setSleepTimer
+    setSleepTimer,
+    soundQualityMode,
+    setIsAudioQualityModalOpen,
+    setIsEqualizerOpen
   } = useAudio();
 
   const [viewTab, setViewTab] = useState<'cover' | 'vinyl' | 'lyrics' | 'video'>('cover');
@@ -489,27 +494,48 @@ export const FullscreenPlayer: React.FC = () => {
           <ChevronDown className="w-5 h-5" />
         </button>
 
-        {/* Center: Sleek 3-segment glass pill (Song | Lyrics | Video) */}
+        {/* Center: Sleek 4-segment glass pill (Song | Vinyl 💿 | Lyrics | Video) */}
         <div className="flex items-center p-1 bg-white/10 rounded-full backdrop-blur-xl border border-white/10 shadow-sm">
           <button
-            onClick={() => setViewTab('cover')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+            onClick={() => {
+              triggerHaptic('selection');
+              setViewTab('cover');
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all spring-button ${
               viewTab === 'cover' ? 'bg-white text-black shadow-sm font-bold' : 'text-white/60 hover:text-white'
             }`}
           >
             Song
           </button>
           <button
-            onClick={() => setViewTab('lyrics')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+            onClick={() => {
+              triggerHaptic('selection');
+              setViewTab('vinyl');
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all spring-button flex items-center gap-1 ${
+              viewTab === 'vinyl' ? 'bg-white text-black shadow-sm font-bold' : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <Disc3 className={`w-3 h-3 ${isPlaying && viewTab === 'vinyl' ? 'animate-spin' : ''}`} />
+            <span>Vinyl</span>
+          </button>
+          <button
+            onClick={() => {
+              triggerHaptic('selection');
+              setViewTab('lyrics');
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all spring-button ${
               viewTab === 'lyrics' ? 'bg-white text-black shadow-sm font-bold' : 'text-white/60 hover:text-white'
             }`}
           >
             Lyrics
           </button>
           <button
-            onClick={() => setViewTab('video')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+            onClick={() => {
+              triggerHaptic('selection');
+              setViewTab('video');
+            }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-all spring-button ${
               viewTab === 'video' ? 'bg-white text-black shadow-sm font-bold' : 'text-white/60 hover:text-white'
             }`}
           >
@@ -577,15 +603,24 @@ export const FullscreenPlayer: React.FC = () => {
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                     <span>33 ⅓ RPM Direct-Drive</span>
                   </div>
-                  <div className="absolute top-4 right-4 text-[10px] font-mono text-amber-400/80">
-                    Tactile Scratch Active
-                  </div>
+                  
+                  {/* Switch to Album Cover Button */}
+                  <button
+                    onClick={() => {
+                      triggerHaptic('medium');
+                      setViewTab('cover');
+                    }}
+                    className="absolute top-3.5 right-4 z-20 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white/90 hover:text-white text-[10.5px] font-mono font-bold border border-white/20 flex items-center gap-1.5 shadow-md spring-button cursor-pointer"
+                    title="Switch to 1:1 Album Sleeve Art"
+                  >
+                    <span>⏹ Album Art</span>
+                  </button>
                 </div>
 
                 {/* Vinyl Record */}
                 <div 
                   className={`relative w-48 h-48 sm:w-64 sm:h-64 md:w-76 md:h-76 rounded-full bg-black border-4 border-neutral-800 shadow-[0_10px_40px_rgba(0,0,0,0.9)] flex items-center justify-center select-none overflow-hidden transition-transform duration-700 ${
-                    isPlaying ? 'animate-[spin_8s_linear_infinite]' : ''
+                    isPlaying ? 'animate-vinyl-spin' : ''
                   }`}
                   style={{
                     background: 'radial-gradient(circle, #262626 0%, #171717 35%, #0a0a0a 70%, #171717 85%, #0a0a0a 100%)',
@@ -661,6 +696,20 @@ export const FullscreenPlayer: React.FC = () => {
 
                   {/* Inner rim highlight */}
                   <div className="absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10 pointer-events-none" />
+
+                  {/* Floating Toggle to Vinyl Record Mode */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      triggerHaptic('medium');
+                      setViewTab('vinyl');
+                    }}
+                    className="absolute top-3.5 right-3.5 z-30 px-3 py-1 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-xl text-white text-[11px] font-mono font-bold border border-white/20 flex items-center gap-1.5 shadow-xl spring-button"
+                    title="Switch to 33 ⅓ RPM Rotating Vinyl Record"
+                  >
+                    <Disc3 className={`w-3.5 h-3.5 text-amber-400 ${isPlaying ? 'animate-spin' : ''}`} />
+                    <span>Vinyl Mode</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -701,19 +750,62 @@ export const FullscreenPlayer: React.FC = () => {
                 {currentTrack.artist}
               </p>
 
-              {/* Audiophile Master Telemetry HUD Badge */}
-              <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
+              {/* Audiophile Master Streaming Codec Badges & Studio Switcher */}
+              <div className="mt-2.5 flex items-center justify-center gap-2 flex-wrap">
+                {/* 1. Crystal-Clear Audiophile Streaming Tier Badge with Soft Glow */}
+                <button
+                  onClick={() => {
+                    triggerHaptic('heavy');
+                    setIsAudioQualityModalOpen(true);
+                  }}
+                  className={`px-3 py-1 rounded-full text-[11px] font-mono font-bold tracking-tight border transition-all flex items-center gap-1.5 cursor-pointer spring-button ${
+                    soundQualityMode === 'hi-res-lossless'
+                      ? 'bg-amber-500/15 border-amber-400/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.35)]'
+                      : soundQualityMode === 'cd-lossless'
+                      ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.35)]'
+                      : soundQualityMode === 'dolby-atmos'
+                      ? 'bg-purple-500/15 border-purple-400/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.35)]'
+                      : 'bg-cyan-500/15 border-cyan-400/40 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                  }`}
+                  title="Tap to switch Audio Quality & Streaming Codecs"
+                >
+                  <span className={`w-2 h-2 rounded-full ${
+                    soundQualityMode === 'hi-res-lossless' ? 'bg-amber-400 animate-ping' :
+                    soundQualityMode === 'cd-lossless' ? 'bg-emerald-400 animate-pulse' :
+                    soundQualityMode === 'dolby-atmos' ? 'bg-purple-400 animate-pulse' :
+                    'bg-cyan-400'
+                  }`} />
+                  <span>{
+                    soundQualityMode === 'hi-res-lossless' ? 'Hi-Res Audio (24-bit / 192kHz)' :
+                    soundQualityMode === 'cd-lossless' ? 'CD Lossless (16-bit / 44.1kHz)' :
+                    soundQualityMode === 'dolby-atmos' ? 'Dolby Atmos / Spatial Audio' :
+                    'High Quality (320kbps AAC)'
+                  }</span>
+                </button>
+
+                {/* 2. Studio Equalizer & Soundstage Drawer Button */}
+                <button
+                  onClick={() => {
+                    triggerHaptic('heavy');
+                    setIsEqualizerOpen(true);
+                  }}
+                  className="px-2.5 py-1 rounded-full bg-white/[0.08] hover:bg-white/[0.14] border border-white/12 text-white/80 hover:text-white text-[11px] font-mono font-semibold flex items-center gap-1.5 cursor-pointer spring-button"
+                  title="Open 5-Band Studio Equalizer & Soundstage"
+                >
+                  <Sliders className="w-3 h-3 text-sky-400" />
+                  <span>Studio EQ</span>
+                </button>
+
+                {/* 3. Real-Time Telemetry HUD Inspector */}
                 <button
                   onClick={() => {
                     triggerHaptic('light');
                     setShowAudiophileHud(prev => !prev);
                   }}
-                  className="px-2.5 py-1 rounded-full glass-pill text-[10px] sm:text-[11px] font-mono tabular-nums font-semibold text-white/70 transition-all flex items-center gap-1.5 cursor-pointer spring-button"
+                  className="px-2.5 py-1 rounded-full glass-pill text-[10px] sm:text-[11px] font-mono tabular-nums font-semibold text-white/60 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer spring-button"
                   title="Click to view Studio DSP Engine Telemetry"
                 >
                   <Gauge className="w-3 h-3 text-emerald-400" />
-                  <span>ALAC 24-Bit / 192kHz</span>
-                  <span className="text-white/30">•</span>
                   <span>{currentTrack.bpm || 120} BPM</span>
                   <span className="text-white/30">•</span>
                   <span>{currentTrack.keySignature || 'D# Minor'}</span>
@@ -1144,7 +1236,10 @@ export const FullscreenPlayer: React.FC = () => {
               min={0}
               max={duration || 100}
               value={currentTime}
-              onChange={(e) => seek(Number(e.target.value))}
+              onChange={(e) => {
+                triggerHaptic('tick');
+                seek(Number(e.target.value));
+              }}
               className="absolute inset-0 w-full opacity-0 cursor-pointer"
             />
           </div>
@@ -1236,7 +1331,10 @@ export const FullscreenPlayer: React.FC = () => {
             max={1}
             step={0.01}
             value={isMuted ? 0 : volume}
-            onChange={(e) => setVolume(Number(e.target.value))}
+            onChange={(e) => {
+              triggerHaptic('tick');
+              setVolume(Number(e.target.value));
+            }}
             className="flex-1 h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-[#fa2d48]"
           />
           {/* Quick DSP / Automix & Spatial 8D */}

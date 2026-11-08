@@ -28,7 +28,7 @@ export const MobileNavBar: React.FC = () => {
   const { activeTab, setActiveTab, setSelectedPlaylistId, dismissIsland } = useAudio();
 
   const handleTabClick = (tab: ActiveTab) => {
-    triggerHaptic('selection');
+    triggerHaptic('heavy');
     dismissIsland();
     setActiveTab(tab);
     if (tab !== 'playlist') {

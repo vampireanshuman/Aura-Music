@@ -5,7 +5,7 @@ export const AmbientBackground: React.FC = () => {
   const { currentTrack, isPlaying, activeThemeColor } = useAudio();
 
   // Dynamic colors derived from current track or active theme
-  const dominant = activeThemeColor || currentTrack?.dominantColor || '#6366f1';
+  const dominant = activeThemeColor || currentTrack?.dominantColor || '#fa2d48';
   const secondary = currentTrack?.secondaryColor || '#8b5cf6';
 
   return (
@@ -14,62 +14,73 @@ export const AmbientBackground: React.FC = () => {
       <div 
         className="absolute inset-0 bg-[#07080e] transition-colors duration-1000"
         style={{
-          background: 'radial-gradient(ellipse at 50% 0%, #0d0f1e 0%, #080913 50%, #050509 100%)'
+          background: 'radial-gradient(ellipse at 50% 0%, #0e1022 0%, #080914 45%, #050509 100%)'
         }}
       />
 
-      {/* 2. Slow-Moving Evolving Mesh Gradients (Deep Indigo, Violet & Obsidian Nodes) */}
-      {/* Node 1: Deep Indigo Top-Left Atmosphere (80-120px Gaussian Blur) */}
+      {/* 2. Apple Music Multi-Point Liquid Mesh Gradient Morpher (60fps continuous hardware-accelerated drift) */}
+      
+      {/* Node 1: Dominant Hue Atmosphere (Top-Left Liquid Bubble) */}
       <div
-        className="absolute -top-[12%] -left-[10%] w-[68vw] h-[68vw] rounded-full blur-[110px] mix-blend-screen opacity-45 pointer-events-none animate-mesh-1 transition-all duration-1000"
+        className="absolute -top-[16%] -left-[12%] w-[72vw] h-[72vw] rounded-full blur-[120px] mix-blend-screen opacity-50 pointer-events-none animate-mesh-1 transition-all duration-1000"
         style={{
-          background: `radial-gradient(circle, ${dominant}90 0%, #1e1347 50%, #0c0a21 100%)`,
+          background: `radial-gradient(circle, ${dominant}cc 0%, #1e1347 50%, #0c0a21 100%)`,
           transformOrigin: 'center center'
         }}
       />
 
-      {/* Node 2: Rich Violet Top-Right Atmosphere */}
+      {/* Node 2: Secondary Harmonic Node (Top-Right Atmospheric Cloud) */}
       <div
-        className="absolute top-[8%] -right-[15%] w-[64vw] h-[64vw] rounded-full blur-[120px] mix-blend-screen opacity-35 pointer-events-none animate-mesh-2 transition-all duration-1000"
+        className="absolute -top-[5%] -right-[18%] w-[68vw] h-[68vw] rounded-full blur-[130px] mix-blend-screen opacity-40 pointer-events-none animate-mesh-2 transition-all duration-1000"
         style={{
-          background: `radial-gradient(circle, ${secondary}85 0%, #380c4a 50%, #18052b 100%)`,
+          background: `radial-gradient(circle, ${secondary}bb 0%, #380c4a 50%, #18052b 100%)`,
           transformOrigin: 'center center'
         }}
       />
 
-      {/* Node 3: Center-Bottom Evolving Liquid Core */}
+      {/* Node 3: Deep Indigo / Violet Liquid Core (Bottom-Left) */}
       <div
-        className="absolute -bottom-[18%] left-[15%] w-[60vw] h-[60vw] rounded-full blur-[100px] mix-blend-screen opacity-30 pointer-events-none animate-mesh-3 transition-all duration-1000"
+        className="absolute -bottom-[20%] -left-[10%] w-[65vw] h-[65vw] rounded-full blur-[110px] mix-blend-screen opacity-35 pointer-events-none animate-mesh-3 transition-all duration-1000"
         style={{
-          background: `radial-gradient(circle, #2e1065 0%, #160f38 60%, #07080e 100%)`,
+          background: `radial-gradient(circle, #3b0764 0%, #170d38 60%, #07080e 100%)`,
           transformOrigin: 'center center'
         }}
       />
 
-      {/* Node 4: Dynamic Song Accent Node (breathing when playing) */}
+      {/* Node 4: Dynamic Song Accent Node (Center Liquid Orb - expands & pulses with playback) */}
       <div
-        className={`absolute top-1/3 left-1/4 w-[45vw] h-[45vw] rounded-full blur-[90px] mix-blend-screen pointer-events-none transition-all duration-1000 ${
-          isPlaying ? 'opacity-25 scale-105' : 'opacity-15 scale-95'
+        className={`absolute top-[28%] left-[22%] w-[52vw] h-[52vw] rounded-full blur-[95px] mix-blend-screen pointer-events-none animate-mesh-4 transition-all duration-1000 ${
+          isPlaying ? 'opacity-35 scale-110' : 'opacity-20 scale-95'
         }`}
         style={{
-          background: `radial-gradient(circle, ${dominant} 0%, transparent 70%)`
+          background: `radial-gradient(circle, ${dominant}ee 0%, ${secondary}66 45%, transparent 75%)`,
+          transformOrigin: 'center center'
         }}
       />
 
-      {/* 3. Obsidian Depth Vignette (soft physical gradient to cradle UI sheets) */}
+      {/* Node 5: Atmospheric Bottom-Right Warmth Drift */}
+      <div
+        className="absolute -bottom-[15%] -right-[12%] w-[58vw] h-[58vw] rounded-full blur-[115px] mix-blend-screen opacity-30 pointer-events-none animate-mesh-5 transition-all duration-1000"
+        style={{
+          background: `radial-gradient(circle, ${dominant}88 0%, #1e1b4b 55%, transparent 80%)`,
+          transformOrigin: 'center center'
+        }}
+      />
+
+      {/* 3. Obsidian Depth Vignette (smoothly cradles UI sheets and prevents flat banding) */}
       <div 
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 50%, transparent 20%, rgba(5, 5, 9, 0.45) 75%, rgba(5, 5, 9, 0.85) 100%)'
+          background: 'radial-gradient(circle at 50% 50%, transparent 25%, rgba(5, 5, 9, 0.40) 70%, rgba(5, 5, 9, 0.88) 100%)'
         }}
       />
 
-      {/* 4. Micro Optical Sheen Mesh */}
+      {/* 4. Optical Film Sheen Grid (eliminates 8-bit color banding on OLED screens) */}
       <div 
-        className="absolute inset-0 opacity-[0.025] pointer-events-none"
+        className="absolute inset-0 opacity-[0.028] pointer-events-none"
         style={{
           backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.45) 1px, transparent 1px)',
-          backgroundSize: '28px 28px'
+          backgroundSize: '24px 24px'
         }}
       />
     </div>

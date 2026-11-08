@@ -14,6 +14,7 @@ import {
   Settings
 } from 'lucide-react';
 import type { ActiveTab } from '../types/music';
+import { triggerHaptic } from '../utils/haptics';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleNavClick = (tab: ActiveTab) => {
+    triggerHaptic('heavy');
     dismissIsland();
     setActiveTab(tab);
     setSelectedPlaylistId(null);

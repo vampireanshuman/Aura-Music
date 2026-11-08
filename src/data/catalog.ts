@@ -3,6 +3,8 @@ import type { Track, Playlist } from '../types/music';
 export const INITIAL_TRACKS: Track[] = [
   {
     id: 'track-4',
+    bitDepth: '24-bit',
+    sampleRate: '192 kHz',
     title: 'Kesariya (From "Brahmastra")',
     artist: 'Arijit Singh & Pritam',
     album: 'Brahmastra Master Hits',
@@ -176,6 +178,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-7',
+    bitDepth: '16-bit',
+    sampleRate: '44.1 kHz',
     title: 'Tum Hi Ho',
     artist: 'Arijit Singh',
     album: 'Aashiqui 2 Master Recording',
@@ -373,6 +377,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-8',
+    bitDepth: '16-bit',
+    sampleRate: '44.1 kHz',
     title: 'Channa Mereya',
     artist: 'Arijit Singh & Pritam',
     album: 'Ae Dil Hai Mushkil',
@@ -546,6 +552,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-9',
+    bitDepth: '24-bit',
+    sampleRate: '192 kHz',
     title: 'Apna Bana Le',
     artist: 'Arijit Singh & Sachin-Jigar',
     album: 'Bhediya Master Suite',
@@ -707,6 +715,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-12',
+    bitDepth: '24-bit',
+    sampleRate: '48 kHz',
     title: 'Raataan Lambiyan',
     artist: 'Jubin Nautiyal & Asees Kaur',
     album: 'Shershaah Master Recording',
@@ -888,6 +898,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-13',
+    bitDepth: '24-bit',
+    sampleRate: '192 kHz',
     title: 'Pehle Bhi Main',
     artist: 'Vishal Mishra',
     album: 'Animal Master Suite',
@@ -1013,6 +1025,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-14',
+    bitDepth: '16-bit',
+    sampleRate: '44.1 kHz',
     title: 'Shayad',
     artist: 'Arijit Singh & Pritam',
     album: 'Love Aaj Kal Studio Master',
@@ -1122,6 +1136,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-15',
+    bitDepth: '24-bit',
+    sampleRate: '192 kHz',
     title: 'Agar Tum Saath Ho',
     artist: 'Alka Yagnik & Arijit Singh',
     album: 'Tamasha Master Suite',
@@ -1307,6 +1323,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-10',
+    bitDepth: '24-bit',
+    sampleRate: '48 kHz',
     title: 'Lover',
     artist: 'Diljit Dosanjh',
     album: 'MoonChild Era',
@@ -1628,6 +1646,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-11',
+    bitDepth: '24-bit',
+    sampleRate: '48 kHz',
     title: 'Softly',
     artist: 'Karan Aujla',
     album: 'Making Memories',
@@ -1861,6 +1881,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-18',
+    bitDepth: '24-bit',
+    sampleRate: '192 kHz',
     title: 'Born to Shine',
     artist: 'Diljit Dosanjh',
     album: 'G.O.A.T.',
@@ -2122,6 +2144,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-19',
+    bitDepth: '24-bit',
+    sampleRate: '48 kHz',
     title: 'Winning Speech',
     artist: 'Karan Aujla',
     album: 'Street Dreams',
@@ -2447,6 +2471,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-1',
+    bitDepth: '24-bit',
+    sampleRate: '48 kHz',
     title: 'Starboy (feat. Daft Punk)',
     artist: 'The Weeknd',
     album: 'Starboy (Studio Master)',
@@ -2720,6 +2746,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-2',
+    bitDepth: '24-bit',
+    sampleRate: '192 kHz',
     title: 'Birds of a Feather',
     artist: 'Billie Eilish',
     album: 'Hit Me Hard and Soft',
@@ -2893,6 +2921,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-3',
+    bitDepth: '16-bit',
+    sampleRate: '44.1 kHz',
     title: 'Espresso',
     artist: 'Sabrina Carpenter',
     album: 'Short n’ Sweet',
@@ -3134,6 +3164,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-5',
+    bitDepth: '24-bit',
+    sampleRate: '192 kHz',
     title: 'Blinding Lights',
     artist: 'The Weeknd',
     album: 'After Hours',
@@ -3291,6 +3323,8 @@ export const INITIAL_TRACKS: Track[] = [
   },
   {
     id: 'track-6',
+    bitDepth: '16-bit',
+    sampleRate: '44.1 kHz',
     title: 'Viva La Vida',
     artist: 'Coldplay',
     album: 'Viva la Vida or Death and All His Friends',
