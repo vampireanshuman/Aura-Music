@@ -426,6 +426,52 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
   const dspEngineRef = useRef<AudioDSPEngine>(new AudioDSPEngine());
 
+  // Hardware MediaSession & PiP stable state tracking refs
+  const currentTimeRef = useRef(currentTime);
+  currentTimeRef.current = currentTime;
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const playbackSpeedRef = useRef(1.0);
+  const currentTrackRef = useRef(currentTrack);
+  currentTrackRef.current = currentTrack;
+  const lastMediaSessionSyncRef = useRef<number>(0);
+
+  // Precise Position State Synchronization with Hardware Lockscreen & Headphone Audio Clock
+  const syncMediaSessionPositionState = useCallback((
+    posOverride?: number,
+    durOverride?: number,
+    rateOverride?: number,
+    playingOverride?: boolean
+  ) => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+
+    try {
+      const isPlay = playingOverride !== undefined ? playingOverride : isPlayingRef.current;
+      navigator.mediaSession.playbackState = isPlay ? 'playing' : 'paused';
+
+      if ('setPositionState' in navigator.mediaSession) {
+        const d = durOverride !== undefined ? durOverride : durationRef.current;
+        const pos = posOverride !== undefined ? posOverride : currentTimeRef.current;
+        const r = rateOverride !== undefined ? rateOverride : (playbackSpeedRef.current || 1.0);
+
+        if (d > 0 && isFinite(d) && !isNaN(d)) {
+          const clamped = Math.min(Math.max(0, pos), d);
+          if (isFinite(clamped) && !isNaN(clamped)) {
+            navigator.mediaSession.setPositionState({
+              duration: d,
+              playbackRate: r > 0 ? r : 1.0,
+              position: clamped,
+            });
+          }
+        }
+      }
+    } catch {
+      // Safe no-op on non-supporting devices or rapid transition edge cases
+    }
+  }, []);
+
   // Active Theme Accent Color (supports dynamic track matching or user-selected custom palette)
   const activeThemeColor = getThemeAccentColor(settings.themeAccent, currentTrack?.dominantColor);
 
@@ -521,10 +567,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setPlaybackSpeed = (speed: number) => {
     const clamped = Math.max(0.5, Math.min(2.0, speed));
     setPlaybackSpeedState(clamped);
+    playbackSpeedRef.current = clamped;
     youtubeEngine.setPlaybackRate(clamped);
     if (audioRef.current) {
       audioRef.current.playbackRate = clamped;
     }
+    syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, clamped, isPlayingRef.current);
   };
 
   // Set AutoEQ Profile (Headphone Calibration from LastWave)
@@ -594,10 +642,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
+      currentTimeRef.current = audio.currentTime;
       if (audio.buffered.length > 0) {
         const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
         const dur = audio.duration || 1;
         setBuffered(Math.min((bufferedEnd / dur) * 100, 100));
+      }
+
+      // Synchronize phone lockscreen widget with hardware clock every 1.2s
+      const now = Date.now();
+      if (now - lastMediaSessionSyncRef.current > 1200) {
+        lastMediaSessionSyncRef.current = now;
+        syncMediaSessionPositionState(audio.currentTime, audio.duration, audio.playbackRate, !audio.paused);
       }
     };
 
@@ -817,15 +873,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (playPromise !== undefined) {
         playPromise.then(() => {
           setIsPlaying(true);
+          isPlayingRef.current = true;
+          syncMediaSessionPositionState(0, track.duration, playbackSpeed, true);
         }).catch((err) => {
           console.warn('[Audio] Playback gesture failed or autoplay policy:', err);
           setIsPlaying(false);
+          isPlayingRef.current = false;
+          syncMediaSessionPositionState(0, track.duration, playbackSpeed, false);
         });
       } else {
         setIsPlaying(true);
+        isPlayingRef.current = true;
+        syncMediaSessionPositionState(0, track.duration, playbackSpeed, true);
       }
     }
-  }, [initWebAudio, queue, playbackSpeed, isMuted, volume]);
+  }, [initWebAudio, queue, playbackSpeed, isMuted, volume, syncMediaSessionPositionState]);
 
   const skipNext = useCallback(() => {
     if (queue.length === 0) return;
@@ -914,6 +976,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
+      isPlayingRef.current = false;
+      syncMediaSessionPositionState(audio.currentTime, durationRef.current, playbackSpeedRef.current, false);
     } else {
       if ((!audio.src || audio.src === window.location.href) && currentTrack) {
         const streamSrc = currentTrack.youtubeId
@@ -927,12 +991,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (playPromise !== undefined) {
         playPromise.then(() => {
           setIsPlaying(true);
+          isPlayingRef.current = true;
+          syncMediaSessionPositionState(audio.currentTime, durationRef.current, playbackSpeedRef.current, true);
         }).catch(e => {
           console.warn('[Audio] togglePlay error:', e);
           setIsPlaying(false);
+          isPlayingRef.current = false;
+          syncMediaSessionPositionState(audio.currentTime, durationRef.current, playbackSpeedRef.current, false);
         });
       } else {
         setIsPlaying(true);
+        isPlayingRef.current = true;
+        syncMediaSessionPositionState(audio.currentTime, durationRef.current, playbackSpeedRef.current, true);
       }
     }
   };
@@ -942,6 +1012,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audioRef.current.pause();
     }
     setIsPlaying(false);
+    isPlayingRef.current = false;
+    syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, playbackSpeedRef.current, false);
   };
 
   const resume = () => {
@@ -952,6 +1024,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (audioRef.current) {
       audioRef.current.play().then(() => {
         setIsPlaying(true);
+        isPlayingRef.current = true;
+        syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, playbackSpeedRef.current, true);
       }).catch(() => {});
     }
   };
@@ -959,9 +1033,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const seek = (seconds: number) => {
     const clamped = Math.max(0, Math.min(seconds, duration || seconds));
     setCurrentTime(clamped);
+    currentTimeRef.current = clamped;
     if (audioRef.current) {
       audioRef.current.currentTime = clamped;
     }
+    syncMediaSessionPositionState(clamped, durationRef.current, playbackSpeedRef.current, isPlayingRef.current);
   };
 
   const toggleShuffle = () => {
@@ -1248,10 +1324,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // =========================================================================
-  // 1. Full navigator.mediaSession Hardware Bridge (iOS Live Activity & Android 14/15 Media Capsule)
+  // 1. Full navigator.mediaSession Hardware Bridge & Lockscreen Action Handlers
   // =========================================================================
+  // Register high-res square artwork and track metadata
   useEffect(() => {
-    if (!('mediaSession' in navigator) || !currentTrack) return;
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || !currentTrack) return;
 
     try {
       const artworkUrl = get4kArtworkUrl(currentTrack);
@@ -1262,17 +1339,33 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         album: currentTrack.album || 'Aura Music',
         artwork: [
           { src: artworkUrl, sizes: '96x96', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '128x128', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '192x192', type: 'image/jpeg' },
           { src: artworkUrl, sizes: '256x256', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '384x384', type: 'image/jpeg' },
           { src: artworkUrl, sizes: '512x512', type: 'image/jpeg' }
         ]
       });
 
+      syncMediaSessionPositionState();
+    } catch (err) {
+      console.warn('[MediaSession] Metadata registration error:', err);
+    }
+  }, [currentTrack, syncMediaSessionPositionState]);
+
+  // Bind Hardware & Lockscreen Action Handlers (play, pause, previoustrack, nexttrack, seekto, seekforward, seekbackward)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+
+    try {
       navigator.mediaSession.setActionHandler('play', () => {
-        if (!isPlaying) togglePlay();
+        if (!isPlayingRef.current) togglePlay();
+        syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, playbackSpeedRef.current, true);
       });
 
       navigator.mediaSession.setActionHandler('pause', () => {
-        if (isPlaying) togglePlay();
+        if (isPlayingRef.current) togglePlay();
+        syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, playbackSpeedRef.current, false);
       });
 
       navigator.mediaSession.setActionHandler('previoustrack', () => {
@@ -1283,45 +1376,40 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         skipNext();
       });
 
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined && !isNaN(details.seekTime) && isFinite(details.seekTime)) {
+          seek(details.seekTime);
+          syncMediaSessionPositionState(details.seekTime, durationRef.current, playbackSpeedRef.current, isPlayingRef.current);
+        }
+      });
+
       navigator.mediaSession.setActionHandler('seekbackward', (details) => {
         const offset = details.seekOffset || 10;
-        seek(Math.max(0, currentTime - offset));
+        const target = Math.max(0, currentTimeRef.current - offset);
+        seek(target);
+        syncMediaSessionPositionState(target, durationRef.current, playbackSpeedRef.current, isPlayingRef.current);
       });
 
       navigator.mediaSession.setActionHandler('seekforward', (details) => {
         const offset = details.seekOffset || 10;
-        seek(Math.min(duration || Infinity, currentTime + offset));
+        const target = Math.min(durationRef.current || Infinity, currentTimeRef.current + offset);
+        seek(target);
+        syncMediaSessionPositionState(target, durationRef.current, playbackSpeedRef.current, isPlayingRef.current);
       });
 
-      navigator.mediaSession.setActionHandler('seekto', (details) => {
-        if (details.seekTime !== undefined) {
-          seek(details.seekTime);
-        }
+      navigator.mediaSession.setActionHandler('stop', () => {
+        pause();
+        syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, playbackSpeedRef.current, false);
       });
     } catch (err) {
-      console.warn('[MediaSession] Metadata registration error:', err);
+      console.warn('[MediaSession] Action handlers registration error:', err);
     }
-  }, [currentTrack, isPlaying, togglePlay, skipNext, skipPrev, seek, currentTime, duration]);
+  }, [togglePlay, skipNext, skipPrev, seek, pause, syncMediaSessionPositionState]);
 
-  // Synchronize playbackState & continuous setPositionState with Hardware Audio Engine
+  // Periodic synchronization of playbackState & positionState with Hardware Audio Engine
   useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-
-    try {
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-
-      if ('setPositionState' in navigator.mediaSession && duration > 0 && !isNaN(duration) && isFinite(duration)) {
-        const validPos = Math.min(Math.max(0, currentTime), duration);
-        navigator.mediaSession.setPositionState({
-          duration: duration,
-          playbackRate: playbackSpeed || 1.0,
-          position: validPos
-        });
-      }
-    } catch (err) {
-      // ignore
-    }
-  }, [isPlaying, currentTime, duration, playbackSpeed]);
+    syncMediaSessionPositionState(currentTime, duration, playbackSpeed, isPlaying);
+  }, [isPlaying, currentTime, duration, playbackSpeed, syncMediaSessionPositionState]);
 
   // =========================================================================
   // 2. Picture-in-Picture Floating Dynamic Island Synchronization
@@ -1347,7 +1435,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [currentTrack, isPlaying, currentTime, duration, activeThemeColor]);
 
   // =========================================================================
-  // 3. Screen Wake Lock & Background Audio Keep-Alive
+  // 3. Screen Wake Lock & Background Audio Keep-Alive + Auto PiP on Minimize
   // =========================================================================
   useEffect(() => {
     let wakeLock: any = null;
@@ -1381,18 +1469,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        // App is minimized or screen locked: Keep audio pipelines alive
-        if (isPlaying) {
+        // App is minimized or tab switched:
+        // 1. Keep background audio pipelines alive
+        if (isPlayingRef.current) {
           if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
             audioContextRef.current.resume().catch(() => {});
           }
           if (audioRef.current && audioRef.current.paused) {
             audioRef.current.play().catch(() => {});
           }
+          // 2. Automatically spawn the persistent floating canvas PiP window (300px × 80px)
+          if (currentTrackRef.current && !pipIslandController.isPipActive()) {
+            pipIslandController.requestPipIsland().catch((err) => {
+              console.log('[PiP] Auto PiP trigger on hidden error:', err);
+            });
+          }
         }
       } else {
         // App returned to foreground
-        if (isPlaying) {
+        if (isPlayingRef.current) {
           requestWakeLock();
           if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
             audioContextRef.current.resume().catch(() => {});
@@ -1402,11 +1497,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handleVisibilityChange);
+
     return () => {
-      releaseWakeLock();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handleVisibilityChange);
+      releaseWakeLock();
     };
-  }, [isPlaying]);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

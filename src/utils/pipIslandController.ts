@@ -69,6 +69,11 @@ class PipIslandController {
       }
     }
 
+    // Warm up the canvas stream when playback starts
+    if (this.state.isPlaying && !this.videoEl && typeof document !== 'undefined') {
+      this.ensureCanvasVideoElements();
+    }
+
     // Update Document PiP DOM if open
     if (this.pipWindow && !this.pipWindow.closed) {
       this.updateDocumentPipDOM();
@@ -76,25 +81,30 @@ class PipIslandController {
   }
 
   private setupVisibilityListener() {
-    document.addEventListener('visibilitychange', () => {
+    const handleVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        if (this.autoPipEnabled && this.state.isPlaying && !this.isPipOpen) {
-          this.requestPipIsland().catch(() => {});
+        if (this.autoPipEnabled && this.state.isPlaying && !this.isPipActive()) {
+          this.requestPipIsland().catch((err) => {
+            console.log('[PiP] auto-pip on background hidden:', err);
+          });
         }
       }
-    });
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', handleVisibility);
   }
 
   public isPipActive(): boolean {
     if (this.pipWindow && !this.pipWindow.closed) return true;
-    if (document.pictureInPictureElement) return true;
+    if (typeof document !== 'undefined' && document.pictureInPictureElement) return true;
     return this.isPipOpen;
   }
 
   /**
    * Request Picture-in-Picture:
    * 1. Try Document Picture-in-Picture API (Chrome/Edge desktop & modern Android)
-   * 2. Fallback to Canvas Stream Video PiP (Safari/Firefox/Mobile Chrome)
+   * 2. Fallback to Canvas Stream Video PiP (300px × 80px)
    */
   public async requestPipIsland(): Promise<boolean> {
     if (typeof window === 'undefined') return false;
@@ -102,12 +112,12 @@ class PipIslandController {
     // Check if already active
     if (this.isPipActive()) return true;
 
-    // Option 1: Document Picture-in-Picture API
+    // Option 1: Document Picture-in-Picture API (300px × 80px)
     if ('documentPictureInPicture' in window) {
       try {
         const pipWin = await (window as any).documentPictureInPicture.requestWindow({
-          width: 360,
-          height: 105,
+          width: 300,
+          height: 80,
           disallowReturnToOpener: false,
         });
 
@@ -127,7 +137,7 @@ class PipIslandController {
       }
     }
 
-    // Option 2: Canvas Stream Video PiP fallback
+    // Option 2: Canvas Stream Video PiP (300px × 80px)
     try {
       return await this.startCanvasVideoPip();
     } catch (err) {
@@ -144,7 +154,7 @@ class PipIslandController {
       this.pipWindow = null;
     }
 
-    if (document.pictureInPictureElement) {
+    if (typeof document !== 'undefined' && document.pictureInPictureElement) {
       try {
         await document.exitPictureInPicture();
       } catch {}
@@ -168,12 +178,12 @@ class PipIslandController {
   }
 
   // =========================================================================
-  // Document Picture-in-Picture API Rendering
+  // Document Picture-in-Picture API (300px × 80px Floating HUD)
   // =========================================================================
   private setupDocumentPipWindow(pipWin: any) {
     const doc = pipWin.document;
 
-    // Inject styles
+    // Inject styles tuned for 300px x 80px
     const style = doc.createElement('style');
     style.textContent = `
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -184,6 +194,7 @@ class PipIslandController {
         display: flex;
         align-items: center;
         justify-content: center;
+        width: 100vw;
         height: 100vh;
         overflow: hidden;
         user-select: none;
@@ -191,24 +202,24 @@ class PipIslandController {
       .island-pill {
         width: 100%;
         height: 100%;
-        padding: 10px 14px;
+        padding: 8px 12px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         background: #000000;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 28px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.9);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 24px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.9);
       }
       .art-wrap {
-        width: 44px;
-        height: 44px;
+        width: 48px;
+        height: 48px;
         border-radius: 12px;
         overflow: hidden;
         margin-right: 10px;
         flex-shrink: 0;
         background: #111;
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.12);
       }
       .art-wrap img {
         width: 100%;
@@ -218,7 +229,7 @@ class PipIslandController {
       .meta {
         flex: 1;
         min-width: 0;
-        margin-right: 10px;
+        margin-right: 8px;
       }
       .title {
         font-size: 13px;
@@ -227,6 +238,7 @@ class PipIslandController {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        letter-spacing: -0.01em;
       }
       .artist {
         font-size: 11px;
@@ -239,15 +251,15 @@ class PipIslandController {
       .controls {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
         flex-shrink: 0;
       }
       .btn {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.12);
         border: none;
         color: #fff;
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -263,6 +275,8 @@ class PipIslandController {
       .play-btn {
         background: #ffffff;
         color: #000000;
+        width: 32px;
+        height: 32px;
       }
     `;
     doc.head.appendChild(style);
@@ -309,42 +323,64 @@ class PipIslandController {
   }
 
   // =========================================================================
-  // Canvas Stream Video PiP (Universal Browser Fallback)
+  // Canvas Stream Video PiP (300px × 80px Floating Web HUD)
   // =========================================================================
-  private async startCanvasVideoPip(): Promise<boolean> {
-    if (typeof document === 'undefined') return false;
+  private ensureCanvasVideoElements() {
+    if (typeof document === 'undefined') return;
 
-    // Create offscreen canvas
+    // Create 300x80 canvas (or 600x160 for high-DPI clarity)
     if (!this.canvasEl) {
       this.canvasEl = document.createElement('canvas');
-      this.canvasEl.width = 480;
-      this.canvasEl.height = 120;
+      this.canvasEl.width = 300;
+      this.canvasEl.height = 80;
       this.canvasCtx = this.canvasEl.getContext('2d');
     }
 
-    // Create offscreen video element
+    // Create offscreen video element with autoPictureInPicture
     if (!this.videoEl) {
       this.videoEl = document.createElement('video');
       this.videoEl.muted = true;
       this.videoEl.playsInline = true;
       this.videoEl.autoplay = true;
+      (this.videoEl as any).autoPictureInPicture = true;
+      this.videoEl.setAttribute('autopictureinpicture', '');
+      this.videoEl.setAttribute('playsinline', '');
+      this.videoEl.setAttribute('webkit-playsinline', '');
       this.videoEl.style.position = 'fixed';
       this.videoEl.style.width = '1px';
       this.videoEl.style.height = '1px';
       this.videoEl.style.opacity = '0.001';
       this.videoEl.style.pointerEvents = 'none';
       document.body.appendChild(this.videoEl);
+
+      // Render initial frame and hook up stream
+      this.renderCanvasFrame();
+      const stream = (this.canvasEl as any).captureStream?.(25);
+      if (stream) {
+        this.videoEl.srcObject = stream;
+        this.videoEl.play().catch(() => {});
+      }
     }
+  }
+
+  private async startCanvasVideoPip(): Promise<boolean> {
+    if (typeof document === 'undefined') return false;
+
+    this.ensureCanvasVideoElements();
+    if (!this.videoEl || !this.canvasEl) return false;
 
     // Draw initial frame
     this.renderCanvasFrame();
 
-    // Capture canvas stream
-    const stream = (this.canvasEl as any).captureStream?.(25);
-    if (!stream) return false;
+    if (!this.videoEl.srcObject) {
+      const stream = (this.canvasEl as any).captureStream?.(25);
+      if (!stream) return false;
+      this.videoEl.srcObject = stream;
+    }
 
-    this.videoEl.srcObject = stream;
-    await this.videoEl.play();
+    try {
+      await this.videoEl.play();
+    } catch {}
 
     // Start continuous animation loop
     this.startCanvasLoop();
@@ -385,87 +421,88 @@ class PipIslandController {
     // Clear
     ctx.clearRect(0, 0, w, h);
 
-    // Draw pitch black island pill
-    const radius = 34;
-    ctx.fillStyle = '#000000';
+    // 1. Draw pitch black island pill (300px × 80px)
+    const radius = 24;
+    ctx.fillStyle = '#05060b';
     ctx.beginPath();
-    ctx.roundRect(8, 8, w - 16, h - 16, radius);
+    ctx.roundRect(3, 3, w - 6, h - 6, radius);
     ctx.fill();
 
-    // Dynamic colored rim border
+    // 2. Dynamic colored rim border
     ctx.strokeStyle = this.state.primaryColor || '#fa2d48';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Draw Album Artwork
-    const artSize = 64;
-    const artX = 24;
+    // 3. Draw 48x48 Album Artwork
+    const artSize = 48;
+    const artX = 14;
     const artY = (h - artSize) / 2;
 
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(artX, artY, artSize, artSize, 14);
+    ctx.roundRect(artX, artY, artSize, artSize, 12);
     ctx.clip();
 
     if (this.currentArtworkImg && this.currentArtworkImg.complete) {
       ctx.drawImage(this.currentArtworkImg, artX, artY, artSize, artSize);
     } else {
-      ctx.fillStyle = '#222';
+      ctx.fillStyle = '#181926';
       ctx.fillRect(artX, artY, artSize, artSize);
     }
     ctx.restore();
 
     // Draw Artwork border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.roundRect(artX, artY, artSize, artSize, 14);
+    ctx.roundRect(artX, artY, artSize, artSize, 12);
     ctx.stroke();
 
-    // Text details
-    const textX = artX + artSize + 16;
-    const maxTextWidth = w - textX - 110;
+    // 4. Track Details
+    const textX = artX + artSize + 12;
+    const maxTextWidth = w - textX - 60; // 300 - 74 - 60 = 166px
 
     // Track Title
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     const titleText = this.state.track?.title || 'Aura Music';
-    ctx.fillText(titleText, textX, 50, maxTextWidth);
+    ctx.fillText(titleText, textX, 32, maxTextWidth);
 
     // Artist
     ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-    const artistText = this.state.track?.artist || 'Audiophile Studio Master';
-    ctx.fillText(artistText, textX, 74, maxTextWidth);
+    ctx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const artistText = this.state.track?.artist || 'Ready to play';
+    ctx.fillText(artistText, textX, 48, maxTextWidth);
 
-    // Scrubber line at the bottom
+    // 5. Scrubber line at the bottom
     const progressPercent = this.state.duration > 0
       ? Math.min(1, Math.max(0, this.state.currentTime / this.state.duration))
       : 0;
 
+    const scrubberY = 56;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.beginPath();
-    ctx.roundRect(textX, 86, maxTextWidth, 4, 2);
+    ctx.roundRect(textX, scrubberY, maxTextWidth, 3, 1.5);
     ctx.fill();
 
     ctx.fillStyle = this.state.primaryColor || '#fa2d48';
     ctx.beginPath();
-    ctx.roundRect(textX, 86, maxTextWidth * progressPercent, 4, 2);
+    ctx.roundRect(textX, scrubberY, maxTextWidth * progressPercent, 3, 1.5);
     ctx.fill();
 
-    // Live animated 5-bar soundbars on the right
-    const barBaseX = w - 85;
+    // 6. Live animated 5-bar soundbars on the right (300px HUD)
+    const barBaseX = w - 46;
     const barBaseY = h / 2 + 10;
     const now = Date.now() / 1000;
 
     for (let i = 0; i < 5; i++) {
       const barHeight = this.state.isPlaying
-        ? Math.sin(now * 8 + i * 1.2) * 14 + 18
-        : 6;
+        ? Math.sin(now * 8 + i * 1.2) * 10 + 13
+        : 4;
 
       ctx.fillStyle = this.state.primaryColor || '#fa2d48';
       ctx.beginPath();
-      ctx.roundRect(barBaseX + i * 9, barBaseY - barHeight, 5, barHeight, 2.5);
+      ctx.roundRect(barBaseX + i * 7, barBaseY - barHeight, 4, barHeight, 2);
       ctx.fill();
     }
   }
