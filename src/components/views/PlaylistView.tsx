@@ -50,7 +50,7 @@ export const PlaylistView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-36">
+    <div className="space-y-8" style={{ paddingBottom: '170px' }}>
       {/* Playlist Hero Header */}
       <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 pt-4">
         <div className="relative group shrink-0">

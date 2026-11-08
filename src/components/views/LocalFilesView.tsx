@@ -37,7 +37,7 @@ export const LocalFilesView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-36">
+    <div className="space-y-8" style={{ paddingBottom: '170px' }}>
       <div>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-title-primary tracking-tight flex items-center gap-3">
           <HardDrive className="w-8 h-8 text-sky-400" /> Local Audio Collection

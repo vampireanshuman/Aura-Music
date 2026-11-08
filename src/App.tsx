@@ -90,7 +90,7 @@ const MainLayout: React.FC = () => {
       <div className="lg:pl-64 flex flex-col flex-1 min-w-0 relative z-10">
         <Navbar onToggleSidebar={() => setSidebarOpen(true)} />
 
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-44 lg:pb-32 animate-in fade-in duration-300">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-[170px] lg:pb-32 animate-in fade-in duration-300">
           {renderActiveView()}
         </main>
       </div>

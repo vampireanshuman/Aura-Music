@@ -239,10 +239,27 @@ export const PlayerBar: React.FC = () => {
                 </div>
               </div>
 
-              {/* Title & Artist with auto-scrolling CSS marquee (so "Kesariya" never truncates) */}
-              <div className="min-w-0 flex-1 overflow-hidden pr-1">
+              {/* Title & Artist with flexible container and clean edge mask so text never clips */}
+              <div 
+                style={{
+                  flex: '1 1 0%',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  WebkitMaskImage: 'linear-gradient(90deg, #000 86%, transparent 100%)',
+                  maskImage: 'linear-gradient(90deg, #000 86%, transparent 100%)'
+                }}
+                className="flex-1 min-w-0 overflow-hidden relative pr-2"
+              >
                 <div className="overflow-hidden whitespace-nowrap">
-                  <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight leading-tight inline-block animate-marquee-smooth">
+                  <h4 
+                    className={`text-xs sm:text-sm font-bold text-white tracking-tight leading-tight select-none ${
+                      (currentTrack.title?.length || 0) > 28 
+                        ? 'inline-block animate-marquee-smooth hover:pause' 
+                        : 'truncate'
+                    }`}
+                    title={currentTrack.title}
+                  >
                     {currentTrack.title}
                   </h4>
                 </div>

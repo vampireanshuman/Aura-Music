@@ -47,20 +47,22 @@ export const MobileNavBar: React.FC = () => {
             <button
               key={item.id}
               onClick={() => handleTabClick(item.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl spring-button transition-all duration-200 select-none ${
-                isActive ? 'opacity-100 text-white scale-105' : 'opacity-45 text-white hover:opacity-80'
+              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 rounded-xl spring-button transition-all duration-200 select-none active:scale-[1.08] ${
+                isActive ? 'opacity-100 text-white' : 'opacity-45 text-white/45 hover:opacity-80'
               }`}
               style={{
-                color: isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.45)'
+                color: isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                transform: isActive ? 'scale(1.08)' : 'scale(1)',
+                transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease, color 0.2s ease'
               }}
             >
               <Icon className={`w-5 h-5 mb-0.5 transition-transform ${isActive ? 'stroke-[2.2]' : 'stroke-[1.8]'}`} />
               <span 
-                className="font-semibold block truncate leading-tight"
+                className="font-semibold block truncate leading-tight select-none"
                 style={{ 
+                  fontSize: '10px', 
                   whiteSpace: 'nowrap', 
-                  fontSize: '10.5px', 
-                  letterSpacing: '-0.01em' 
+                  letterSpacing: '-0.02em' 
                 }}
               >
                 {item.label}
