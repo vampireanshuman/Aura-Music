@@ -2,177 +2,277 @@ import type { Track, Playlist } from '../types/music';
 
 export const INITIAL_TRACKS: Track[] = [
   {
-    id: 'track-4',
+    id: 'track-1',
     bitDepth: '24-bit',
-    sampleRate: '192 kHz',
-    title: 'Kesariya (From "Brahmastra")',
-    artist: 'Arijit Singh & Pritam',
-    album: 'Brahmastra Master Hits',
-    duration: 268,
-    audioUrl: 'https://aac.saavncdn.com/423/852ad6cc81d7733c5e9bfc46d7b063e2_320.mp4',
-    youtubeId: 'BddP6PYo2gs',
-    coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80',
-    dominantColor: '#ea580c',
-    secondaryColor: '#f97316',
-    genre: 'Bollywood Romantic',
+    sampleRate: '48 kHz',
+    title: 'Starboy (feat. Daft Punk)',
+    artist: 'The Weeknd',
+    album: 'Starboy (Studio Master)',
+    duration: 230,
+    audioUrl: 'https://aac.saavncdn.com/396/b4e570050007b056c662f2a98c9f28ec_320.mp4',
+    youtubeId: '3_g2un5M350',
+    coverUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
+    dominantColor: '#fa2d48',
+    secondaryColor: '#8b5cf6',
+    genre: 'R&B / Synthpop',
     year: 2026,
-    plays: 5820000,
+    plays: 2840900,
     lyrics: [
   {
-    "time": 9.44,
-    "text": "मुझको इतना बताए कोई"
+    "time": 15.71,
+    "text": "I'm tryna put you in the worst mood, ah"
   },
   {
-    "time": 19.02,
-    "text": "कैसे तुझसे दिल ना लगाए कोई?"
+    "time": 18.36,
+    "text": "P1 cleaner than your church shoes, ah"
   },
   {
-    "time": 29.91,
-    "text": "रब्बा ने तुझको बनाने में"
+    "time": 20.98,
+    "text": "Milli' point two just to hurt you, ah"
   },
   {
-    "time": 34.26,
-    "text": "कर दी हैं हुस्न की ख़ाली तिजोरियाँ"
+    "time": 23.46,
+    "text": "All red Lamb' just to tease you, ah"
   },
   {
-    "time": 40.36,
-    "text": "काजल की सियाही से लिखी हैं तूने"
+    "time": 26.05,
+    "text": "None of these toys on lease too, ah"
   },
   {
-    "time": 45.35,
-    "text": "जाने कितनों की लव-स्टोरियाँ"
+    "time": 28.63,
+    "text": "Made your whole year in a week too, yeah"
   },
   {
-    "time": 49.31,
-    "text": "केसरिया तेरा इश्क़ है, पिया"
+    "time": 31.24,
+    "text": "Main bitch outta your league too, ah"
   },
   {
-    "time": 54.27,
-    "text": "रंग जाऊँ जो मैं हाथ लगाऊँ"
+    "time": 33.7,
+    "text": "Side bitch out of your league too, ah"
   },
   {
-    "time": 58.32,
-    "text": "दिन बीते सारा तेरी फ़िक्र में"
+    "time": 36.68,
+    "text": "House so empty, need a centerpiece"
   },
   {
-    "time": 63.09,
-    "text": "रैन सारी तेरी ख़ैर मनाऊँ"
+    "time": 38.94,
+    "text": "20 racks a table, cut from ebony"
   },
   {
-    "time": 69.93,
-    "text": "केसरिया तेरा इश्क़ है, पिया"
+    "time": 41.69,
+    "text": "Cut that ivory into skinny pieces"
   },
   {
-    "time": 74.72,
-    "text": "रंग जाऊँ जो मैं हाथ लगाऊँ"
+    "time": 43.83,
+    "text": "Then she clean it with her face, man, I love my baby, ah"
   },
   {
-    "time": 78.97,
-    "text": "दिन बीते सारा तेरी फ़िक्र में"
+    "time": 46.98,
+    "text": "You talking money, need a hearing aid"
   },
   {
-    "time": 83.69,
-    "text": "रैन सारी तेरी ख़ैर मनाऊँ"
+    "time": 49.51,
+    "text": "You talking 'bout me, I don't see the shade"
   },
   {
-    "time": 117.7,
-    "text": "पतझड़ के मौसम में भी रंगीं चनारों जैसी"
+    "time": 52.16,
+    "text": "Switch up my style, I take any lane"
   },
   {
-    "time": 122.81,
-    "text": "झनके सन्नाटों में तू वीना के तारों जैसी"
+    "time": 54.35,
+    "text": "I switch up my cup, I kill any pain"
   },
   {
-    "time": 132.43,
-    "text": "Mmm, सदियों से भी लंबी ये मन की अमावसें हैं"
+    "time": 60.76,
+    "text": "Look what you've done"
   },
   {
-    "time": 138.13,
-    "text": "और तू फुलझड़ियों वाले त्योहारों जैसी"
+    "time": 65.72,
+    "text": "I'm a motherfucking starboy"
   },
   {
-    "time": 142.2,
-    "text": "चंदा भी दीवाना है तेरा"
+    "time": 71.06,
+    "text": "Look what you've done"
   },
   {
-    "time": 146.39,
-    "text": "जलती हैं तुझसे सारी चकोरियाँ"
+    "time": 76.03,
+    "text": "I'm a motherfucking starboy"
   },
   {
-    "time": 152.56,
-    "text": "काजल की सियाही से लिखी हैं तूने"
+    "time": 77.72,
+    "text": "Every day a nigga try to test me, ah"
   },
   {
-    "time": 157.56,
-    "text": "जाने कितनों की लव-स्टोरियाँ (लव-स्टोरियाँ)"
+    "time": 80.25,
+    "text": "Every day a nigga try to end me, ah"
   },
   {
-    "time": 164.24,
-    "text": "केसरिया तेरा इश्क़ है, पिया"
+    "time": 82.8,
+    "text": "Pull off in that Roadster SV, ah"
   },
   {
-    "time": 169.21,
-    "text": "रंग जाऊँ जो मैं हाथ लगाऊँ"
+    "time": 85.4,
+    "text": "Pockets overweight, getting hefty, ah"
   },
   {
-    "time": 173.27,
-    "text": "दिन बीते सारा तेरी फ़िक्र में"
+    "time": 88.01,
+    "text": "Coming for the king, that's a far cry, I"
   },
   {
-    "time": 178.21,
-    "text": "रैन सारी तेरी ख़ैर मनाऊँ"
+    "time": 90.72,
+    "text": "I come alive in the fall time, I"
   },
   {
-    "time": 184.82,
-    "text": "केसरिया तेरा इश्क़ है, पिया"
+    "time": 93.33,
+    "text": "The competition, I don't really listen"
   },
   {
-    "time": 189.64,
-    "text": "रंग जाऊँ जो मैं हाथ लगाऊँ"
+    "time": 95.49,
+    "text": "I'm in the blue Mulsanne bumping New Edition"
   },
   {
-    "time": 193.74,
-    "text": "दिन बीते सारा तेरी फ़िक्र में"
+    "time": 98.58,
+    "text": "House so empty, need a centerpiece"
   },
   {
-    "time": 198.41,
-    "text": "रैन सारी तेरी ख़ैर मनाऊँ"
+    "time": 101.07,
+    "text": "20 racks a table, cut from ebony"
   },
   {
-    "time": 212.95,
-    "text": "केसरिया तेरा इश्क़ है, पिया, इश्क़ है, पिया"
+    "time": 103.75,
+    "text": "Cut that ivory into skinny pieces"
   },
   {
-    "time": 218.18,
-    "text": "केसरिया तेरा इश्क़ है, पिया, इश्क़ है, पिया"
+    "time": 105.8,
+    "text": "Then she clean it with her face, man, I love my baby, ah"
   },
   {
-    "time": 223.03,
-    "text": "पिया, इश्क़ है, पिया, इश्क़ है, पिया"
+    "time": 108.83,
+    "text": "You talking money, need a hearing aid"
   },
   {
-    "time": 231.26,
-    "text": "केसरिया तेरा (इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
+    "time": 111.44,
+    "text": "You talking 'bout me, I don't see the shade"
   },
   {
-    "time": 238.55,
-    "text": "इश्क़ है, पिया (इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
+    "time": 114.16,
+    "text": "Switch up my style, I take any lane"
   },
   {
-    "time": 244.39,
-    "text": "रंग जाऊँ जो मैं (इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
+    "time": 116.39,
+    "text": "I switch up my cup, I kill any pain"
   },
   {
-    "time": 249.12,
-    "text": "हाथ लगाऊँ (इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
+    "time": 122.78,
+    "text": "Look what you've done"
   },
   {
-    "time": 252.86,
-    "text": "(इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
+    "time": 127.6,
+    "text": "I'm a motherfucking starboy"
   },
   {
-    "time": 257.97,
-    "text": "(इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
+    "time": 133.09,
+    "text": "Look what you've done"
+  },
+  {
+    "time": 137.86,
+    "text": "I'm a motherfucking starboy"
+  },
+  {
+    "time": 140.04,
+    "text": "Let a nigga brag Pitt"
+  },
+  {
+    "time": 141.79,
+    "text": "Legend of the fall, took the year like a bandit"
+  },
+  {
+    "time": 144.3,
+    "text": "Bought mama a crib and a brand-new wagon"
+  },
+  {
+    "time": 146.63,
+    "text": "Now she hit the grocery shop looking lavish"
+  },
+  {
+    "time": 149.4,
+    "text": "Star Trek roof in that Wraith of Khan"
+  },
+  {
+    "time": 151.86,
+    "text": "Girls get loose when they hear this song"
+  },
+  {
+    "time": 154.59,
+    "text": "A hundred on the dash, get me close to God"
+  },
+  {
+    "time": 156.87,
+    "text": "We don't pray for love, we just pray for cars"
+  },
+  {
+    "time": 160.49,
+    "text": "House so empty, need a centerpiece"
+  },
+  {
+    "time": 162.85,
+    "text": "20 racks a table, cut from ebony"
+  },
+  {
+    "time": 165.7,
+    "text": "Cut that ivory into skinny pieces"
+  },
+  {
+    "time": 167.71,
+    "text": "Then she clean it with her face, man, I love my baby, ah"
+  },
+  {
+    "time": 170.89,
+    "text": "You talking money, need a hearing aid"
+  },
+  {
+    "time": 173.31,
+    "text": "You talking 'bout me, I don't see the shade"
+  },
+  {
+    "time": 176.02,
+    "text": "Switch up my style, I take any lane"
+  },
+  {
+    "time": 178.2,
+    "text": "I switch up my cup, I kill any pain"
+  },
+  {
+    "time": 184.63,
+    "text": "Look what you've done"
+  },
+  {
+    "time": 189.65,
+    "text": "I'm a motherfucking starboy"
+  },
+  {
+    "time": 194.9,
+    "text": "Look what you've done"
+  },
+  {
+    "time": 199.92,
+    "text": "I'm a motherfucking starboy"
+  },
+  {
+    "time": 205.22,
+    "text": "Look what you've done"
+  },
+  {
+    "time": 210.35,
+    "text": "I'm a motherfucking starboy"
+  },
+  {
+    "time": 215.62,
+    "text": "Look what you've done"
+  },
+  {
+    "time": 220.56,
+    "text": "I'm a motherfucking starboy"
   }
 ]
   },
@@ -2470,277 +2570,177 @@ export const INITIAL_TRACKS: Track[] = [
 ]
   },
   {
-    id: 'track-1',
+    id: 'track-4',
     bitDepth: '24-bit',
-    sampleRate: '48 kHz',
-    title: 'Starboy (feat. Daft Punk)',
-    artist: 'The Weeknd',
-    album: 'Starboy (Studio Master)',
-    duration: 230,
-    audioUrl: 'https://aac.saavncdn.com/396/b4e570050007b056c662f2a98c9f28ec_320.mp4',
-    youtubeId: '3_g2un5M350',
-    coverUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
-    dominantColor: '#fa2d48',
-    secondaryColor: '#8b5cf6',
-    genre: 'R&B / Synthpop',
+    sampleRate: '192 kHz',
+    title: 'Kesariya (From "Brahmastra")',
+    artist: 'Arijit Singh & Pritam',
+    album: 'Brahmastra Master Hits',
+    duration: 268,
+    audioUrl: 'https://aac.saavncdn.com/423/852ad6cc81d7733c5e9bfc46d7b063e2_320.mp4',
+    youtubeId: 'BddP6PYo2gs',
+    coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80',
+    dominantColor: '#ea580c',
+    secondaryColor: '#f97316',
+    genre: 'Bollywood Romantic',
     year: 2026,
-    plays: 2840900,
+    plays: 5820000,
     lyrics: [
   {
-    "time": 15.71,
-    "text": "I'm tryna put you in the worst mood, ah"
+    "time": 9.44,
+    "text": "मुझको इतना बताए कोई"
   },
   {
-    "time": 18.36,
-    "text": "P1 cleaner than your church shoes, ah"
+    "time": 19.02,
+    "text": "कैसे तुझसे दिल ना लगाए कोई?"
   },
   {
-    "time": 20.98,
-    "text": "Milli' point two just to hurt you, ah"
+    "time": 29.91,
+    "text": "रब्बा ने तुझको बनाने में"
   },
   {
-    "time": 23.46,
-    "text": "All red Lamb' just to tease you, ah"
+    "time": 34.26,
+    "text": "कर दी हैं हुस्न की ख़ाली तिजोरियाँ"
   },
   {
-    "time": 26.05,
-    "text": "None of these toys on lease too, ah"
+    "time": 40.36,
+    "text": "काजल की सियाही से लिखी हैं तूने"
   },
   {
-    "time": 28.63,
-    "text": "Made your whole year in a week too, yeah"
+    "time": 45.35,
+    "text": "जाने कितनों की लव-स्टोरियाँ"
   },
   {
-    "time": 31.24,
-    "text": "Main bitch outta your league too, ah"
+    "time": 49.31,
+    "text": "केसरिया तेरा इश्क़ है, पिया"
   },
   {
-    "time": 33.7,
-    "text": "Side bitch out of your league too, ah"
+    "time": 54.27,
+    "text": "रंग जाऊँ जो मैं हाथ लगाऊँ"
   },
   {
-    "time": 36.68,
-    "text": "House so empty, need a centerpiece"
+    "time": 58.32,
+    "text": "दिन बीते सारा तेरी फ़िक्र में"
   },
   {
-    "time": 38.94,
-    "text": "20 racks a table, cut from ebony"
+    "time": 63.09,
+    "text": "रैन सारी तेरी ख़ैर मनाऊँ"
   },
   {
-    "time": 41.69,
-    "text": "Cut that ivory into skinny pieces"
+    "time": 69.93,
+    "text": "केसरिया तेरा इश्क़ है, पिया"
   },
   {
-    "time": 43.83,
-    "text": "Then she clean it with her face, man, I love my baby, ah"
+    "time": 74.72,
+    "text": "रंग जाऊँ जो मैं हाथ लगाऊँ"
   },
   {
-    "time": 46.98,
-    "text": "You talking money, need a hearing aid"
+    "time": 78.97,
+    "text": "दिन बीते सारा तेरी फ़िक्र में"
   },
   {
-    "time": 49.51,
-    "text": "You talking 'bout me, I don't see the shade"
+    "time": 83.69,
+    "text": "रैन सारी तेरी ख़ैर मनाऊँ"
   },
   {
-    "time": 52.16,
-    "text": "Switch up my style, I take any lane"
+    "time": 117.7,
+    "text": "पतझड़ के मौसम में भी रंगीं चनारों जैसी"
   },
   {
-    "time": 54.35,
-    "text": "I switch up my cup, I kill any pain"
+    "time": 122.81,
+    "text": "झनके सन्नाटों में तू वीना के तारों जैसी"
   },
   {
-    "time": 60.76,
-    "text": "Look what you've done"
+    "time": 132.43,
+    "text": "Mmm, सदियों से भी लंबी ये मन की अमावसें हैं"
   },
   {
-    "time": 65.72,
-    "text": "I'm a motherfucking starboy"
+    "time": 138.13,
+    "text": "और तू फुलझड़ियों वाले त्योहारों जैसी"
   },
   {
-    "time": 71.06,
-    "text": "Look what you've done"
+    "time": 142.2,
+    "text": "चंदा भी दीवाना है तेरा"
   },
   {
-    "time": 76.03,
-    "text": "I'm a motherfucking starboy"
+    "time": 146.39,
+    "text": "जलती हैं तुझसे सारी चकोरियाँ"
   },
   {
-    "time": 77.72,
-    "text": "Every day a nigga try to test me, ah"
+    "time": 152.56,
+    "text": "काजल की सियाही से लिखी हैं तूने"
   },
   {
-    "time": 80.25,
-    "text": "Every day a nigga try to end me, ah"
+    "time": 157.56,
+    "text": "जाने कितनों की लव-स्टोरियाँ (लव-स्टोरियाँ)"
   },
   {
-    "time": 82.8,
-    "text": "Pull off in that Roadster SV, ah"
+    "time": 164.24,
+    "text": "केसरिया तेरा इश्क़ है, पिया"
   },
   {
-    "time": 85.4,
-    "text": "Pockets overweight, getting hefty, ah"
+    "time": 169.21,
+    "text": "रंग जाऊँ जो मैं हाथ लगाऊँ"
   },
   {
-    "time": 88.01,
-    "text": "Coming for the king, that's a far cry, I"
+    "time": 173.27,
+    "text": "दिन बीते सारा तेरी फ़िक्र में"
   },
   {
-    "time": 90.72,
-    "text": "I come alive in the fall time, I"
+    "time": 178.21,
+    "text": "रैन सारी तेरी ख़ैर मनाऊँ"
   },
   {
-    "time": 93.33,
-    "text": "The competition, I don't really listen"
+    "time": 184.82,
+    "text": "केसरिया तेरा इश्क़ है, पिया"
   },
   {
-    "time": 95.49,
-    "text": "I'm in the blue Mulsanne bumping New Edition"
+    "time": 189.64,
+    "text": "रंग जाऊँ जो मैं हाथ लगाऊँ"
   },
   {
-    "time": 98.58,
-    "text": "House so empty, need a centerpiece"
+    "time": 193.74,
+    "text": "दिन बीते सारा तेरी फ़िक्र में"
   },
   {
-    "time": 101.07,
-    "text": "20 racks a table, cut from ebony"
+    "time": 198.41,
+    "text": "रैन सारी तेरी ख़ैर मनाऊँ"
   },
   {
-    "time": 103.75,
-    "text": "Cut that ivory into skinny pieces"
+    "time": 212.95,
+    "text": "केसरिया तेरा इश्क़ है, पिया, इश्क़ है, पिया"
   },
   {
-    "time": 105.8,
-    "text": "Then she clean it with her face, man, I love my baby, ah"
+    "time": 218.18,
+    "text": "केसरिया तेरा इश्क़ है, पिया, इश्क़ है, पिया"
   },
   {
-    "time": 108.83,
-    "text": "You talking money, need a hearing aid"
+    "time": 223.03,
+    "text": "पिया, इश्क़ है, पिया, इश्क़ है, पिया"
   },
   {
-    "time": 111.44,
-    "text": "You talking 'bout me, I don't see the shade"
+    "time": 231.26,
+    "text": "केसरिया तेरा (इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
   },
   {
-    "time": 114.16,
-    "text": "Switch up my style, I take any lane"
+    "time": 238.55,
+    "text": "इश्क़ है, पिया (इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
   },
   {
-    "time": 116.39,
-    "text": "I switch up my cup, I kill any pain"
+    "time": 244.39,
+    "text": "रंग जाऊँ जो मैं (इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
   },
   {
-    "time": 122.78,
-    "text": "Look what you've done"
+    "time": 249.12,
+    "text": "हाथ लगाऊँ (इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
   },
   {
-    "time": 127.6,
-    "text": "I'm a motherfucking starboy"
+    "time": 252.86,
+    "text": "(इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
   },
   {
-    "time": 133.09,
-    "text": "Look what you've done"
-  },
-  {
-    "time": 137.86,
-    "text": "I'm a motherfucking starboy"
-  },
-  {
-    "time": 140.04,
-    "text": "Let a nigga brag Pitt"
-  },
-  {
-    "time": 141.79,
-    "text": "Legend of the fall, took the year like a bandit"
-  },
-  {
-    "time": 144.3,
-    "text": "Bought mama a crib and a brand-new wagon"
-  },
-  {
-    "time": 146.63,
-    "text": "Now she hit the grocery shop looking lavish"
-  },
-  {
-    "time": 149.4,
-    "text": "Star Trek roof in that Wraith of Khan"
-  },
-  {
-    "time": 151.86,
-    "text": "Girls get loose when they hear this song"
-  },
-  {
-    "time": 154.59,
-    "text": "A hundred on the dash, get me close to God"
-  },
-  {
-    "time": 156.87,
-    "text": "We don't pray for love, we just pray for cars"
-  },
-  {
-    "time": 160.49,
-    "text": "House so empty, need a centerpiece"
-  },
-  {
-    "time": 162.85,
-    "text": "20 racks a table, cut from ebony"
-  },
-  {
-    "time": 165.7,
-    "text": "Cut that ivory into skinny pieces"
-  },
-  {
-    "time": 167.71,
-    "text": "Then she clean it with her face, man, I love my baby, ah"
-  },
-  {
-    "time": 170.89,
-    "text": "You talking money, need a hearing aid"
-  },
-  {
-    "time": 173.31,
-    "text": "You talking 'bout me, I don't see the shade"
-  },
-  {
-    "time": 176.02,
-    "text": "Switch up my style, I take any lane"
-  },
-  {
-    "time": 178.2,
-    "text": "I switch up my cup, I kill any pain"
-  },
-  {
-    "time": 184.63,
-    "text": "Look what you've done"
-  },
-  {
-    "time": 189.65,
-    "text": "I'm a motherfucking starboy"
-  },
-  {
-    "time": 194.9,
-    "text": "Look what you've done"
-  },
-  {
-    "time": 199.92,
-    "text": "I'm a motherfucking starboy"
-  },
-  {
-    "time": 205.22,
-    "text": "Look what you've done"
-  },
-  {
-    "time": 210.35,
-    "text": "I'm a motherfucking starboy"
-  },
-  {
-    "time": 215.62,
-    "text": "Look what you've done"
-  },
-  {
-    "time": 220.56,
-    "text": "I'm a motherfucking starboy"
+    "time": 257.97,
+    "text": "(इश्क़ है, पिया, इश्क़ है, पिया, इश्क़ है, पिया)"
   }
 ]
   },

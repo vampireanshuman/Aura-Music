@@ -509,6 +509,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const playbackSpeedRef = useRef(1.0);
   const currentTrackRef = useRef(currentTrack);
   currentTrackRef.current = currentTrack;
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  const queueIndexRef = useRef(queueIndex);
+  queueIndexRef.current = queueIndex;
+  const repeatModeRef = useRef(repeatMode);
+  repeatModeRef.current = repeatMode;
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   const lastMediaSessionSyncRef = useRef<number>(0);
 
   // Precise Position State Synchronization with Hardware Lockscreen & Headphone Audio Clock
@@ -751,17 +763,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!audioA) return;
     (window as any).__audio = audioA;
 
-    // Set initial track source so bottom player is immediately ready on first click
-    if (INITIAL_TRACKS[0]?.audioUrl) {
-      audioA.src = INITIAL_TRACKS[0].audioUrl;
-    }
-
     const handleDeckTimeUpdate = (deckType: 'A' | 'B') => {
       // Only process state for the currently active deck
       if (activeDeckRef.current !== deckType) return;
       const activeAudio = deckType === 'A' ? audioA : audioB;
       const inactiveAudio = deckType === 'A' ? audioB : audioA;
       if (!activeAudio) return;
+
+      const curQueue = queueRef.current;
+      const curQueueIndex = queueIndexRef.current;
+      const curRepeatMode = repeatModeRef.current;
+      const curVolume = volumeRef.current;
+      const curIsMuted = isMutedRef.current;
+      const curSettings = settingsRef.current;
 
       setCurrentTime(activeAudio.currentTime);
       currentTimeRef.current = activeAudio.currentTime;
@@ -779,7 +793,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       // Real Dual-Deck Gapless Crossfade Pipeline
-      const crossfadeDuration = settings.crossfade ?? 2;
+      const crossfadeDuration = curSettings.crossfade ?? 2;
       const cur = activeAudio.currentTime;
       const dur = activeAudio.duration;
 
@@ -792,15 +806,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         inactiveAudio
       ) {
         // Look up next track in the queue
-        let nextIndex = queueIndex + 1;
-        if (repeatMode === 'one') {
-          nextIndex = queueIndex;
-        } else if (nextIndex >= queue.length) {
-          nextIndex = repeatMode === 'all' ? 0 : -1;
+        let nextIndex = curQueueIndex + 1;
+        if (curRepeatMode === 'one') {
+          nextIndex = curQueueIndex;
+        } else if (nextIndex >= curQueue.length) {
+          nextIndex = curRepeatMode === 'all' ? 0 : -1;
         }
 
-        if (nextIndex >= 0 && queue[nextIndex]) {
-          const nextTrack = queue[nextIndex];
+        if (nextIndex >= 0 && curQueue[nextIndex]) {
+          const nextTrack = curQueue[nextIndex];
           isCrossfadingRef.current = true;
 
           const startCrossfadeDeck = (streamUrl: string) => {
@@ -808,11 +822,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             inactiveAudio.crossOrigin = 'anonymous';
             if (inactiveAudio.src !== streamUrl) {
               inactiveAudio.src = streamUrl;
+              inactiveAudio.load();
             }
-            inactiveAudio.currentTime = 0;
+            try {
+              inactiveAudio.currentTime = 0;
+            } catch {}
             inactiveAudio.playbackRate = playbackSpeedRef.current || 1.0;
-            const targetVol = isMuted ? 0 : volume;
-            const { outgoing, incoming } = calculateCrossfadeVolumes(0, settings.crossfadeCurve, targetVol);
+            const targetVol = curIsMuted ? 0 : curVolume;
+            const { outgoing, incoming } = calculateCrossfadeVolumes(0, curSettings.crossfadeCurve, targetVol);
             inactiveAudio.volume = incoming;
             activeAudio.volume = outgoing;
             inactiveAudio.play().catch(e => console.warn('[Crossfade] Secondary deck initial play note:', e));
@@ -835,8 +852,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isCrossfadingRef.current && inactiveAudio && crossfadeDuration > 0) {
         const remaining = Math.max(0, dur - cur);
         const p = Math.max(0, Math.min(1, 1 - (remaining / crossfadeDuration)));
-        const targetVol = isMuted ? 0 : volume;
-        const { outgoing, incoming } = calculateCrossfadeVolumes(p, settings.crossfadeCurve, targetVol);
+        const targetVol = curIsMuted ? 0 : curVolume;
+        const { outgoing, incoming } = calculateCrossfadeVolumes(p, curSettings.crossfadeCurve, targetVol);
         activeAudio.volume = outgoing;
         inactiveAudio.volume = incoming;
 
@@ -844,15 +861,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // Crossfade completed: finalize deck switchover
           isCrossfadingRef.current = false;
           activeAudio.pause();
-          activeAudio.volume = isMuted ? 0 : volume;
-          inactiveAudio.volume = isMuted ? 0 : volume;
+          activeAudio.volume = curIsMuted ? 0 : curVolume;
+          inactiveAudio.volume = curIsMuted ? 0 : curVolume;
           activeDeckRef.current = deckType === 'A' ? 'B' : 'A';
           (window as any).__audio = inactiveAudio;
 
-          let nextIdx = (queueIndex + 1) % queue.length;
-          if (repeatMode === 'one') nextIdx = queueIndex;
+          let nextIdx = (curQueueIndex + 1) % curQueue.length;
+          if (curRepeatMode === 'one') nextIdx = curQueueIndex;
           setQueueIndex(nextIdx);
-          const nextT = queue[nextIdx];
+          const nextT = curQueue[nextIdx];
           if (nextT) {
             setCurrentTrack(nextT);
             currentTrackRef.current = nextT;
@@ -975,7 +992,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         audioB.pause();
       }
     };
-  }, [queue, queueIndex, repeatMode, settings.crossfade, settings.crossfadeCurve, volume, isMuted, syncMediaSessionPositionState]);
+  }, [syncMediaSessionPositionState]);
 
   // Web Audio Context initialization on first interaction
   const initWebAudio = useCallback(() => {
@@ -1178,24 +1195,29 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeDeck.crossOrigin = 'anonymous';
         if (activeDeck.src !== src) {
           activeDeck.src = src;
+          activeDeck.load();
         }
-        activeDeck.currentTime = 0;
-        activeDeck.playbackRate = playbackSpeed;
-        activeDeck.volume = isMuted ? 0 : volume;
+        try {
+          activeDeck.currentTime = 0;
+        } catch {
+          // ignore readyState guard
+        }
+        activeDeck.playbackRate = playbackSpeedRef.current || 1.0;
+        activeDeck.volume = isMutedRef.current ? 0 : volumeRef.current;
 
         const playPromise = activeDeck.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
             setIsPlaying(true);
             isPlayingRef.current = true;
-            syncMediaSessionPositionState(0, track.duration, playbackSpeed, true);
+            syncMediaSessionPositionState(0, track.duration, playbackSpeedRef.current, true);
           }).catch((err) => {
             console.warn('[Audio] Direct audio play error or gesture needed:', err);
           });
         } else {
           setIsPlaying(true);
           isPlayingRef.current = true;
-          syncMediaSessionPositionState(0, track.duration, playbackSpeed, true);
+          syncMediaSessionPositionState(0, track.duration, playbackSpeedRef.current, true);
         }
       };
 
@@ -1357,21 +1379,31 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (isPlaying) {
       pause();
     } else {
-      if ((!audio.src || audio.src === window.location.href) && currentTrack) {
-        if (currentTrack.audioUrl && (currentTrack.audioUrl.startsWith('https://') || currentTrack.audioUrl.startsWith('http://'))) {
-          audio.src = currentTrack.audioUrl;
+      if (currentTrack) {
+        const targetUrl = currentTrack.audioUrl;
+        if (targetUrl && (targetUrl.startsWith('https://') || targetUrl.startsWith('http://'))) {
+          if (audio.src !== targetUrl) {
+            audio.crossOrigin = 'anonymous';
+            audio.src = targetUrl;
+            audio.load();
+          }
         } else {
           resolveDirectStream(currentTrack).then(resUrl => {
             if (resUrl) {
               currentTrack.audioUrl = resUrl;
-              audio.src = resUrl;
+              registerTrack({ ...currentTrack, audioUrl: resUrl });
+              audio.crossOrigin = 'anonymous';
+              if (audio.src !== resUrl) {
+                audio.src = resUrl;
+                audio.load();
+              }
               audio.play().catch(() => {});
             }
           }).catch(() => {});
         }
       }
-      audio.playbackRate = playbackSpeed;
-      audio.volume = isMuted ? 0 : volume;
+      audio.playbackRate = playbackSpeedRef.current || 1.0;
+      audio.volume = isMutedRef.current ? 0 : volumeRef.current;
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {

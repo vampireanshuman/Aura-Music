@@ -28,7 +28,7 @@ android {
         applicationId "com.auramusic.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode System.getenv("GITHUB_RUN_NUMBER") ? (100 + System.getenv("GITHUB_RUN_NUMBER").toInteger()) : 108
+        versionCode System.getenv("GITHUB_RUN_NUMBER") ? (100 + System.getenv("GITHUB_RUN_NUMBER").toInteger()) : 109
         versionName getAppVersionName()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

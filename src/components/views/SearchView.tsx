@@ -20,7 +20,7 @@ import { get4kArtworkUrl, handleArtworkError } from '../../utils/artworkUtils';
 
 const QUICK_TRENDING_CHIPS = [
   'Starboy The Weeknd',
-  'Arijit Singh Kesariya',
+  'King Maan Meri Jaan',
   'Billie Eilish Birds of a Feather',
   'Sabrina Carpenter Espresso',
   'Coldplay Viva La Vida',
@@ -408,7 +408,7 @@ export const SearchView: React.FC = () => {
               { title: 'Starboy', artist: 'The Weeknd', id: '3_g2un5M350', cover: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80', genre: 'R&B / Synth' },
               { title: 'Birds of a Feather', artist: 'Billie Eilish', id: 'd5gf9dXbPi0', cover: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80', genre: 'Alternative' },
               { title: 'Espresso', artist: 'Sabrina Carpenter', id: 'eVli-tstM5E', cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=80', genre: 'Nu-Disco' },
-              { title: 'Kesariya', artist: 'Arijit Singh', id: 'BddP6PYo2gs', cover: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&auto=format&fit=crop&q=80', genre: 'Bollywood' },
+              { title: 'Maan Meri Jaan', artist: 'King', id: 'VuG7FT9dUJ4', cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80', genre: 'Pop / Hip-Hop' },
               { title: 'Blinding Lights', artist: 'The Weeknd', id: '4NRXx6U8ABQ', cover: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800&auto=format&fit=crop&q=80', genre: 'Synthwave' },
               { title: 'Viva La Vida', artist: 'Coldplay', id: 'dvgZkm1xWPE', cover: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=800&auto=format&fit=crop&q=80', genre: 'Rock' },
               { title: 'Cruel Summer', artist: 'Taylor Swift', id: 'ic8j13piAhQ', cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80', genre: 'Pop' },
