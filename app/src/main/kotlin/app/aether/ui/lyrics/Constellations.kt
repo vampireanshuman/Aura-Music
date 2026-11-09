@@ -173,7 +173,7 @@ fun LyricsStage(track: Track, pane: DragState) {
             Txt(track.title, Type.Label, color = Ink.Grey, upper = true, maxLines = 1, modifier = Modifier.padding(horizontal = 40.dp))
         }
         val credit = when (words) {
-            is Words.Timed -> "Words: ${words.credit}" + if (words.estimated) "  ·  timed by AETHER" else ""
+            is Words.Timed -> "Words: ${words.credit}" + if (words.estimated) "  ·  timed by Aura" else ""
             is Words.Untimed -> "Words: ${words.credit}"
             Words.Instrumental -> if (asLine) "Instrumental" else null
             else -> null

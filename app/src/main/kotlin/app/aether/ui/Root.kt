@@ -380,7 +380,7 @@ private fun RisingWordmark(rise: Animatable<Float, *>, target: Rect) {
         val from = Offset(w / 2f, h / 2f * (1f - 0.01f / half))
         val startScale = 1.09f * unit * 1.04f / target.width
         Txt(
-            "Aether",
+            "Aura",
             MastheadStyle,
             modifier = Modifier
                 .offset { IntOffset(target.left.roundToInt(), target.top.roundToInt()) }

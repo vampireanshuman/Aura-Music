@@ -182,7 +182,7 @@ private fun LazyListScope.folderGrid(cards: List<PhoneCard>) {
 private fun AllowMusic(music: PhoneMusic) {
     Notice(
         "Your own music",
-        if (music.asked) "Allow AETHER to read your audio in the phone's settings, under Apps." else "AETHER can play the songs on this phone straight from their files, at their own quality. It needs permission to read your audio; nothing leaves the phone.",
+        if (music.asked) "Allow Aura to read your audio in the phone's settings, under Apps." else "Aura can play the songs on this phone straight from their files, at their own quality. It needs permission to read your audio; nothing leaves the phone.",
         action = if (music.asked) null else "Allow",
         onAction = music.ask,
     )

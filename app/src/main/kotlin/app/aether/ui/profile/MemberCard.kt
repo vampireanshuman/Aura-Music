@@ -221,7 +221,7 @@ fun MetalCardOverlay(export: CardExport, onSaved: (String) -> Unit) {
         }
         saved = uri
         busy = false
-        onSaved("Saved to Pictures / AETHER")
+        onSaved("Saved to Pictures / Aura")
         share(context, uri)
     }
 
@@ -302,8 +302,8 @@ fun MetalCardOverlay(export: CardExport, onSaved: (String) -> Unit) {
 }
 
 private fun fileName(content: CardContent): String = when (content) {
-    is CardContent.Profile -> "AETHER card"
-    is CardContent.Song -> "AETHER " + content.track.title.replace(Regex("[^\\p{L}\\p{N} ]"), "").trim().take(40)
+    is CardContent.Profile -> "Aura card"
+    is CardContent.Song -> "Aura " + content.track.title.replace(Regex("[^\\p{L}\\p{N} ]"), "").trim().take(40)
 }
 
 /** How words are cut into each finish: bright on the black, dark on the silver, each with the edge the metal gives it. */
@@ -363,7 +363,7 @@ private fun Caps(
 @Composable
 private fun Logo(e: Engraving, size: Float, modifier: Modifier = Modifier) {
     BasicText(
-        "Aether",
+        "Aura",
         modifier,
         style = TextStyle(brush = e.ink, fontFamily = Script, fontWeight = FontWeight.W400, fontSize = size.sp, lineHeight = (size * 1.2f).sp, shadow = e.edge),
         softWrap = false,
@@ -598,7 +598,7 @@ private fun saveToPhone(context: Context, bitmap: Bitmap, name: String) {
     val values = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, "$name ${LocalDate.now()} ${System.currentTimeMillis() % 100000}.png")
         put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/AETHER")
+        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Aura")
         put(MediaStore.Images.Media.IS_PENDING, 1)
     }
     val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return
@@ -611,7 +611,7 @@ private fun saveToPhone(context: Context, bitmap: Bitmap, name: String) {
 /** A copy in the app's own cache to hand to whichever app the listener shares with. */
 private fun shareFile(context: Context, bitmap: Bitmap): Uri {
     val folder = File(context.cacheDir, "shared").apply { mkdirs() }
-    val file = File(folder, "AETHER card.png")
+    val file = File(folder, "Aura card.png")
     FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }
@@ -620,7 +620,7 @@ private fun share(context: Context, uri: Uri) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "image/png"
         putExtra(Intent.EXTRA_STREAM, uri)
-        clipData = ClipData.newRawUri("AETHER card", uri)
+        clipData = ClipData.newRawUri("Aura card", uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(send, "Share your card").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))

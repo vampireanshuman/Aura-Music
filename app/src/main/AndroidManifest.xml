@@ -10,7 +10,7 @@
         android:name=".AetherApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="AETHER"
+        android:label="Aura"
         android:supportsRtl="true"
         android:theme="@style/Theme.Aether">
 

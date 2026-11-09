@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g., v1.2.0)'
+        description: 'Release Tag (e.g., v1.2.1)'
         required: true
-        default: 'v1.2.0'
+        default: 'v1.2.1'
 
 permissions:
   contents: write
@@ -65,7 +65,7 @@ jobs:
       - name: Stage Release APK & Checksums
         run: |
           mkdir -p release_assets
-          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v1.2.0' }}"
+          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v1.2.1' }}"
           
           # Find release APK
           APK_FILE=$(find app/build/outputs/apk/release/ -type f -name "*.apk" | head -n 1)
@@ -77,7 +77,7 @@ jobs:
             echo "Found APK: $APK_FILE"
             cp "$APK_FILE" release_assets/AuraMusic-release.apk
             cp "$APK_FILE" "release_assets/Aura-Music-${TAG_VAL}.apk"
-            cp "$APK_FILE" "release_assets/AETHER-${TAG_VAL}.apk"
+            cp "$APK_FILE" "release_assets/Aura-${TAG_VAL}.apk"
           else
             echo "Error: No APK file generated!"
             exit 1
@@ -87,7 +87,7 @@ jobs:
           cd release_assets
           sha256sum AuraMusic-release.apk > AuraMusic-release.apk.sha256
           sha256sum "Aura-Music-${TAG_VAL}.apk" > "Aura-Music-${TAG_VAL}.apk.sha256"
-          sha256sum "AETHER-${TAG_VAL}.apk" > "AETHER-${TAG_VAL}.apk.sha256"
+          sha256sum "Aura-${TAG_VAL}.apk" > "Aura-${TAG_VAL}.apk.sha256"
           echo "Release artifacts staged:"
           ls -lh
 
@@ -99,8 +99,8 @@ jobs:
             release_assets/AuraMusic-release.apk.sha256
             release_assets/Aura-Music-*.apk
             release_assets/Aura-Music-*.apk.sha256
-            release_assets/AETHER-*.apk
-            release_assets/AETHER-*.apk.sha256
+            release_assets/Aura-*.apk
+            release_assets/Aura-*.apk.sha256
           tag_name: ${{ github.ref_name || inputs.tag_name }}
           name: "Aura Music ${{ github.ref_name || inputs.tag_name }} (Powered by AETHER)"
           body: |

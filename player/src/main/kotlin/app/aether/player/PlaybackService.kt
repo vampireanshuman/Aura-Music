@@ -258,7 +258,7 @@ class PlaybackService : MediaLibraryService() {
             Futures.immediateFuture(
                 LibraryResult.ofItem(
                     MediaItem.Builder().setMediaId("root").setMediaMetadata(
-                        androidx.media3.common.MediaMetadata.Builder().setIsBrowsable(true).setIsPlayable(false).setTitle("AETHER").build(),
+                        androidx.media3.common.MediaMetadata.Builder().setIsBrowsable(true).setIsPlayable(false).setTitle("Aura").build(),
                     ).build(),
                     params,
                 ),

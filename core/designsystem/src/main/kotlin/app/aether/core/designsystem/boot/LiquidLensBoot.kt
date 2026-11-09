@@ -237,7 +237,7 @@ private class Mark(val full: Bitmap, val rect: FloatArray) {
                 letterSpacing = 0f
                 textAlign = Paint.Align.CENTER
             }
-            val text = "Aether"
+            val text = "Aura"
             val w = (paint.measureText(text) * 1.08f).roundToInt()
             val h = (paint.textSize * 1.4f).roundToInt()
             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)

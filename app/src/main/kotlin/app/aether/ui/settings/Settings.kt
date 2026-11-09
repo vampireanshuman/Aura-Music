@@ -107,7 +107,7 @@ fun SettingsScreen() {
             Column(Modifier.fillMaxWidth().padding(horizontal = Space.edge + 12.dp).padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Txt("Settings", Type.Monument, align = TextAlign.Center)
                 Spacer(Modifier.height(14.dp))
-                Txt("How AETHER sounds, how it moves, and what it keeps.", Type.Aside, color = Ink.Grey, align = TextAlign.Center)
+                Txt("How Aura sounds, how it moves, and what it keeps.", Type.Aside, color = Ink.Grey, align = TextAlign.Center)
             }
         }
         item {
@@ -116,7 +116,7 @@ fun SettingsScreen() {
                     Words(
                         "YouTube Music",
                         if (session != null) "Signed in. Home, your library and mixes are your own."
-                        else "Sign in on Google's own page for your Home, library and mixes. AETHER never sees your password.",
+                        else "Sign in on Google's own page for your Home, library and mixes. Aura never sees your password.",
                         Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(18.dp))
@@ -134,7 +134,7 @@ fun SettingsScreen() {
         }
         item {
             Section("II", "Sources") {
-                Words("Your own sources", "Add a source by its address: your own server or an open library that speaks the addon protocol. AETHER plays open media only, and ships no sources.", Modifier.padding(vertical = 18.dp))
+                Words("Your own sources", "Add a source by its address: your own server or an open library that speaks the addon protocol. Aura plays open media only, and ships no sources.", Modifier.padding(vertical = 18.dp))
                 addresses.forEach { address ->
                     val connected = sources.firstOrNull { (it as? AddonSource)?.address == address }
                     Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -158,7 +158,7 @@ fun SettingsScreen() {
                     Words(
                         "Music folders",
                         phoneFolders?.let { f -> songsIncluded(f, phoneChoice).let { n -> "${songCount(n)} from the folders you've chosen. Voice notes and other apps' audio are left out unless you add them." } }
-                            ?: "Choose which of the phone's folders AETHER reads. They show on Listen, under On this phone.",
+                            ?: "Choose which of the phone's folders Aura reads. They show on Listen, under On this phone.",
                         Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(18.dp))
@@ -240,13 +240,13 @@ fun SettingsScreen() {
         }
         item {
             Section("IX", "Privacy") {
-                Paragraph("AETHER has no analytics and no accounts. Your likes, playlists and history stay on this phone. The only requests it makes are the ones that load pages and play music, and, if you leave them on, the ones for timed lyrics, song video and artist and album art. The music on the phone is read on the phone.")
+                Paragraph("Aura has no analytics and no accounts. Your likes, playlists and history stay on this phone. The only requests it makes are the ones that load pages and play music, and, if you leave them on, the ones for timed lyrics, song video and artist and album art. The music on the phone is read on the phone.")
             }
         }
         item {
             Section("X", "About") {
                 Spacer(Modifier.height(16.dp))
-                Txt("AETHER 0.1", Type.TitleSmall)
+                Txt("Aura 1.2", Type.TitleSmall)
                 Paragraph(
                     "Free software under the GNU GPL v3. Built on PODIUM's, LastWave's, BitChord's and NewPipe's work, Media3, Coil and Kyant's Backdrop; set in Pinyon Script, EB Garamond, Montserrat and JetBrains Mono (SIL Open Font License).",
                     top = 6.dp,

@@ -85,7 +85,7 @@ fun MusicFoldersScreen(path: String) {
             !music.allowed -> item {
                 Notice(
                     "Your own music",
-                    if (music.asked) "Allow AETHER to read your audio in the phone's settings, under Apps." else "AETHER needs permission to read your audio before it can show your folders.",
+                    if (music.asked) "Allow Aura to read your audio in the phone's settings, under Apps." else "Aura needs permission to read your audio before it can show your folders.",
                     action = if (music.asked) null else "Allow",
                     onAction = music.ask,
                 )
