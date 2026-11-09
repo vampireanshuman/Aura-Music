@@ -280,6 +280,20 @@ export async function searchMusic(query: string): Promise<Track[]> {
 }
 
 /**
+ * Verify whether a search result matches the intended song title (prevents playing the wrong song)
+ */
+export function isFuzzyTrackMatch(targetTitle: string, candidateTitle: string): boolean {
+  if (!targetTitle || !candidateTitle) return false;
+  const normalize = (s: string) => s.toLowerCase()
+    .replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '') // remove parentheticals
+    .replace(/[^a-z0-9]/g, ''); // keep alphanumeric only
+  const nTarget = normalize(targetTitle);
+  const nCandidate = normalize(candidateTitle);
+  if (!nTarget || !nCandidate) return false;
+  return nTarget.includes(nCandidate) || nCandidate.includes(nTarget);
+}
+
+/**
  * Resolve direct 320kbps audio stream URL for any track (on-the-fly)
  * Returns direct URL in <300ms, caching it for subsequent plays
  */
@@ -312,14 +326,20 @@ export async function resolveDirectStream(track: {
   const cleanArtist = track.artist.replace(/\s*\d+(\.\d+)?\s*[MKmk]?\s*views.*$/i, '').trim();
   const query = `${cleanTitle} ${cleanArtist}`.trim();
 
-  // 4. Query JioSaavn official API for top direct 320kbps stream
+  // 4. Query JioSaavn official API for top direct 320kbps stream with title verification
   try {
     const encQuery = encodeURIComponent(query);
-    const saavnUrl = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&n=3&p=1&_marker=0&ctx=android&q=${encQuery}`;
+    const saavnUrl = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&n=5&p=1&_marker=0&ctx=android&q=${encQuery}`;
     const data = await fetchJson(saavnUrl, 4500);
 
     if (data && Array.isArray(data.results) && data.results.length > 0) {
       for (const item of data.results) {
+        const itemTitle = item.song || item.name || item.title || '';
+        // Strict guard: candidate MUST match the requested song title
+        if (!isFuzzyTrackMatch(cleanTitle, itemTitle)) {
+          continue;
+        }
+
         let stream = '';
         if (item.encrypted_media_url) {
           stream = decryptJioSaavnMediaUrl(item.encrypted_media_url) || '';
@@ -337,16 +357,22 @@ export async function resolveDirectStream(track: {
     console.warn('[ServerlessEngine] Stream resolve Saavn error:', err);
   }
 
-  // 5. Query iTunes as fallback for direct AAC stream
+  // 5. Query iTunes as fallback for direct AAC stream with title verification
   try {
     const encQuery = encodeURIComponent(query);
-    const itunesUrl = `https://itunes.apple.com/search?media=music&limit=3&term=${encQuery}`;
+    const itunesUrl = `https://itunes.apple.com/search?media=music&limit=5&term=${encQuery}`;
     const data = await fetchJson(itunesUrl, 4000);
     if (data && Array.isArray(data.results) && data.results.length > 0) {
-      const preview = data.results[0]?.previewUrl;
-      if (preview) {
-        streamCache.set(track.id, preview);
-        return preview;
+      for (const item of data.results) {
+        const itemTitle = item.trackName || '';
+        if (!isFuzzyTrackMatch(cleanTitle, itemTitle)) {
+          continue;
+        }
+        const preview = item.previewUrl;
+        if (preview) {
+          streamCache.set(track.id, preview);
+          return preview;
+        }
       }
     }
   } catch (err) {

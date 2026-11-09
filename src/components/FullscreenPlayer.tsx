@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAudio } from '../context/AudioContext';
 import { 
   Play, 
@@ -102,29 +102,8 @@ export const FullscreenPlayer: React.FC = () => {
   const [artTilt, setArtTilt] = useState({ x: 0, y: 0 });
   const isArtTiltingRef = useRef(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
-  const lastScrubbedBarRef = useRef<number>(-1);
   const [visualizerToast, setVisualizerToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
-
-  // Deterministic 60-Bar Acoustic Waveform Contours
-  const waveformHeights = useMemo(() => {
-    const seedStr = currentTrack?.id || 'aura-track-waveform';
-    let seed = 0;
-    for (let i = 0; i < seedStr.length; i++) {
-      seed = (seed << 5) - seed + seedStr.charCodeAt(i);
-      seed |= 0;
-    }
-    const heights: number[] = [];
-    for (let i = 0; i < 60; i++) {
-      const s1 = Math.sin((i / 60) * Math.PI * 3.5 + Math.abs(seed % 10));
-      const s2 = Math.cos((i / 60) * Math.PI * 6.2);
-      const s3 = Math.sin((i / 60) * Math.PI * 11.0);
-      const combined = Math.abs(s1 * 0.48 + s2 * 0.36 + s3 * 0.16);
-      const clamped = Math.max(22, Math.min(100, Math.round(combined * 78 + 22)));
-      heights.push(clamped);
-    }
-    return heights;
-  }, [currentTrack?.id]);
 
   // Cycle Sleep Timer: Off -> 15m -> 30m -> End of Track -> Off
   const handleCycleSleepTimer = () => {
@@ -1232,72 +1211,65 @@ export const FullscreenPlayer: React.FC = () => {
             />
           </div>
 
-          {/* Flagship Interactive 60-Bar Acoustic Waveform Seek Bar */}
+          {/* Horizontal Elastic Song Slide Bar */}
           <div 
-            className="relative group w-full h-9 flex items-center justify-between gap-[2px] sm:gap-1 px-0.5 cursor-pointer select-none py-1"
-            onPointerDown={(e) => {
-              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-              setIsScrubbing(true);
-              const rect = e.currentTarget.getBoundingClientRect();
-              const p = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-              lastScrubbedBarRef.current = Math.floor(p * 60);
-              triggerHaptic('selection');
-              seek(p * duration);
-            }}
-            onPointerMove={(e) => {
-              if (!isScrubbing) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const p = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-              const barIdx = Math.floor(p * 60);
-              if (barIdx !== lastScrubbedBarRef.current) {
-                lastScrubbedBarRef.current = barIdx;
-                triggerHaptic('selection');
-              }
-              seek(p * duration);
-            }}
-            onPointerUp={(e) => {
-              try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
-              setIsScrubbing(false);
-            }}
-            onPointerCancel={() => setIsScrubbing(false)}
+            className="relative group w-full flex items-center h-6 cursor-pointer select-none"
+            onTouchStart={() => setIsScrubbing(true)}
+            onTouchEnd={() => setIsScrubbing(false)}
+            onMouseDown={() => setIsScrubbing(true)}
+            onMouseUp={() => setIsScrubbing(false)}
           >
-            {waveformHeights.map((h, i) => {
-              const barPercent = (i / 59) * 100;
-              const isPlayed = barPercent <= percentPlayed;
-              const isBuffered = barPercent <= buffered;
-              return (
-                <div
-                  key={i}
-                  className="flex-1 rounded-full flex items-center justify-center min-w-[2px]"
-                  style={{ height: '100%' }}
-                >
-                  <div
-                    className="w-full rounded-full transition-all duration-100"
-                    style={{
-                      height: `${h}%`,
-                      backgroundColor: isPlayed ? primaryColor : isBuffered ? 'rgba(255, 255, 255, 0.28)' : 'rgba(255, 255, 255, 0.14)',
-                      boxShadow: isPlayed && isPlaying ? `0 0 8px ${primaryColor}aa` : 'none',
-                      opacity: isPlayed ? 1 : isBuffered ? 0.75 : 0.45,
-                      transform: isScrubbing && Math.abs(i - (lastScrubbedBarRef.current || 0)) <= 1 ? 'scaleY(1.22)' : 'scaleY(1)'
-                    }}
-                  />
-                </div>
-              );
-            })}
+            {/* Background Track with Elastic Expansion & Glow */}
+            <div 
+              className={`apple-elastic-scrubber-track absolute inset-x-0 rounded-full bg-white/15 overflow-hidden transition-all ${
+                isScrubbing ? 'is-scrubbing' : ''
+              }`}
+              style={{
+                ['--glow-color' as any]: primaryColor
+              }}
+            >
+              <div 
+                className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-200"
+                style={{ width: `${buffered}%` }}
+              />
+              <div 
+                className={`absolute inset-y-0 left-0 transition-all rounded-full ${
+                  isPlaying ? 'animate-shimmer animate-line-playing' : ''
+                }`}
+                style={{ 
+                  width: `${percentPlayed}%`,
+                  background: isPlaying
+                    ? `linear-gradient(90deg, ${primaryColor}, #ffffff 60%, ${primaryColor})`
+                    : primaryColor,
+                  backgroundSize: '200% 100%',
+                  ['--glow-color' as any]: primaryColor
+                }}
+              />
+            </div>
 
-            {/* Accessible Range Input */}
+            {/* Scrubber Thumb: hidden when idle, glows white when touched or hovered */}
+            <div 
+              className={`absolute w-3.5 h-3.5 rounded-full bg-white pointer-events-none -translate-x-1/2 transition-all duration-200 shadow-[0_0_16px_rgba(255,255,255,0.9),0_0_24px_var(--glow-color)] ${
+                isScrubbing ? 'opacity-100 scale-125' : 'opacity-0 group-hover:opacity-100'
+              }`}
+              style={{ 
+                left: `${percentPlayed}%`,
+                ['--glow-color' as any]: primaryColor
+              }}
+            />
+
             <input
               type="range"
               min={0}
               max={duration || 100}
               value={currentTime}
               onChange={(e) => {
-                triggerHaptic('selection');
+                triggerHaptic('tick');
                 seek(Number(e.target.value));
               }}
-              className="absolute inset-0 w-full opacity-0 cursor-pointer pointer-events-none"
+              className="absolute inset-0 w-full opacity-0 cursor-pointer"
               tabIndex={0}
-              aria-label="Audio waveform progress"
+              aria-label="Audio progress slider"
             />
           </div>
 

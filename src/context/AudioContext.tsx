@@ -909,6 +909,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
       }
 
+      // Fallback: If <audio> stream fails and current track has a youtubeId, hand over to authentic YouTube playback
+      if (currentTrackRef.current?.youtubeId) {
+        console.warn('[AUDIO] Stream failed. Auto-falling back to verified YouTube playback for:', currentTrackRef.current.title);
+        youtubeEngine.loadAndPlay(currentTrackRef.current.youtubeId);
+        setIsPlaying(true);
+        isPlayingRef.current = true;
+        return;
+      }
+
       setIsPlaying(false);
     };
 
@@ -1111,6 +1120,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const index = activeQ.findIndex(t => t.id === track.id);
     setQueueIndex(index !== -1 ? index : 0);
     setCurrentTrack(track);
+    currentTrackRef.current = track;
 
     registerTrack(track);
     setRecentlyPlayed(prev => {
@@ -1181,11 +1191,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       };
 
-      // 1. If track already has direct stream URL (e.g. JioSaavn 320kbps or iTunes)
+      // 1. If track is explicitly from YouTube with no direct stream, play authentic YouTube stream
+      if (track.source === 'youtube' && track.youtubeId && (!track.audioUrl || track.audioUrl === '')) {
+        youtubeEngine.loadAndPlay(track.youtubeId);
+        setIsPlaying(true);
+        isPlayingRef.current = true;
+        syncMediaSessionPositionState(0, track.duration, playbackSpeed, true);
+        return;
+      }
+
+      // 2. If track already has direct stream URL (e.g. JioSaavn 320kbps or verified audio)
       if (track.audioUrl && (track.audioUrl.startsWith('https://') || track.audioUrl.startsWith('http://'))) {
         executeAudioPlay(track.audioUrl);
       } else {
-        // 2. On-the-fly resolution via serverless music engine (<300ms)
+        // 3. On-the-fly resolution via serverless music engine with strict title verification
         resolveDirectStream(track)
           .then((directStream) => {
             if (directStream) {
@@ -1195,6 +1214,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             } else if (track.youtubeId) {
               youtubeEngine.loadAndPlay(track.youtubeId);
               setIsPlaying(true);
+              isPlayingRef.current = true;
             }
           })
           .catch((err) => {
@@ -1202,6 +1222,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (track.youtubeId) {
               youtubeEngine.loadAndPlay(track.youtubeId);
               setIsPlaying(true);
+              isPlayingRef.current = true;
             }
           });
       }

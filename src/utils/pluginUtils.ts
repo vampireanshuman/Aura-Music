@@ -1,6 +1,6 @@
 import type { Track } from '../types/music';
 import { getApiUrl } from './apiConfig';
-import { searchMusic } from './serverlessMusicEngine';
+import { searchMusic, isFuzzyTrackMatch } from './serverlessMusicEngine';
 
 export function extractYouTubeId(url: string): string | null {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -36,11 +36,11 @@ export async function resolveYouTubeTrack(url: string): Promise<Track | null> {
       // ignore
     }
 
-    // Pre-resolve direct 320kbps audio stream if available
+    // Pre-resolve direct 320kbps audio stream only if verified title match
     let directAudioUrl = '';
     try {
       const matches = await searchMusic(`${title} ${artist}`);
-      if (matches?.[0]?.audioUrl) {
+      if (matches?.[0]?.audioUrl && isFuzzyTrackMatch(title, matches[0].title)) {
         directAudioUrl = matches[0].audioUrl;
       }
     } catch {
@@ -105,21 +105,25 @@ export async function resolveSpotifyTrack(url: string): Promise<Track | null> {
     try {
       const serverlessResults = await searchMusic(`${title} ${artist}`);
       if (serverlessResults && serverlessResults.length > 0) {
-        const top = serverlessResults[0];
-        if (top.audioUrl) matchedAudioUrl = top.audioUrl;
-        if (top.youtubeId) matchedYoutubeId = top.youtubeId;
-        if (top.coverUrl) matchedCoverUrl = top.coverUrl;
-        if (top.duration) matchedDuration = top.duration;
+        const top = serverlessResults.find(t => isFuzzyTrackMatch(title, t.title)) || serverlessResults[0];
+        if (isFuzzyTrackMatch(title, top.title)) {
+          if (top.audioUrl) matchedAudioUrl = top.audioUrl;
+          if (top.youtubeId) matchedYoutubeId = top.youtubeId;
+          if (top.coverUrl) matchedCoverUrl = top.coverUrl;
+          if (top.duration) matchedDuration = top.duration;
+        }
       } else {
         const searchRes = await fetch(getApiUrl(`/api/search?q=${encodeURIComponent(`${title} ${artist}`)}`));
         if (searchRes.ok) {
           const sData = await searchRes.json();
           if (sData.tracks && sData.tracks.length > 0) {
-            const top = sData.tracks[0];
-            if (top.audioUrl) matchedAudioUrl = top.audioUrl;
-            if (top.youtubeId) matchedYoutubeId = top.youtubeId;
-            if (top.coverUrl) matchedCoverUrl = top.coverUrl;
-            if (top.duration) matchedDuration = top.duration;
+            const top = sData.tracks.find((t: Track) => isFuzzyTrackMatch(title, t.title)) || sData.tracks[0];
+            if (isFuzzyTrackMatch(title, top.title)) {
+              if (top.audioUrl) matchedAudioUrl = top.audioUrl;
+              if (top.youtubeId) matchedYoutubeId = top.youtubeId;
+              if (top.coverUrl) matchedCoverUrl = top.coverUrl;
+              if (top.duration) matchedDuration = top.duration;
+            }
           }
         }
       }

@@ -1,6 +1,6 @@
 import type { Track, Playlist } from '../types/music';
 import { getApiUrl } from './apiConfig';
-import { searchMusic, resolveDirectStream } from './serverlessMusicEngine';
+import { searchMusic, resolveDirectStream, isFuzzyTrackMatch } from './serverlessMusicEngine';
 
 const CURATED_COVERS = [
   'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80',
@@ -26,12 +26,14 @@ async function searchOnlineTrack(query: string): Promise<Track | null> {
   try {
     const directResults = await searchMusic(query);
     if (directResults && directResults.length > 0) {
-      const top = directResults[0];
-      if (!top.audioUrl) {
-        const stream = await resolveDirectStream(top);
-        if (stream) top.audioUrl = stream;
+      const top = directResults.find(t => isFuzzyTrackMatch(query, t.title)) || directResults[0];
+      if (isFuzzyTrackMatch(query, top.title)) {
+        if (!top.audioUrl) {
+          const stream = await resolveDirectStream(top);
+          if (stream) top.audioUrl = stream;
+        }
+        return top;
       }
-      return top;
     }
   } catch (err) {
     console.warn(`[PlaylistImporter] Direct searchMusic error for "${query}":`, err);
@@ -43,7 +45,8 @@ async function searchOnlineTrack(query: string): Promise<Track | null> {
     if (res.ok) {
       const data = await res.json();
       if (data.tracks && data.tracks.length > 0) {
-        return data.tracks[0];
+        const top = data.tracks.find((t: Track) => isFuzzyTrackMatch(query, t.title)) || data.tracks[0];
+        return top;
       }
     }
   } catch {

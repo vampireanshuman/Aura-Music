@@ -684,6 +684,13 @@ function youtubeMusicApiPlugin(): Plugin {
 }
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(
+      (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME.startsWith('v'))
+        ? process.env.GITHUB_REF_NAME.slice(1)
+        : '1.0.7'
+    )
+  },
   plugins: [
     tailwindcss(),
     react(),

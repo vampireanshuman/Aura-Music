@@ -7,7 +7,7 @@ export const YOUTUBE_FEATURED_TRACKS: Track[] = [
     artist: 'Lofi Girl',
     album: 'YouTube Live Essentials',
     duration: 360,
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    audioUrl: '',
     youtubeId: 'jfKfPfyJRdk',
     coverUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
     dominantColor: '#ef4444', // YouTube Red
@@ -32,7 +32,7 @@ export const YOUTUBE_FEATURED_TRACKS: Track[] = [
     artist: 'Lofi Girl & Synthwave Boy',
     album: 'Cybernetic Dreams',
     duration: 410,
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+    audioUrl: '',
     youtubeId: '4xDzrJKXOOY',
     coverUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
     dominantColor: '#ec4899', // Hot Pink
@@ -55,7 +55,7 @@ export const YOUTUBE_FEATURED_TRACKS: Track[] = [
     artist: 'Celestial Soundscapes',
     album: 'Cosmic Drift Vol. 1',
     duration: 480,
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    audioUrl: '',
     youtubeId: 'WJ3-F02-U_g',
     coverUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&auto=format&fit=crop&q=80',
     dominantColor: '#6366f1',
