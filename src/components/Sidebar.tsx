@@ -86,10 +86,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </svg>
             </div>
             <div>
-              <span className="font-extrabold text-base tracking-tight text-white flex items-center gap-1.5">
-                Aura Music
-                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[#fa2d48]/20 text-[#fa2d48] font-bold">
-                  Pro
+              <span className="font-script text-3xl tracking-wide text-white flex items-baseline gap-1.5 leading-none">
+                Aura
+                <span className="font-serif-editorial text-[9.5px] tracking-[0.28em] text-white/50 pl-1 uppercase">
+                  MMXXVI
                 </span>
               </span>
             </div>

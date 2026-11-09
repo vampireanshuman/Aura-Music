@@ -688,7 +688,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(
       (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME.startsWith('v'))
         ? process.env.GITHUB_REF_NAME.slice(1)
-        : '1.0.9'
+        : '1.1.0'
     )
   },
   plugins: [

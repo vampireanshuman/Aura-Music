@@ -14,6 +14,7 @@ import { MobileNavBar } from './components/MobileNavBar';
 import { VideoModal } from './components/VideoModal';
 import { DynamicIsland } from './components/DynamicIsland';
 import { UpdateModal } from './components/UpdateModal';
+import { CanticumVeil } from './components/CanticumVeil';
 
 import { ListenNowView } from './components/views/ListenNowView';
 import { BrowseView } from './components/views/BrowseView';
@@ -74,6 +75,9 @@ const MainLayout: React.FC = () => {
           </filter>
         </defs>
       </svg>
+
+      {/* Cold-Start CANTICUM Veil (AETHER MMXXVI) */}
+      <CanticumVeil />
 
       {/* Dynamic Ambient Background */}
       <AmbientBackground />

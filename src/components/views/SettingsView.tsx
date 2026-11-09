@@ -20,8 +20,12 @@ import {
   Flame,
   Waves,
   ArrowUpCircle,
-  RefreshCw
+  RefreshCw,
+  CreditCard,
+  ShieldCheck
 } from 'lucide-react';
+import { HeadphoneEqualizerModal } from '../HeadphoneEqualizerModal';
+import { MetalChargeCardModal } from '../MetalChargeCardModal';
 import { APP_VERSION, isAutoUpdateCheckEnabled, setAutoUpdateCheckEnabled } from '../../utils/updater';
 import { triggerHaptic } from '../../utils/haptics';
 import type { 
@@ -73,6 +77,8 @@ export const SettingsView: React.FC = () => {
   } = useAudio();
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [isHeadphoneModalOpen, setIsHeadphoneModalOpen] = useState(false);
+  const [isChargeCardModalOpen, setIsChargeCardModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [autoUpdateEnabled, setAutoUpdateEnabledState] = useState(() => isAutoUpdateCheckEnabled());
   const [updateStatusMessage, setUpdateStatusMessage] = useState<string | null>(null);
@@ -1391,10 +1397,94 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
 
+      {/* AETHER Haute-Horlogerie & GNU GPL-3.0 Section */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/50">
+          <Sparkles className="w-4 h-4 text-white/80" />
+          <span>AETHER Haute-Horlogerie Suite & Open Source</span>
+        </div>
+
+        <div className="glass-sheet rounded-3xl p-5 sm:p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <span className="font-caps text-[9px] tracking-[0.22em] text-white/50 block">HOROLOGY & ACOUSTICS</span>
+              <h4 className="font-serif-editorial text-lg text-white font-medium">AutoEq 39 Headphone Lab Bench</h4>
+              <p className="text-xs text-white/50 mt-0.5 max-w-md">
+                Laboratory measurements from oratory1990, HypetheSonics, Rtings, and AutoEq for AirPods Max, HD 800 S, Sony, Bose, Focal, and more.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsHeadphoneModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-caps text-[9.5px] tracking-[0.16em] flex items-center gap-2 transition-colors shrink-0"
+            >
+              <Headphones className="w-3.5 h-3.5" />
+              <span>LAUNCH BENCH</span>
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <span className="font-caps text-[9px] tracking-[0.22em] text-white/50 block">METALLURGY & STATS</span>
+              <h4 className="font-serif-editorial text-lg text-white font-medium">Titanium & Obsidian Charge Card</h4>
+              <p className="text-xs text-white/50 mt-0.5 max-w-md">
+                Generate and export your personalized audiophile charge card with 3D gyroscopic tilt and 96-tooth milled medal.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsChargeCardModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-caps text-[9.5px] tracking-[0.16em] flex items-center gap-2 transition-colors shrink-0"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>VIEW CARD</span>
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <span className="font-caps text-[9px] tracking-[0.22em] text-white/50 block">CANTICUM IGNITION</span>
+              <h4 className="font-serif-editorial text-lg text-white font-medium">Replay Welcome Veil</h4>
+              <p className="text-xs text-white/50 mt-0.5 max-w-md">
+                Re-experience the cold-start cross of light, Roman numerals MMXXVI, and liquid ignition physics.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                sessionStorage.removeItem('aura_veil_played');
+                window.location.reload();
+              }}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-caps text-[9.5px] tracking-[0.16em] flex items-center gap-2 transition-colors shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>REPLAY VEIL</span>
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-white/10 flex items-start gap-3 text-xs text-white/50">
+            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-white/80">Licensed under GNU General Public License v3.0 (GPL-3.0)</p>
+              <p className="text-[11px] leading-relaxed">
+                Aura Music stands on the architecture and aesthetics of <strong>AETHER by GHOSTxASR</strong> (GPL-3.0), PODIUM, AutoEq by Jaakko Pasanen, and Wikimedia Commons antiquity sculptures. Free and open source forever.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AutoEq & Charge Card Modals */}
+      <HeadphoneEqualizerModal
+        isOpen={isHeadphoneModalOpen}
+        onClose={() => setIsHeadphoneModalOpen(false)}
+      />
+      <MetalChargeCardModal
+        isOpen={isChargeCardModalOpen}
+        onClose={() => setIsChargeCardModalOpen(false)}
+      />
+
       {/* App Info Footer */}
       <div className="text-center text-xs text-white/30 pt-4 space-y-1">
         <p className="font-semibold text-white/40">Aura Music Pro Audiophile Studio • Version {APP_VERSION}</p>
-        <p>Engineered with Apple Music aesthetics, Poweramp DSP, AutoEQ headphone database & LRCLIB synced lyrics</p>
+        <p>Engineered with AETHER Haute-Horlogerie aesthetics, Poweramp DSP, AutoEQ headphone database & LRCLIB synced lyrics</p>
       </div>
     </div>
   );

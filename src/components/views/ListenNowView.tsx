@@ -10,13 +10,17 @@ import {
   Flame, 
   Disc3, 
   Compass,
-  Headphones
+  Headphones,
+  CreditCard
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { AnimatedSoundBars } from '../AnimatedSoundBars';
 import { get4kArtworkUrl, handleArtworkError } from '../../utils/artworkUtils';
 import { TrackActionMenu } from '../TrackActionMenu';
 import { SwipeableTrackRow } from '../SwipeableTrackRow';
+import { HalftoneHero } from '../HalftoneHero';
+import { HeadphoneEqualizerModal } from '../HeadphoneEqualizerModal';
+import { MetalChargeCardModal } from '../MetalChargeCardModal';
 import { 
   MOOD_CATEGORIES, 
   generatePersonalizedRecommendations, 
@@ -43,6 +47,8 @@ export const ListenNowView: React.FC = () => {
   } = useAudio();
 
   const [selectedMood, setSelectedMood] = useState<string>('all');
+  const [isHeadphoneModalOpen, setIsHeadphoneModalOpen] = useState(false);
+  const [isChargeCardModalOpen, setIsChargeCardModalOpen] = useState(false);
 
   // Combine static and dynamically cached registry tracks for recommendation breadth
   const allKnownTracks = useMemo(() => {
@@ -102,6 +108,50 @@ export const ListenNowView: React.FC = () => {
 
   return (
     <div className="space-y-10" style={{ paddingBottom: 'calc(160px + var(--safe-bottom, 22px))' }}>
+      {/* 0. Halftone Antiquity Statues Hero (AETHER Haute Horlogerie) */}
+      <HalftoneHero />
+
+      {/* AETHER Quick Acoustic Bench & Metal Card Shortcuts */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => setIsHeadphoneModalOpen(true)}
+          className="p-4 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 flex items-center justify-between text-left transition-all spring-button"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white">
+              <Headphones className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-caps text-[8.5px] tracking-[0.24em] text-white/45 block">
+                AUTOEQ BENCH
+              </span>
+              <span className="font-serif-editorial text-sm sm:text-base text-white font-medium">
+                39 Headphone Lab Models
+              </span>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setIsChargeCardModalOpen(true)}
+          className="p-4 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 flex items-center justify-between text-left transition-all spring-button"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white">
+              <CreditCard className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-caps text-[8.5px] tracking-[0.24em] text-white/45 block">
+                METALLIC ENGRAVING
+              </span>
+              <span className="font-serif-editorial text-sm sm:text-base text-white font-medium">
+                Titanium Charge Card
+              </span>
+            </div>
+          </div>
+        </button>
+      </div>
+
       {/* 1. Algorithmic Mood & Vibe Chips Filter Bar (Unified Frosted Glass Accent) */}
       <section className="space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/40">
@@ -669,6 +719,16 @@ export const ListenNowView: React.FC = () => {
           ))}
         </div>
       </section>
+
+      {/* AutoEq & Titanium Charge Card Modals */}
+      <HeadphoneEqualizerModal
+        isOpen={isHeadphoneModalOpen}
+        onClose={() => setIsHeadphoneModalOpen(false)}
+      />
+      <MetalChargeCardModal
+        isOpen={isChargeCardModalOpen}
+        onClose={() => setIsChargeCardModalOpen(false)}
+      />
     </div>
   );
 };

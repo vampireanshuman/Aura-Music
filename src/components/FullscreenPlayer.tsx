@@ -14,7 +14,6 @@ import {
   Mic2,
   ChevronDown,
   Video,
-  RefreshCw,
   Activity,
   X,
   Gauge,
@@ -22,7 +21,9 @@ import {
   Timer,
   Sparkles,
   Disc3,
-  Sliders
+  Sliders,
+  CreditCard,
+  Headphones
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatTime, formatRemainingTime } from '../utils/formatTime';
@@ -35,6 +36,10 @@ import { TrackActionMenu } from './TrackActionMenu';
 import { getApiUrl } from '../utils/apiConfig';
 import { searchMusic } from '../utils/serverlessMusicEngine';
 import { showIslandToast } from '../utils/islandToast';
+import { WatchDialScrubber } from './WatchDialScrubber';
+import { AetherLyricsView } from './AetherLyricsView';
+import { HeadphoneEqualizerModal } from './HeadphoneEqualizerModal';
+import { MetalChargeCardModal } from './MetalChargeCardModal';
 import type { VisualizerMode, SpatialRoom } from '../types/music';
 
 export const FullscreenPlayer: React.FC = () => {
@@ -93,7 +98,6 @@ export const FullscreenPlayer: React.FC = () => {
   const lastTouchTimeRef = useRef<number>(0);
   const velocityYRef = useRef<number>(0);
   const isGestureEligibleRef = useRef<boolean>(false);
-  const [isLyricsLoading, setIsLyricsLoading] = useState(false);
   const [showSingModal, setShowSingModal] = useState(false);
   const [showAudiophileHud, setShowAudiophileHud] = useState(false);
   const [showDspSheet, setShowDspSheet] = useState(false);
@@ -102,6 +106,9 @@ export const FullscreenPlayer: React.FC = () => {
   const [artTilt, setArtTilt] = useState({ x: 0, y: 0 });
   const isArtTiltingRef = useRef(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubberType, setScrubberType] = useState<'dial' | 'slider'>('dial');
+  const [isHeadphoneBenchOpen, setIsHeadphoneBenchOpen] = useState(false);
+  const [isChargeCardOpen, setIsChargeCardOpen] = useState(false);
   const [visualizerToast, setVisualizerToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -296,8 +303,7 @@ export const FullscreenPlayer: React.FC = () => {
   // Auto-fetch full time-synced lyrics if missing or incomplete
   useEffect(() => {
     if (isFullscreen && currentTrack && (!currentTrack.lyrics || currentTrack.lyrics.length < 15)) {
-      setIsLyricsLoading(true);
-      fetchLyricsFromLrclib(currentTrack).finally(() => setIsLyricsLoading(false));
+      fetchLyricsFromLrclib(currentTrack);
     }
   }, [isFullscreen, currentTrack, fetchLyricsFromLrclib]);
 
@@ -558,8 +564,28 @@ export const FullscreenPlayer: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Single More (...) Action Button */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Right: Headphone AutoEq, Charge Card & More (...) Action Buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              setIsHeadphoneBenchOpen(true);
+            }}
+            title="AutoEq Headphone Bench"
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 transition-colors"
+          >
+            <Headphones className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              triggerHaptic('light');
+              setIsChargeCardOpen(true);
+            }}
+            title="Engrave Titanium Charge Card"
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 transition-colors"
+          >
+            <CreditCard className="w-4 h-4" />
+          </button>
           <TrackActionMenu track={currentTrack} />
         </div>
       </div>
@@ -842,97 +868,18 @@ export const FullscreenPlayer: React.FC = () => {
           </div>
         )}
 
-        {/* Right Column: Live Synced Lyrics stream */}
+        {/* Right Column: Live Synced Lyrics stream (AETHER Dual-Mode Lyrics) */}
         {viewTab !== 'video' && (
-          <div className={`lg:col-span-6 h-[55vh] lg:h-[68vh] flex-col overflow-hidden glass-panel rounded-3xl p-5 sm:p-8 ${
+          <div className={`lg:col-span-6 h-[55vh] lg:h-[68vh] flex-col overflow-hidden glass-panel rounded-3xl p-3 sm:p-5 ${
             viewTab === 'lyrics' ? 'flex' : 'hidden lg:flex'
           }`}>
-            <div className="pb-3 border-b border-white/10 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Mic2 className="w-4 h-4 text-[#fa2d48]" />
-                <span className="text-xs font-bold uppercase tracking-wider text-white/70">
-                  Time-Synced Live Lyrics
-                </span>
-                {isSingActive && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    Sing Vocal Cut: {Math.round(vocalReductionLevel * 100)}%
-                  </span>
-                )}
-              </div>
-              <span className="text-[11px] text-white/40">
-                Tap line to seek
-              </span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-5 py-8 scroll-smooth select-none">
-              {lyrics.length > 0 ? (
-                lyrics.map((line, idx) => {
-                  const isActive = idx === activeLyricIndex;
-                  const isPassed = idx < activeLyricIndex;
-                  const activeSizeClass = settings?.lyricsFontSize === 'huge' ? 'text-3xl sm:text-4xl' : settings?.lyricsFontSize === 'normal' ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl';
-                  const inactiveSizeClass = settings?.lyricsFontSize === 'huge' ? 'text-xl sm:text-2xl' : settings?.lyricsFontSize === 'normal' ? 'text-base sm:text-lg' : 'text-lg sm:text-xl';
-                  const alignClass = settings?.lyricsAlignment === 'center' ? 'text-center' : 'text-left';
-                  const blurClass = !isActive && settings?.lyricsBlurInactive ? 'blur-[1px] opacity-40' : '';
-
-                  const nextTime = lyrics[idx + 1]?.time || (line.time + 4);
-                  const lineDuration = Math.max(1, nextTime - line.time);
-                  const progress = Math.min(100, Math.max(0, ((currentTime - line.time) / lineDuration) * 100));
-
-                  return (
-                    <div
-                      key={idx}
-                      ref={isActive ? activeLyricRef : null}
-                      onClick={() => seek(line.time)}
-                      style={isActive ? {
-                        background: `linear-gradient(90deg, #ffffff ${progress}%, rgba(255,255,255,0.30) ${Math.min(100, progress + 12)}%)`,
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        filter: `drop-shadow(0 0 24px ${primaryColor}88)`,
-                        transform: 'scale(1.04)',
-                        transformOrigin: settings?.lyricsAlignment === 'center' ? 'center' : 'left'
-                      } : undefined}
-                      className={`cursor-pointer transition-all duration-200 leading-snug ${alignClass} ${blurClass} ${
-                        isActive
-                          ? `${activeSizeClass} font-black`
-                          : isPassed
-                          ? `text-white/50 ${inactiveSizeClass} font-medium hover:text-white/80`
-                          : `text-white/25 ${inactiveSizeClass} font-medium hover:text-white/60`
-                      }`}
-                    >
-                      {line.text}
-                    </div>
-                  );
-                })
-              ) : isLyricsLoading ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/50 space-y-3">
-                  <div className="relative w-12 h-12 flex items-center justify-center">
-                    <span className="absolute inset-0 rounded-full border-2 border-t-transparent animate-spin border-[#fa2d48]" />
-                    <Mic2 className="w-5 h-5 text-[#fa2d48] animate-pulse" />
-                  </div>
-                  <p className="text-sm font-bold text-white">Searching LRCLIB Synced Lyrics...</p>
-                  <p className="text-xs text-white/40 max-w-xs">Matching millisecond timestamps for {currentTrack.title}</p>
-                </div>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/40 space-y-2">
-                  <Mic2 className="w-10 h-10 mb-2 opacity-30 text-[#fa2d48]" />
-                  <p className="text-sm font-semibold">Instrumental or synced lyrics unavailable</p>
-                  <p className="text-xs text-white/30">Sing along with the audio stream</p>
-                  <button
-                    onClick={() => {
-                      if (currentTrack) {
-                        setIsLyricsLoading(true);
-                        fetchLyricsFromLrclib(currentTrack).finally(() => setIsLyricsLoading(false));
-                      }
-                    }}
-                    className="mt-3 px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-semibold text-xs flex items-center gap-1.5 mx-auto transition-colors"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    <span>Retry Lyrics Search</span>
-                  </button>
-                </div>
-              )}
-              <div className="h-24" />
-            </div>
+            <AetherLyricsView
+              lyrics={lyrics}
+              currentTime={currentTime}
+              onSeek={seek}
+              trackTitle={currentTrack.title}
+              trackArtist={currentTrack.artist}
+            />
           </div>
         )}
 
@@ -1211,72 +1158,99 @@ export const FullscreenPlayer: React.FC = () => {
             />
           </div>
 
-          {/* Horizontal Elastic Song Slide Bar */}
-          <div 
-            className="relative group w-full flex items-center h-6 cursor-pointer select-none"
-            onTouchStart={() => setIsScrubbing(true)}
-            onTouchEnd={() => setIsScrubbing(false)}
-            onMouseDown={() => setIsScrubbing(true)}
-            onMouseUp={() => setIsScrubbing(false)}
-          >
-            {/* Background Track with Elastic Expansion & Glow */}
-            <div 
-              className={`apple-elastic-scrubber-track absolute inset-x-0 rounded-full bg-white/15 overflow-hidden transition-all ${
-                isScrubbing ? 'is-scrubbing' : ''
-              }`}
-              style={{
-                ['--glow-color' as any]: primaryColor
+          {/* Scrubber Mode Toggle: Watchmaker Arc Dial vs Linear Slider */}
+          <div className="flex items-center justify-between px-1 mb-1">
+            <span className="font-caps text-[8px] tracking-[0.24em] text-white/35">
+              HOROLOGICAL INSTRUMENT
+            </span>
+            <button
+              onClick={() => {
+                triggerHaptic('light');
+                setScrubberType(prev => prev === 'dial' ? 'slider' : 'dial');
               }}
+              className="font-caps text-[8.5px] tracking-[0.18em] text-white/50 hover:text-white px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 flex items-center gap-1.5 transition-colors"
             >
-              <div 
-                className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-200"
-                style={{ width: `${buffered}%` }}
-              />
-              <div 
-                className={`absolute inset-y-0 left-0 transition-all rounded-full ${
-                  isPlaying ? 'animate-shimmer animate-line-playing' : ''
-                }`}
-                style={{ 
-                  width: `${percentPlayed}%`,
-                  background: isPlaying
-                    ? `linear-gradient(90deg, ${primaryColor}, #ffffff 60%, ${primaryColor})`
-                    : primaryColor,
-                  backgroundSize: '200% 100%',
-                  ['--glow-color' as any]: primaryColor
-                }}
-              />
-            </div>
-
-            {/* Scrubber Thumb: hidden when idle, glows white when touched or hovered */}
-            <div 
-              className={`absolute w-3.5 h-3.5 rounded-full bg-white pointer-events-none -translate-x-1/2 transition-all duration-200 shadow-[0_0_16px_rgba(255,255,255,0.9),0_0_24px_var(--glow-color)] ${
-                isScrubbing ? 'opacity-100 scale-125' : 'opacity-0 group-hover:opacity-100'
-              }`}
-              style={{ 
-                left: `${percentPlayed}%`,
-                ['--glow-color' as any]: primaryColor
-              }}
-            />
-
-            <input
-              type="range"
-              min={0}
-              max={duration || 100}
-              value={currentTime}
-              onChange={(e) => {
-                triggerHaptic('tick');
-                seek(Number(e.target.value));
-              }}
-              className="absolute inset-0 w-full opacity-0 cursor-pointer"
-              tabIndex={0}
-              aria-label="Audio progress slider"
-            />
+              <span>{scrubberType === 'dial' ? 'ARC DIAL (AETHER)' : 'WAVE SLIDER'}</span>
+            </button>
           </div>
 
-          <div className="flex justify-between text-xs font-mono tabular-nums text-white/50 px-0.5">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatRemainingTime(currentTime, duration)}</span>
-          </div>
+          {scrubberType === 'dial' ? (
+            <WatchDialScrubber
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={seek}
+              primaryColor="#ff3b30"
+            />
+          ) : (
+            <>
+              {/* Horizontal Elastic Song Slide Bar */}
+              <div 
+                className="relative group w-full flex items-center h-6 cursor-pointer select-none"
+                onTouchStart={() => setIsScrubbing(true)}
+                onTouchEnd={() => setIsScrubbing(false)}
+                onMouseDown={() => setIsScrubbing(true)}
+                onMouseUp={() => setIsScrubbing(false)}
+              >
+                {/* Background Track with Elastic Expansion & Glow */}
+                <div 
+                  className={`apple-elastic-scrubber-track absolute inset-x-0 rounded-full bg-white/15 overflow-hidden transition-all ${
+                    isScrubbing ? 'is-scrubbing' : ''
+                  }`}
+                  style={{
+                    ['--glow-color' as any]: primaryColor
+                  }}
+                >
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-200"
+                    style={{ width: `${buffered}%` }}
+                  />
+                  <div 
+                    className={`absolute inset-y-0 left-0 transition-all rounded-full ${
+                      isPlaying ? 'animate-shimmer animate-line-playing' : ''
+                    }`}
+                    style={{ 
+                      width: `${percentPlayed}%`,
+                      background: isPlaying
+                        ? `linear-gradient(90deg, ${primaryColor}, #ffffff 60%, ${primaryColor})`
+                        : primaryColor,
+                      backgroundSize: '200% 100%',
+                      ['--glow-color' as any]: primaryColor
+                    }}
+                  />
+                </div>
+
+                {/* Scrubber Thumb: hidden when idle, glows white when touched or hovered */}
+                <div 
+                  className={`absolute w-3.5 h-3.5 rounded-full bg-white pointer-events-none -translate-x-1/2 transition-all duration-200 shadow-[0_0_16px_rgba(255,255,255,0.9),0_0_24px_var(--glow-color)] ${
+                    isScrubbing ? 'opacity-100 scale-125' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                  style={{ 
+                    left: `${percentPlayed}%`,
+                    ['--glow-color' as any]: primaryColor
+                  }}
+                />
+
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 100}
+                  value={currentTime}
+                  onChange={(e) => {
+                    triggerHaptic('tick');
+                    seek(Number(e.target.value));
+                  }}
+                  className="absolute inset-0 w-full opacity-0 cursor-pointer"
+                  tabIndex={0}
+                  aria-label="Audio progress slider"
+                />
+              </div>
+
+              <div className="flex justify-between text-xs font-mono tabular-nums text-white/50 px-0.5">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatRemainingTime(currentTime, duration)}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Buttons Controls */}
@@ -1421,6 +1395,18 @@ export const FullscreenPlayer: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* AutoEq Headphone Bench Modal */}
+      <HeadphoneEqualizerModal
+        isOpen={isHeadphoneBenchOpen}
+        onClose={() => setIsHeadphoneBenchOpen(false)}
+      />
+
+      {/* Titanium Charge Card Modal */}
+      <MetalChargeCardModal
+        isOpen={isChargeCardOpen}
+        onClose={() => setIsChargeCardOpen(false)}
+      />
     </div>
   );
 };
