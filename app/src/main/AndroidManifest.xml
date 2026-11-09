@@ -12,7 +12,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="Aura"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Aether">
+        android:theme="@style/Theme.Aura">
 
         <activity
             android:name=".MainActivity"

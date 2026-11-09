@@ -13,7 +13,7 @@ val signing = Properties().apply {
     rootProject.file("keystore.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
 }
 fun secret(key: String, env: String): String? = signing.getProperty(key) ?: System.getenv(env)
-val releaseStore = secret("storeFile", "AETHER_KEYSTORE_FILE")
+val releaseStore = secret("storeFile", "AURA_KEYSTORE_FILE") ?: secret("storeFile", "AETHER_KEYSTORE_FILE")
 
 // A release build installed beside the phone's own: -Paether.applicationIdSuffix=.rc. Testing one
 // then needs no uninstall, which would wipe the listener's data.
@@ -23,21 +23,21 @@ android {
     namespace = "app.aether"
     compileSdk = 37
     defaultConfig {
-        applicationId = "app.aether"
+        applicationId = "com.auramusic.app"
         minSdk = 29
         targetSdk = 36
         // major * 1,000,000 + minor * 1,000 + patch, so it only ever rises.
-        versionCode = 1_002_001
-        versionName = "1.2.1"
+        versionCode = 1_002_002
+        versionName = "1.2.2"
     }
     signingConfigs {
         if (releaseStore != null) {
             create("release") {
                 val candidate = file(releaseStore)
                 storeFile = if (candidate.exists()) candidate else rootProject.file(releaseStore)
-                storePassword = secret("storePassword", "AETHER_KEYSTORE_PASSWORD")
-                keyAlias = secret("keyAlias", "AETHER_KEY_ALIAS")
-                keyPassword = secret("keyPassword", "AETHER_KEY_PASSWORD")
+                storePassword = secret("storePassword", "AURA_KEYSTORE_PASSWORD") ?: secret("storePassword", "AETHER_KEYSTORE_PASSWORD")
+                keyAlias = secret("keyAlias", "AURA_KEY_ALIAS") ?: secret("keyAlias", "AETHER_KEY_ALIAS")
+                keyPassword = secret("keyPassword", "AURA_KEY_PASSWORD") ?: secret("keyPassword", "AETHER_KEY_PASSWORD")
             }
         }
     }

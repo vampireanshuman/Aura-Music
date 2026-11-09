@@ -1,4 +1,4 @@
-// AETHER's site. No libraries and nothing fetched from anyone else: this page is the app's own world.
+// Aura Music site. No libraries and nothing fetched from anyone else: this page is the app's own world.
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
 const coarse = matchMedia('(pointer: coarse)').matches
@@ -83,7 +83,7 @@ requestAnimationFrame((now) => { last = now; frame(now) })
 // --- The statues ------------------------------------------------------------------------------------
 
 const FIGURES = [
-  ['statue', 'The Listener', 'Made for AETHER, MMXXVI'],
+  ['statue', 'The Listener', 'Made for Aura, MMXXVI'],
   ['zeus', 'Zeus', 'Bronze from Cape Artemision, c. 460 BC'],
   ['hera', 'Hera', 'The Barberini type'],
   ['apollo', 'Apollo', 'The Belvedere, after Leochares'],
@@ -362,7 +362,7 @@ async function start() {
   try {
     dots = new Dots(document.getElementById('dots'))
   } catch (e) {
-    console.warn('AETHER: the dots need WebGL', e)
+    console.warn('Aura: the dots need WebGL', e)
     document.documentElement.classList.add('no-gl')
     lift()
     return

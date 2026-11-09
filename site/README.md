@@ -1,4 +1,4 @@
-# AETHER's website
+# Aura Music website
 
 A static page with no build step and no dependencies. It fetches nothing from anyone else's servers, and the Content-Security-Policy in the root `vercel.json` holds it to that.
 

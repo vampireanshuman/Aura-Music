@@ -1,21 +1,20 @@
-<h1 align="center">Aura (Powered by AETHER)</h1>
+<h1 align="center">Aura Music</h1>
 
 <p align="center">
 <b>A premium native music player for Android.</b><br>
-Built on and powered by <b><a href="https://github.com/GHOSTxASR/AETHER">AETHER by GHOSTxASR</a></b> under the <b>GNU General Public License v3.0 (GPL-3.0)</b>.<br>
 Built around the sound. Unlike anything you've used.
 </p>
 
 <p align="center">
-  <a href="https://github.com/GHOSTxASR/AETHER"><img alt="Powered by AETHER" src="https://img.shields.io/badge/Powered%20by-AETHER-ffffff?style=for-the-badge&labelColor=000000" /></a>
-  <a href="https://github.com/GHOSTxASR/AETHER/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/GHOSTxASR/AETHER?style=for-the-badge&labelColor=000000&color=ffffff" /></a>
+  <a href="https://github.com/vampireanshuman/Aura-Music/releases/latest/download/Aura-Music-v1.2.2.apk"><img alt="Download the APK" src="https://img.shields.io/badge/Download-APK-ffffff?style=for-the-badge&labelColor=000000" /></a>
+  <a href="https://github.com/vampireanshuman/Aura-Music/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/vampireanshuman/Aura-Music?style=for-the-badge&labelColor=000000&color=ffffff" /></a>
   <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-ffffff?style=for-the-badge&labelColor=000000" /></a>
   <img alt="Android 10 or later" src="https://img.shields.io/badge/Android-10%2B-ffffff?style=for-the-badge&labelColor=000000" />
 </p>
 
 > [!NOTE]
-> **Attribution & Upstream Credit:**
-> This repository is powered by **[AETHER by GHOSTxASR](https://github.com/GHOSTxASR/AETHER)**. All credit for the original design, native Kotlin / Jetpack Compose architecture, AGSL GPU shaders, bit-perfect DAC audio engine, and AutoEq headphone calibration belongs to **GHOSTxASR** and upstream contributors under the **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)**.
+> **Attribution & Licensing:**
+> Aura Music is built on and powered by **[AETHER by GHOSTxASR](https://github.com/GHOSTxASR/AETHER)** under the **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)**. All credit for the underlying architectural design, native Kotlin / Jetpack Compose implementation, AGSL GPU shaders, bit-perfect DAC audio engine, and AutoEq headphone calibration belongs to **GHOSTxASR** and upstream contributors.
 
 <p align="center">
   <img src="docs/images/listen.jpg" width="24%" alt="The homepage, with a statue of Hera in halftone">
@@ -31,19 +30,19 @@ Built around the sound. Unlike anything you've used.
   <img src="docs/images/card-song.jpg" width="24%" alt="A song card in black metal">
 </p>
 
-AETHER is made the way a fine watch is made: every part considered, nothing there for show. Pure black. One glass. Three typefaces. The only colour on the screen comes from the music you're playing.
+Aura is made the way a fine watch is made: every part considered, nothing there for show. Pure black. One glass. Three typefaces. The only colour on the screen comes from the music you're playing.
 
 It plays all of YouTube Music and your own files through an audio path that reports exactly what it measured, in an interface no other music app looks or moves like.
 
-<p align="center"><a href="https://aether-music-player.vercel.app/">Website</a>&nbsp;&nbsp;|&nbsp;&nbsp;<a href="https://github.com/GHOSTxASR/AETHER/releases/latest">Releases</a></p>
+<p align="center"><a href="https://github.com/vampireanshuman/Aura-Music/releases/latest">Releases</a></p>
 
 ## Download
 
-1. Download **[AETHER v1.apk](https://github.com/GHOSTxASR/AETHER/releases/latest/download/AETHER.v1.apk)** from the latest release.
+1. Download **[Aura-Music-v1.2.2.apk](https://github.com/vampireanshuman/Aura-Music/releases/latest/download/Aura-Music-v1.2.2.apk)** from the latest release.
 2. Open it on your phone. Android asks once to allow installs from your browser or file manager.
-3. Open AETHER and press play.
+3. Open Aura and press play.
 
-Needs Android 10 or later. Every release is signed with the same key, so new versions install over old ones and keep your library.
+Needs Android 10 or later. Every release is signed with the same persistent key, so new versions install over old ones and keep your library.
 
 ## Zero nonsense
 
@@ -61,7 +60,7 @@ Needs Android 10 or later. Every release is signed with the same key, so new ver
 
 **Your whole library.** The complete YouTube Music catalogue, as a guest or signed in on Google's own page. Your own FLAC, ALAC and WAV files, folder by folder. Songs and whole playlists kept for offline, picking up new additions on Wi-Fi. Your own server, added by address over an open protocol.
 
-## Nothing else does this
+## Features
 
 **Statues that rearrange themselves.** Behind Listen stand twelve figures from antiquity, printed in halftone. Every nine seconds, each dot lifts, crosses the screen and lands as part of the next god, with the face arriving last.
 
@@ -81,7 +80,7 @@ Needs Android 10 or later. Every release is signed with the same key, so new ver
 
 ## Privacy
 
-Your YouTube sign-in is sealed with the Android Keystore, and a card leaves the phone only when you send it. Apart from fetching music, AETHER makes three kinds of request. Each can be turned off in Settings, and none says anything about you.
+Your YouTube sign-in is sealed with the Android Keystore, and a card leaves the phone only when you send it. Apart from fetching music, Aura makes three kinds of request. Each can be turned off in Settings, and none says anything about you.
 
 | For | Asks | Sends |
 |---|---|---|
@@ -91,7 +90,7 @@ Your YouTube sign-in is sealed with the Android Keystore, and a card leaves the 
 
 ## Principles
 
-Quality is measured, never claimed. Added sources play open media only: no content-key decryption, no licence proxies, no sources bundled with the app. Every change is judged first by how it looks and feels on the phone. The full rules are in [`CLAUDE.md`](CLAUDE.md).
+Quality is measured, never claimed. Added sources play open media only: no content-key decryption, no licence proxies, no sources bundled with the app. Every change is judged first by how it looks and feels on the phone.
 
 ## Building
 
@@ -117,14 +116,12 @@ A release build is signed with the key named in `keystore.properties`, which sta
 | `ytmusic` | The YouTube Music client and its fail-soft parser |
 | `sources:*` | YouTube, the phone, addons, and Apple's public art |
 
-What changed and when is in [`CHANGELOG.md`](CHANGELOG.md). Design and engineering notes are in [`docs/product.md`](docs/product.md), [`docs/architecture.md`](docs/architecture.md) and [`docs/ytmusic-verification.md`](docs/ytmusic-verification.md).
-
 ## Credits
 
-AETHER stands on PODIUM, LastWave-native and BitChord (GPL-3.0), Kyant's Backdrop, Media3, Coil, [AutoEq](https://github.com/jaakkopasanen/AutoEq) and the people who measured the headphones, and Phosphor Icons. Everything is listed with its licence in [`third_party/NOTICES.md`](third_party/NOTICES.md), and the statue photographers in [`third_party/STATUE_PHOTOS.md`](third_party/STATUE_PHOTOS.md).
+Aura Music is built upon [AETHER by GHOSTxASR](https://github.com/GHOSTxASR/AETHER) (GPL-3.0), PODIUM, LastWave-native and BitChord (GPL-3.0), Kyant's Backdrop, Media3, Coil, [AutoEq](https://github.com/jaakkopasanen/AutoEq) and the people who measured the headphones, and Phosphor Icons. Everything is listed with its licence in [`third_party/NOTICES.md`](third_party/NOTICES.md), and the statue photographers in [`third_party/STATUE_PHOTOS.md`](third_party/STATUE_PHOTOS.md).
 
 ## Licence
 
 [GPL-3.0](LICENSE). Third-party parts keep their own licences and notices.
 
-AETHER is an independent project. It isn't affiliated with or endorsed by YouTube, Google, Apple or any headphone maker named here, and all music, artwork and trademarks belong to their owners.
+Aura is an independent project. It isn't affiliated with or endorsed by YouTube, Google, Apple or any headphone maker named here, and all music, artwork and trademarks belong to their owners.
