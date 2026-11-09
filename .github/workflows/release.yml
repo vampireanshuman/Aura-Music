@@ -1,4 +1,4 @@
-name: Release Aura Music
+name: Release Aura (AETHER)
 
 on:
   push:
@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g., v1.0.5)'
+        description: 'Release Tag (e.g., v1.2.0)'
         required: true
-        default: 'v1.0.5'
+        default: 'v1.2.0'
 
 permissions:
   contents: write
@@ -27,12 +27,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -40,59 +34,50 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Accept Android SDK Licenses & Permissions
+      - name: Accept Android SDK Licenses & Setup API 37
         run: |
-          chmod +x android/gradlew
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+          sdkmanager "platforms;android-37" "platforms;android-36" "build-tools;36.0.0" || true
 
-      - name: Ensure Persistent Keystore Exists
+      - name: Restore Persistent Release Keystore
         run: |
-          if [ ! -f android/app/aura-release-key.jks ]; then
-            echo "Generating persistent release keystore..."
-            keytool -genkey -v -keystore android/app/aura-release-key.jks \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -alias aura-key -storepass auramusic123 -keypass auramusic123 \
-              -dname "CN=Anshuman Kumar, OU=AuraMusic, O=Aura, L=Bengaluru, S=KA, C=IN"
-          else
-            echo "Persistent keystore android/app/aura-release-key.jks verified."
-            keytool -list -keystore android/app/aura-release-key.jks -storepass auramusic123 -alias aura-key || true
-          fi
+          echo "Restoring persistent release keystore..."
+          echo "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" | base64 -d > aura-release-key.jks
+          cp aura-release-key.jks app/aura-release-key.jks
+          cat << 'EOF' > keystore.properties
+          storeFile=aura-release-key.jks
+          storePassword=auramusic123
+          keyAlias=aura-key
+          keyPassword=auramusic123
+          EOF
 
-      - name: Install Dependencies
-        run: npm ci || npm install
+      - name: Grant Execute Permission to Gradle Wrapper
+        run: chmod +x gradlew
+
+      - name: Assemble Release APK
+        run: ./gradlew :app:assembleRelease --stacktrace
         env:
-          CI: 'true'
+          AETHER_KEYSTORE_FILE: aura-release-key.jks
+          AETHER_KEYSTORE_PASSWORD: auramusic123
+          AETHER_KEY_ALIAS: aura-key
+          AETHER_KEY_PASSWORD: auramusic123
 
-      - name: Build Web Production Bundle
-        run: npm run build
-
-      - name: Sync Capacitor Android
-        run: npx cap sync android --inline
-        env:
-          CAPACITOR_TELEMETRY: 'false'
-          CI: 'true'
-
-      - name: Compile Android APK
-        run: |
-          cd android
-          ./gradlew assembleRelease --stacktrace
-
-      - name: Stage Release APK & Checksum
+      - name: Stage Release APK & Checksums
         run: |
           mkdir -p release_assets
-          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v1.0.5' }}"
+          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v1.2.0' }}"
           
           # Find release APK
-          APK_FILE=$(find android/app/build/outputs/apk/release/ -type f -name "*.apk" | head -n 1)
+          APK_FILE=$(find app/build/outputs/apk/release/ -type f -name "*.apk" | head -n 1)
           if [ -z "$APK_FILE" ]; then
-            APK_FILE=$(find android/app/build/outputs/apk/ -type f -name "*.apk" | head -n 1)
+            APK_FILE=$(find app/build/outputs/apk/ -type f -name "*.apk" | head -n 1)
           fi
           
           if [ -n "$APK_FILE" ] && [ -f "$APK_FILE" ]; then
             echo "Found APK: $APK_FILE"
             cp "$APK_FILE" release_assets/AuraMusic-release.apk
             cp "$APK_FILE" "release_assets/Aura-Music-${TAG_VAL}.apk"
+            cp "$APK_FILE" "release_assets/AETHER-${TAG_VAL}.apk"
           else
             echo "Error: No APK file generated!"
             exit 1
@@ -102,7 +87,8 @@ jobs:
           cd release_assets
           sha256sum AuraMusic-release.apk > AuraMusic-release.apk.sha256
           sha256sum "Aura-Music-${TAG_VAL}.apk" > "Aura-Music-${TAG_VAL}.apk.sha256"
-          echo "Generated APK Assets:"
+          sha256sum "AETHER-${TAG_VAL}.apk" > "AETHER-${TAG_VAL}.apk.sha256"
+          echo "Release artifacts staged:"
           ls -lh
 
       - name: Publish to GitHub Releases
@@ -113,9 +99,25 @@ jobs:
             release_assets/AuraMusic-release.apk.sha256
             release_assets/Aura-Music-*.apk
             release_assets/Aura-Music-*.apk.sha256
+            release_assets/AETHER-*.apk
+            release_assets/AETHER-*.apk.sha256
           tag_name: ${{ github.ref_name || inputs.tag_name }}
-          name: "Aura Music ${{ github.ref_name || inputs.tag_name }}"
-          generate_release_notes: true
+          name: "Aura Music ${{ github.ref_name || inputs.tag_name }} (Powered by AETHER)"
+          body: |
+            ## Aura Music Release ${{ github.ref_name || inputs.tag_name }}
+            
+            > **Built on and powered by [AETHER](https://github.com/GHOSTxASR/AETHER) by [GHOSTxASR](https://github.com/GHOSTxASR) under [GPL-3.0](LICENSE).**
+            
+            ### Highlights
+            - **Pure Native Kotlin / Jetpack Compose Architecture**: Zero web wrappers, zero hybrid overhead.
+            - **Float32 & Bit-Perfect DAC Output**: Honest signal path directly to external USB DACs without resampling.
+            - **Headphone Correction Engine**: AutoEq integration for 39 models with published acoustic measurements.
+            - **Antiquity Halftone Particle Morphing**: Real-time AGSL GPU shader particle transitions.
+            - **Watchmaker Arc Dial**: Tactile fine-pitch scrub dial.
+            - **Brushed Titanium & Obsidian Charge Cards**: Direct export of high-fidelity listening certificates.
+            
+            ### Installation
+            Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required).
           draft: false
           prerelease: false
         env:
