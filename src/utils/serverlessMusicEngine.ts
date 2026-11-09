@@ -99,24 +99,44 @@ export function decryptJioSaavnMediaUrl(encryptedUrl: string): string | null {
 
 /**
  * Parse a raw JioSaavn song object into Aura Music Track
+ * Handles both API v4 structured responses (more_info) and legacy flat format
  */
 function parseJioSaavnSong(item: any): Track | null {
   if (!item) return null;
   const rawTitle = item.song || item.name || item.title;
   if (!rawTitle) return null;
 
+  const more = item.more_info || {};
+  const encryptedUrl = more.encrypted_media_url || item.encrypted_media_url || '';
+  let audioUrl = encryptedUrl ? (decryptJioSaavnMediaUrl(encryptedUrl) || '') : '';
+
+  if (!audioUrl && Array.isArray(item.downloadUrl) && item.downloadUrl.length > 0) {
+    const best = item.downloadUrl.find((d: any) => d.quality === '320kbps' || d.quality === '320') || item.downloadUrl[item.downloadUrl.length - 1];
+    audioUrl = best?.url || best?.link || '';
+  }
+  if (!audioUrl && (more.media_preview_url || item.media_preview_url)) {
+    audioUrl = (more.media_preview_url || item.media_preview_url)
+      .replace('preview.saavncdn.com', 'aac.saavncdn.com')
+      .replace('_96_p.mp4', '_320.mp4');
+  }
+
+  // CRITICAL: If a search result has NO valid audioUrl, return null so we never return unplayable shell tracks!
+  if (!audioUrl || !audioUrl.startsWith('http')) return null;
+
   const title = unescapeHtml(rawTitle);
+  const duration = parseInt(more.duration || item.duration, 10) || 210;
   const artist = unescapeHtml(
+    more.artistMap?.primary_artists?.map((a: any) => a.name).join(', ') ||
     item.primary_artists || 
     item.primaryArtists || 
     item.singers || 
     item.music || 
     item.artist || 
+    item.subtitle ||
     'Various Artists'
   );
 
-  const album = unescapeHtml(item.album || item.album_name || 'Single');
-  const duration = parseInt(item.duration, 10) || 210;
+  const album = unescapeHtml(more.album || item.album || item.album_name || 'Single');
 
   // High-res 500x500 square artwork
   let coverUrl = item.image || '';
@@ -125,19 +145,6 @@ function parseJioSaavnSong(item: any): Track | null {
     coverUrl = high?.link || high?.url || coverUrl[0]?.link || '';
   } else if (typeof coverUrl === 'string') {
     coverUrl = coverUrl.replace(/-(?:150x150|50x50)\./, '-500x500.').replace('http://', 'https://');
-  }
-
-  // Audio Stream URL (Prefer 320kbps decrypted media url, then downloadUrl array, then media_preview_url)
-  let audioUrl = '';
-  if (item.encrypted_media_url) {
-    audioUrl = decryptJioSaavnMediaUrl(item.encrypted_media_url) || '';
-  }
-  if (!audioUrl && Array.isArray(item.downloadUrl)) {
-    const high = item.downloadUrl.find((u: any) => u.quality === '320kbps' || u.quality === '320') || item.downloadUrl[item.downloadUrl.length - 1];
-    audioUrl = high?.link || high?.url || '';
-  }
-  if (!audioUrl && item.media_preview_url) {
-    audioUrl = item.media_preview_url;
   }
 
   const id = `saavn-${item.id || Math.random().toString(36).slice(2, 9)}`;
@@ -189,7 +196,7 @@ function parseItunesItem(item: any): Track | null {
  */
 async function searchJioSaavn(query: string): Promise<Track[]> {
   const encQuery = encodeURIComponent(query.trim());
-  const primaryUrl = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&n=25&p=1&_marker=0&ctx=android&q=${encQuery}`;
+  const primaryUrl = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&n=25&p=1&_marker=0&ctx=android&api_version=4&q=${encQuery}`;
 
   try {
     const data = await fetchJson(primaryUrl, 6000);
@@ -329,7 +336,7 @@ export async function resolveDirectStream(track: {
   // 4. Query JioSaavn official API for top direct 320kbps stream with title verification
   try {
     const encQuery = encodeURIComponent(query);
-    const saavnUrl = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&n=5&p=1&_marker=0&ctx=android&q=${encQuery}`;
+    const saavnUrl = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&n=5&p=1&_marker=0&ctx=android&api_version=4&q=${encQuery}`;
     const data = await fetchJson(saavnUrl, 4500);
 
     if (data && Array.isArray(data.results) && data.results.length > 0) {
@@ -340,14 +347,22 @@ export async function resolveDirectStream(track: {
           continue;
         }
 
-        let stream = '';
-        if (item.encrypted_media_url) {
-          stream = decryptJioSaavnMediaUrl(item.encrypted_media_url) || '';
+        const more = item.more_info || {};
+        const encUrl = more.encrypted_media_url || item.encrypted_media_url || '';
+        let stream = encUrl ? (decryptJioSaavnMediaUrl(encUrl) || '') : '';
+
+        if (!stream && Array.isArray(item.downloadUrl) && item.downloadUrl.length > 0) {
+          const best = item.downloadUrl.find((d: any) => d.quality === '320kbps' || d.quality === '320') || item.downloadUrl[item.downloadUrl.length - 1];
+          stream = best?.url || best?.link || '';
         }
-        if (!stream && item.media_preview_url) {
-          stream = item.media_preview_url;
+
+        if (!stream && (more.media_preview_url || item.media_preview_url)) {
+          stream = (more.media_preview_url || item.media_preview_url)
+            .replace('preview.saavncdn.com', 'aac.saavncdn.com')
+            .replace('_96_p.mp4', '_320.mp4');
         }
-        if (stream) {
+
+        if (stream && stream.startsWith('http')) {
           streamCache.set(track.id, stream);
           return stream;
         }

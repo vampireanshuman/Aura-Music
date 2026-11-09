@@ -1156,9 +1156,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // Direct Native HTML5 Audio Streaming for all online and local tracks
+    // Immediately silence both decks and YouTube engine so previous audio NEVER overlaps
+    youtubeEngine.pause();
     isCrossfadingRef.current = false;
+
     const activeDeck = getActiveDeckAudio();
     const inactiveDeck = getInactiveDeckAudio();
+
+    if (activeDeck) {
+      activeDeck.pause();
+    }
 
     if (inactiveDeck) {
       inactiveDeck.pause();
@@ -1172,6 +1179,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (activeDeck.src !== src) {
           activeDeck.src = src;
         }
+        activeDeck.currentTime = 0;
         activeDeck.playbackRate = playbackSpeed;
         activeDeck.volume = isMuted ? 0 : volume;
 
@@ -1205,8 +1213,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         executeAudioPlay(track.audioUrl);
       } else {
         // 3. On-the-fly resolution via serverless music engine with strict title verification
+        setIsPlaying(false);
+        isPlayingRef.current = false;
         resolveDirectStream(track)
           .then((directStream) => {
+            if (currentTrackRef.current?.id !== track.id) return;
             if (directStream) {
               track.audioUrl = directStream;
               registerTrack({ ...track, audioUrl: directStream });
@@ -1215,14 +1226,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               youtubeEngine.loadAndPlay(track.youtubeId);
               setIsPlaying(true);
               isPlayingRef.current = true;
+            } else {
+              setIsPlaying(false);
+              isPlayingRef.current = false;
             }
           })
           .catch((err) => {
             console.warn('[Audio] Direct stream resolution fallback:', err);
+            if (currentTrackRef.current?.id !== track.id) return;
             if (track.youtubeId) {
               youtubeEngine.loadAndPlay(track.youtubeId);
               setIsPlaying(true);
               isPlayingRef.current = true;
+            } else {
+              setIsPlaying(false);
+              isPlayingRef.current = false;
             }
           });
       }
