@@ -187,8 +187,20 @@ export const PlayerBar: React.FC = () => {
           }}
           className="relative h-[60px] rounded-[18px] backdrop-blur-[32px] saturate-[200%] bg-[#0e101a]/85 border border-white/[0.09] shadow-[0_16px_40px_rgba(0,0,0,0.85)] overflow-hidden cursor-pointer spring-interactive flex flex-col justify-between"
         >
+          {/* Flagship Glassmorphic Progress Perimeter Border */}
+          <div
+            className="absolute inset-0 rounded-[18px] pointer-events-none transition-all duration-150 z-10"
+            style={{
+              padding: '1px',
+              background: `conic-gradient(from 0deg, ${primaryColor} ${percentPlayed}%, rgba(255,255,255,0.06) ${percentPlayed}%)`,
+              WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+              WebkitMaskComposite: 'xor',
+              maskComposite: 'exclude'
+            }}
+          />
+
           {/* Razor-thin 3px Liquid Top Scrubber */}
-          <div className="relative w-full h-[3px] bg-white/[0.08] overflow-hidden shrink-0">
+          <div className="relative w-full h-[3px] bg-white/[0.08] overflow-hidden shrink-0 z-20">
             <div
               className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-300"
               style={{ width: `${buffered}%` }}

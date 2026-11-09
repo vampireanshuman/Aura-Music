@@ -3,6 +3,7 @@ import { useAudio } from '../context/AudioContext';
 import { X, ExternalLink, Video, Sparkles } from 'lucide-react';
 import { SyncedNativeVideoPlayer } from './SyncedNativeVideoPlayer';
 import { getApiUrl } from '../utils/apiConfig';
+import { searchMusic } from '../utils/serverlessMusicEngine';
 
 export const VideoModal: React.FC = () => {
   const {
@@ -25,17 +26,30 @@ export const VideoModal: React.FC = () => {
         setResolvedVideoId(rawId);
       } else {
         setIsSearching(true);
-        fetch(getApiUrl(`/api/search?q=${encodeURIComponent(currentTrack.artist + ' ' + currentTrack.title + ' official music video')}`))
-          .then(res => res.json())
-          .then(data => {
-            if (active && data.tracks?.[0]?.youtubeId) {
-              setResolvedVideoId(data.tracks[0].youtubeId);
+        const query = `${currentTrack.artist} ${currentTrack.title} official music video`;
+        (async () => {
+          try {
+            const serverlessMatches = await searchMusic(query);
+            if (active && serverlessMatches && serverlessMatches.length > 0) {
+              const matched = serverlessMatches.find(m => m.youtubeId) || serverlessMatches[0];
+              if (matched.youtubeId) {
+                setResolvedVideoId(matched.youtubeId);
+                return;
+              }
             }
-          })
-          .catch(() => {})
-          .finally(() => {
+            const res = await fetch(getApiUrl(`/api/search?q=${encodeURIComponent(query)}`));
+            if (res.ok) {
+              const data = await res.json();
+              if (active && data.tracks?.[0]?.youtubeId) {
+                setResolvedVideoId(data.tracks[0].youtubeId);
+              }
+            }
+          } catch {
+            // fallback
+          } finally {
             if (active) setIsSearching(false);
-          });
+          }
+        })();
       }
     }
 

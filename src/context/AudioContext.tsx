@@ -239,6 +239,23 @@ const EQ_PRESET_GAINS: Record<EqualizerPreset, number[]> = {
 
 const FREQUENCIES = [60, 250, 1000, 4000, 16000];
 
+function calculateCrossfadeVolumes(
+  progress: number,
+  curve: 'smooth' | 'linear' | 'exponential' = 'smooth',
+  maxVolume: number = 1.0
+): { outgoing: number; incoming: number } {
+  const p = Math.max(0, Math.min(1, progress));
+  if (curve === 'linear') {
+    return { outgoing: maxVolume * (1 - p), incoming: maxVolume * p };
+  } else if (curve === 'exponential') {
+    return { outgoing: maxVolume * Math.pow(1 - p, 2), incoming: maxVolume * Math.pow(p, 2) };
+  } else {
+    // Equal-power sinusoidal curve for zero dip in acoustic loudness
+    const angle = p * (Math.PI / 2);
+    return { outgoing: maxVolume * Math.cos(angle), incoming: maxVolume * Math.sin(angle) };
+  }
+}
+
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('aura_settings');
@@ -470,6 +487,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Audio Engine & DSP Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const crossfadeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const activeDeckRef = useRef<'A' | 'B'>('A');
+  const isCrossfadingRef = useRef(false);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const crossfadeSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const sourceNodeConnectedRef = useRef(false);
+  const crossfadeSourceNodeConnectedRef = useRef(false);
+  const corsFallbackAttemptedRef = useRef<Record<string, boolean>>({});
   const audioContextRef = useRef<AudioContext | null>(null);
   const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
   const dspEngineRef = useRef<AudioDSPEngine>(new AudioDSPEngine());
@@ -710,23 +735,39 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return false;
   };
 
-  // Initialize Audio Element and Web Audio API
+  // Helper functions for dual-deck access
+  const getActiveDeckAudio = useCallback(() => {
+    return activeDeckRef.current === 'A' ? audioRef.current : crossfadeAudioRef.current;
+  }, []);
+
+  const getInactiveDeckAudio = useCallback(() => {
+    return activeDeckRef.current === 'A' ? crossfadeAudioRef.current : audioRef.current;
+  }, []);
+
+  // Initialize Audio Elements and Web Audio API
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    (window as any).__audio = audio;
+    const audioA = audioRef.current;
+    const audioB = crossfadeAudioRef.current;
+    if (!audioA) return;
+    (window as any).__audio = audioA;
 
     // Set initial track source so bottom player is immediately ready on first click
     if (INITIAL_TRACKS[0]?.audioUrl) {
-      audio.src = INITIAL_TRACKS[0].audioUrl;
+      audioA.src = INITIAL_TRACKS[0].audioUrl;
     }
 
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      currentTimeRef.current = audio.currentTime;
-      if (audio.buffered.length > 0) {
-        const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
-        const dur = audio.duration || 1;
+    const handleDeckTimeUpdate = (deckType: 'A' | 'B') => {
+      // Only process state for the currently active deck
+      if (activeDeckRef.current !== deckType) return;
+      const activeAudio = deckType === 'A' ? audioA : audioB;
+      const inactiveAudio = deckType === 'A' ? audioB : audioA;
+      if (!activeAudio) return;
+
+      setCurrentTime(activeAudio.currentTime);
+      currentTimeRef.current = activeAudio.currentTime;
+      if (activeAudio.buffered.length > 0) {
+        const bufferedEnd = activeAudio.buffered.end(activeAudio.buffered.length - 1);
+        const dur = activeAudio.duration || 1;
         setBuffered(Math.min((bufferedEnd / dur) * 100, 100));
       }
 
@@ -734,63 +775,202 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const now = Date.now();
       if (now - lastMediaSessionSyncRef.current > 1200) {
         lastMediaSessionSyncRef.current = now;
-        syncMediaSessionPositionState(audio.currentTime, audio.duration, audio.playbackRate, !audio.paused);
+        syncMediaSessionPositionState(activeAudio.currentTime, activeAudio.duration, activeAudio.playbackRate, !activeAudio.paused);
+      }
+
+      // Real Dual-Deck Gapless Crossfade Pipeline
+      const crossfadeDuration = settings.crossfade ?? 2;
+      const cur = activeAudio.currentTime;
+      const dur = activeAudio.duration;
+
+      if (
+        crossfadeDuration > 0 &&
+        dur > 15 &&
+        dur - cur <= crossfadeDuration &&
+        dur - cur > 0 &&
+        !isCrossfadingRef.current &&
+        inactiveAudio
+      ) {
+        // Look up next track in the queue
+        let nextIndex = queueIndex + 1;
+        if (repeatMode === 'one') {
+          nextIndex = queueIndex;
+        } else if (nextIndex >= queue.length) {
+          nextIndex = repeatMode === 'all' ? 0 : -1;
+        }
+
+        if (nextIndex >= 0 && queue[nextIndex]) {
+          const nextTrack = queue[nextIndex];
+          isCrossfadingRef.current = true;
+
+          const startCrossfadeDeck = (streamUrl: string) => {
+            if (!inactiveAudio) return;
+            inactiveAudio.crossOrigin = 'anonymous';
+            if (inactiveAudio.src !== streamUrl) {
+              inactiveAudio.src = streamUrl;
+            }
+            inactiveAudio.currentTime = 0;
+            inactiveAudio.playbackRate = playbackSpeedRef.current || 1.0;
+            const targetVol = isMuted ? 0 : volume;
+            const { outgoing, incoming } = calculateCrossfadeVolumes(0, settings.crossfadeCurve, targetVol);
+            inactiveAudio.volume = incoming;
+            activeAudio.volume = outgoing;
+            inactiveAudio.play().catch(e => console.warn('[Crossfade] Secondary deck initial play note:', e));
+          };
+
+          if (nextTrack.audioUrl) {
+            startCrossfadeDeck(nextTrack.audioUrl);
+          } else {
+            resolveDirectStream(nextTrack).then(url => {
+              if (url && isCrossfadingRef.current) {
+                nextTrack.audioUrl = url;
+                startCrossfadeDeck(url);
+              }
+            });
+          }
+        }
+      }
+
+      // Live volume curve interpolation while crossfading
+      if (isCrossfadingRef.current && inactiveAudio && crossfadeDuration > 0) {
+        const remaining = Math.max(0, dur - cur);
+        const p = Math.max(0, Math.min(1, 1 - (remaining / crossfadeDuration)));
+        const targetVol = isMuted ? 0 : volume;
+        const { outgoing, incoming } = calculateCrossfadeVolumes(p, settings.crossfadeCurve, targetVol);
+        activeAudio.volume = outgoing;
+        inactiveAudio.volume = incoming;
+
+        if (remaining <= 0.25 || activeAudio.ended) {
+          // Crossfade completed: finalize deck switchover
+          isCrossfadingRef.current = false;
+          activeAudio.pause();
+          activeAudio.volume = isMuted ? 0 : volume;
+          inactiveAudio.volume = isMuted ? 0 : volume;
+          activeDeckRef.current = deckType === 'A' ? 'B' : 'A';
+          (window as any).__audio = inactiveAudio;
+
+          let nextIdx = (queueIndex + 1) % queue.length;
+          if (repeatMode === 'one') nextIdx = queueIndex;
+          setQueueIndex(nextIdx);
+          const nextT = queue[nextIdx];
+          if (nextT) {
+            setCurrentTrack(nextT);
+            currentTrackRef.current = nextT;
+            syncMediaSessionPositionState(0, nextT.duration, playbackSpeedRef.current, true);
+          }
+        }
       }
     };
 
-    const handleLoadedMetadata = () => {
-      console.log('[AUDIO] loadedmetadata, duration:', audio.duration);
-      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) {
-        setDuration(audio.duration);
+    const handleDeckLoadedMetadata = (deck: HTMLAudioElement, deckType: 'A' | 'B') => {
+      if (activeDeckRef.current === deckType && deck.duration && !isNaN(deck.duration) && isFinite(deck.duration) && deck.duration > 0) {
+        setDuration(deck.duration);
       }
     };
 
-    const handlePlay = () => {
-      console.log('[AUDIO] play event fired');
-      setIsPlaying(true);
+    const handleDeckPlay = (deckType: 'A' | 'B') => {
+      if (activeDeckRef.current === deckType) setIsPlaying(true);
     };
-    const handlePause = () => {
-      console.log('[AUDIO] pause event fired');
-      setIsPlaying(false);
+
+    const handleDeckPause = (deckType: 'A' | 'B') => {
+      if (activeDeckRef.current === deckType && !isCrossfadingRef.current) setIsPlaying(false);
     };
-    const handleWaiting = () => {
-      console.log('[AUDIO] waiting event fired');
-      setBuffered(25);
+
+    const handleDeckWaiting = (deckType: 'A' | 'B') => {
+      if (activeDeckRef.current === deckType) setBuffered(25);
     };
-    const handlePlaying = () => {
-      console.log('[AUDIO] playing event fired, currentTime:', audio.currentTime);
-      setIsPlaying(true);
-      setBuffered(100);
+
+    const handleDeckPlaying = (deckType: 'A' | 'B') => {
+      if (activeDeckRef.current === deckType) {
+        setIsPlaying(true);
+        setBuffered(100);
+      }
     };
-    const handleError = () => {
-      const err = audio.error;
-      console.error('[AUDIO] error event fired! Code:', err?.code, 'Message:', err?.message, 'src:', audio.src);
+
+    const handleDeckError = (deck: HTMLAudioElement) => {
+      const err = deck.error;
+      console.error('[AUDIO] error event fired! Code:', err?.code, 'Message:', err?.message, 'src:', deck.src);
+
+      // CORS Safety Fallback:
+      // If external stream was rejected due to crossOrigin='anonymous', retry directly without CORS
+      if (deck.crossOrigin && deck.src && !corsFallbackAttemptedRef.current[deck.src]) {
+        console.warn('[AUDIO] CORS error on stream. Retrying directly without CORS restrictions...');
+        corsFallbackAttemptedRef.current[deck.src] = true;
+        const currentSrc = deck.src;
+        const curTime = deck.currentTime || 0;
+        deck.removeAttribute('crossorigin');
+        (deck as any).crossOrigin = null;
+        deck.src = currentSrc;
+        deck.load();
+        if (isPlayingRef.current) {
+          deck.currentTime = curTime;
+          deck.play().catch(e => console.warn('[AUDIO] Play retry failed:', e));
+        }
+        return;
+      }
+
       setIsPlaying(false);
     };
 
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
-    audio.addEventListener('waiting', handleWaiting);
-    audio.addEventListener('playing', handlePlaying);
-    audio.addEventListener('error', handleError);
+    const onTimeUpdateA = () => handleDeckTimeUpdate('A');
+    const onTimeUpdateB = () => handleDeckTimeUpdate('B');
+    const onMetadataA = () => handleDeckLoadedMetadata(audioA, 'A');
+    const onMetadataB = () => audioB && handleDeckLoadedMetadata(audioB, 'B');
+    const onPlayA = () => handleDeckPlay('A');
+    const onPlayB = () => handleDeckPlay('B');
+    const onPauseA = () => handleDeckPause('A');
+    const onPauseB = () => handleDeckPause('B');
+    const onWaitingA = () => handleDeckWaiting('A');
+    const onWaitingB = () => handleDeckWaiting('B');
+    const onPlayingA = () => handleDeckPlaying('A');
+    const onPlayingB = () => handleDeckPlaying('B');
+    const onErrorA = () => handleDeckError(audioA);
+    const onErrorB = () => audioB && handleDeckError(audioB);
+
+    audioA.addEventListener('timeupdate', onTimeUpdateA);
+    audioA.addEventListener('loadedmetadata', onMetadataA);
+    audioA.addEventListener('play', onPlayA);
+    audioA.addEventListener('pause', onPauseA);
+    audioA.addEventListener('waiting', onWaitingA);
+    audioA.addEventListener('playing', onPlayingA);
+    audioA.addEventListener('error', onErrorA);
+
+    if (audioB) {
+      audioB.addEventListener('timeupdate', onTimeUpdateB);
+      audioB.addEventListener('loadedmetadata', onMetadataB);
+      audioB.addEventListener('play', onPlayB);
+      audioB.addEventListener('pause', onPauseB);
+      audioB.addEventListener('waiting', onWaitingB);
+      audioB.addEventListener('playing', onPlayingB);
+      audioB.addEventListener('error', onErrorB);
+    }
 
     return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('pause', handlePause);
-      audio.removeEventListener('waiting', handleWaiting);
-      audio.removeEventListener('playing', handlePlaying);
-      audio.removeEventListener('error', handleError);
-      audio.pause();
+      audioA.removeEventListener('timeupdate', onTimeUpdateA);
+      audioA.removeEventListener('loadedmetadata', onMetadataA);
+      audioA.removeEventListener('play', onPlayA);
+      audioA.removeEventListener('pause', onPauseA);
+      audioA.removeEventListener('waiting', onWaitingA);
+      audioA.removeEventListener('playing', onPlayingA);
+      audioA.removeEventListener('error', onErrorA);
+      audioA.pause();
+
+      if (audioB) {
+        audioB.removeEventListener('timeupdate', onTimeUpdateB);
+        audioB.removeEventListener('loadedmetadata', onMetadataB);
+        audioB.removeEventListener('play', onPlayB);
+        audioB.removeEventListener('pause', onPauseB);
+        audioB.removeEventListener('waiting', onWaitingB);
+        audioB.removeEventListener('playing', onPlayingB);
+        audioB.removeEventListener('error', onErrorB);
+        audioB.pause();
+      }
     };
-  }, []);
+  }, [queue, queueIndex, repeatMode, settings.crossfade, settings.crossfadeCurve, volume, isMuted, syncMediaSessionPositionState]);
 
   // Web Audio Context initialization on first interaction
   const initWebAudio = useCallback(() => {
-    if (!audioRef.current || audioContextRef.current) return;
+    if (audioContextRef.current) return;
 
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -826,25 +1006,40 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       eqFiltersRef.current = filters;
 
-      // Web Audio DSP setup (keep optional so native hardware output is never blocked)
-      /*
-      try {
-        const source = ctx.createMediaElementSource(audioRef.current);
-        sourceNodeRef.current = source;
+      // Live Web Audio DSP Graph with single-attachment guard for Deck A
+      if (!sourceNodeConnectedRef.current && audioRef.current) {
+        try {
+          const source = ctx.createMediaElementSource(audioRef.current);
+          sourceNodeRef.current = source;
+          sourceNodeConnectedRef.current = true;
 
-        let prevNode: AudioNode = source;
-        for (const filter of filters) {
-          prevNode.connect(filter);
-          prevNode = filter;
+          let prevNode: AudioNode = source;
+          for (const filter of filters) {
+            prevNode.connect(filter);
+            prevNode = filter;
+          }
+          prevNode.connect(analyser);
+
+          dspEngineRef.current.init(ctx, analyser, ctx.destination);
+          dspEngineRef.current.setMode(soundQualityMode);
+          console.log('[AudioDSP] Deck A Web Audio API graph & 5-band EQ successfully wired to destination.');
+        } catch (sourceErr) {
+          console.warn('[AudioDSP] Web Audio primary source wiring warning:', sourceErr);
         }
-        prevNode.connect(analyser);
-
-        dspEngineRef.current.init(ctx, analyser, ctx.destination);
-        dspEngineRef.current.setMode(soundQualityMode);
-      } catch (sourceErr) {
-        console.warn('Web Audio bypass:', sourceErr);
       }
-      */
+
+      // Live Web Audio DSP Graph with single-attachment guard for Deck B (Dual-deck crossfade)
+      if (!crossfadeSourceNodeConnectedRef.current && crossfadeAudioRef.current && filters[0]) {
+        try {
+          const crossSource = ctx.createMediaElementSource(crossfadeAudioRef.current);
+          crossfadeSourceNodeRef.current = crossSource;
+          crossfadeSourceNodeConnectedRef.current = true;
+          crossSource.connect(filters[0]);
+          console.log('[AudioDSP] Deck B crossfade source wired into DSP graph.');
+        } catch (crossErr) {
+          console.warn('[AudioDSP] Crossfade deck source wiring warning:', crossErr);
+        }
+      }
     } catch (err) {
       console.warn('Web Audio initialization error:', err);
     }
@@ -872,6 +1067,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (audioRef.current) {
       audioRef.current.volume = isMuted ? 0 : clamped;
     }
+    if (crossfadeAudioRef.current) {
+      crossfadeAudioRef.current.volume = isMuted ? 0 : clamped;
+    }
     if (clamped > 0 && isMuted) {
       setIsMuted(false);
     }
@@ -882,10 +1080,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (audioRef.current) {
         audioRef.current.volume = volume;
       }
+      if (crossfadeAudioRef.current) {
+        crossfadeAudioRef.current.volume = volume;
+      }
       setIsMuted(false);
     } else {
       if (audioRef.current) {
         audioRef.current.volume = 0;
+      }
+      if (crossfadeAudioRef.current) {
+        crossfadeAudioRef.current.volume = 0;
       }
       setIsMuted(true);
     }
@@ -942,16 +1146,26 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // Direct Native HTML5 Audio Streaming for all online and local tracks
-    const audio = audioRef.current;
-    if (audio) {
-      const executeAudioPlay = (src: string) => {
-        if (audio.src !== src) {
-          audio.src = src;
-        }
-        audio.playbackRate = playbackSpeed;
-        audio.volume = isMuted ? 0 : volume;
+    isCrossfadingRef.current = false;
+    const activeDeck = getActiveDeckAudio();
+    const inactiveDeck = getInactiveDeckAudio();
 
-        const playPromise = audio.play();
+    if (inactiveDeck) {
+      inactiveDeck.pause();
+      inactiveDeck.currentTime = 0;
+      inactiveDeck.volume = isMuted ? 0 : volume;
+    }
+
+    if (activeDeck) {
+      const executeAudioPlay = (src: string) => {
+        activeDeck.crossOrigin = 'anonymous';
+        if (activeDeck.src !== src) {
+          activeDeck.src = src;
+        }
+        activeDeck.playbackRate = playbackSpeed;
+        activeDeck.volume = isMuted ? 0 : volume;
+
+        const playPromise = activeDeck.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
             setIsPlaying(true);
@@ -1053,21 +1267,41 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [queue, queueIndex, playTrack]);
 
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleEnded = () => {
+    const handleEndedA = () => {
+      if (activeDeckRef.current !== 'A' || isCrossfadingRef.current) return;
       if (repeatMode === 'one') {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
+        const audio = audioRef.current;
+        if (audio) {
+          audio.currentTime = 0;
+          audio.play().catch(() => {});
+        }
       } else {
         skipNext();
       }
     };
 
-    audio.addEventListener('ended', handleEnded);
+    const handleEndedB = () => {
+      if (activeDeckRef.current !== 'B' || isCrossfadingRef.current) return;
+      if (repeatMode === 'one') {
+        const audio = crossfadeAudioRef.current;
+        if (audio) {
+          audio.currentTime = 0;
+          audio.play().catch(() => {});
+        }
+      } else {
+        skipNext();
+      }
+    };
+
+    const audioA = audioRef.current;
+    const audioB = crossfadeAudioRef.current;
+
+    audioA?.addEventListener('ended', handleEndedA);
+    audioB?.addEventListener('ended', handleEndedB);
+
     return () => {
-      audio.removeEventListener('ended', handleEnded);
+      audioA?.removeEventListener('ended', handleEndedA);
+      audioB?.removeEventListener('ended', handleEndedB);
     };
   }, [repeatMode, skipNext]);
 
@@ -1078,14 +1312,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audioContextRef.current.resume().catch(() => {});
     }
 
-    const audio = audioRef.current;
+    const audio = getActiveDeckAudio();
     if (!audio) return;
 
     if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
-      isPlayingRef.current = false;
-      syncMediaSessionPositionState(audio.currentTime, durationRef.current, playbackSpeedRef.current, false);
+      pause();
     } else {
       if ((!audio.src || audio.src === window.location.href) && currentTrack) {
         if (currentTrack.audioUrl && (currentTrack.audioUrl.startsWith('https://') || currentTrack.audioUrl.startsWith('http://'))) {
@@ -1123,9 +1354,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const pause = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
+    const audioA = audioRef.current;
+    const audioB = crossfadeAudioRef.current;
+    if (audioA) audioA.pause();
+    if (audioB) audioB.pause();
     setIsPlaying(false);
     isPlayingRef.current = false;
     syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, playbackSpeedRef.current, false);
@@ -1134,10 +1366,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const resume = () => {
     initWebAudio();
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
+      audioContextRef.current.resume().catch(() => {});
     }
-    if (audioRef.current) {
-      audioRef.current.play().then(() => {
+    const audio = getActiveDeckAudio();
+    if (audio) {
+      audio.play().then(() => {
         setIsPlaying(true);
         isPlayingRef.current = true;
         syncMediaSessionPositionState(currentTimeRef.current, durationRef.current, playbackSpeedRef.current, true);
@@ -1149,8 +1382,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const clamped = Math.max(0, Math.min(seconds, duration || seconds));
     setCurrentTime(clamped);
     currentTimeRef.current = clamped;
-    if (audioRef.current) {
-      audioRef.current.currentTime = clamped;
+    const audio = getActiveDeckAudio();
+    if (audio) {
+      audio.currentTime = clamped;
     }
     syncMediaSessionPositionState(clamped, durationRef.current, playbackSpeedRef.current, isPlayingRef.current);
   };
@@ -1833,6 +2067,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         crossOrigin="anonymous"
         playsInline
         preload="metadata"
+        className="hidden"
+      />
+      <audio
+        ref={crossfadeAudioRef}
+        crossOrigin="anonymous"
+        playsInline
+        preload="auto"
         className="hidden"
       />
     </AudioContext.Provider>

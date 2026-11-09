@@ -9,9 +9,11 @@ import {
   LogOut, 
   Crown,
   Disc3,
-  ListMusic
+  ListMusic,
+  Globe
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import mqtt from 'mqtt';
 import { get4kArtworkUrl, handleArtworkError } from '../../utils/artworkUtils';
 import { AnimatedSoundBars } from '../AnimatedSoundBars';
 
@@ -61,7 +63,10 @@ export const RoomView: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: string; emoji: string; x: number }[]>([]);
+  const [meshStatus, setMeshStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
 
+  const myUserIdRef = useRef<string>(`user_${Math.random().toString(36).substring(2, 9)}`);
+  const mqttClientRef = useRef<any>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   // Initialize BroadcastChannel for local/multi-tab low-latency sync
@@ -78,6 +83,7 @@ export const RoomView: React.FC = () => {
       } else if (data.type === 'CHAT_MESSAGE') {
         setActiveRoom(prev => {
           if (!prev || prev.roomId !== data.roomId) return prev;
+          if (prev.messages.some(m => m.id === data.message?.id)) return prev;
           const updated = {
             ...prev,
             messages: [...prev.messages, data.message].slice(-50)
@@ -96,6 +102,119 @@ export const RoomView: React.FC = () => {
       channel.close();
     };
   }, [currentTrack, playTrack]);
+
+  // Cross-Device P2P Jam Rooms via Public WebSocket MQTT Mesh Relay
+  useEffect(() => {
+    if (!activeRoom?.roomId) {
+      if (mqttClientRef.current) {
+        mqttClientRef.current.end(true);
+        mqttClientRef.current = null;
+      }
+      setMeshStatus('disconnected');
+      return;
+    }
+
+    const roomId = activeRoom.roomId;
+    const topic = `aura/jam/${roomId}`;
+    setMeshStatus('connecting');
+
+    const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+      clientId: `aura_${myUserIdRef.current}`,
+      clean: true,
+      connectTimeout: 5000,
+      reconnectPeriod: 3000,
+    });
+    mqttClientRef.current = client;
+
+    client.on('connect', () => {
+      setMeshStatus('connected');
+      client.subscribe(topic, { qos: 0 });
+
+      // Announce arrival to mesh
+      const joinMsg = {
+        type: 'USER_JOIN',
+        roomId,
+        senderId: myUserIdRef.current,
+        userName: activeRoom.isHost ? activeRoom.hostName : (userNameInput || 'Guest'),
+        isHost: activeRoom.isHost
+      };
+      client.publish(topic, JSON.stringify(joinMsg));
+    });
+
+    client.on('message', (_top, payload) => {
+      try {
+        const data = JSON.parse(payload.toString());
+        if (!data || data.senderId === myUserIdRef.current) return;
+
+        if (data.type === 'EMOJI_BURST') {
+          triggerEmojiBubble(data.emoji);
+        } else if (data.type === 'CHAT_MESSAGE') {
+          setActiveRoom(prev => {
+            if (!prev || prev.roomId !== data.roomId) return prev;
+            if (prev.messages.some(m => m.id === data.message?.id)) return prev;
+            const updated = {
+              ...prev,
+              messages: [...prev.messages, data.message].slice(-50)
+            };
+            localStorage.setItem('aura_active_room', JSON.stringify(updated));
+            return updated;
+          });
+        } else if (data.type === 'SYNC_TRACK') {
+          if (data.track && currentTrack?.id !== data.track.id) {
+            playTrack(data.track);
+          }
+        } else if (data.type === 'USER_JOIN') {
+          setActiveRoom(prev => {
+            if (!prev || prev.roomId !== data.roomId) return prev;
+            if (prev.participants.some(p => p.id === data.senderId)) return prev;
+            const newParticipant: Participant = {
+              id: data.senderId,
+              name: data.userName || 'Peer Listener',
+              avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
+              isHost: !!data.isHost
+            };
+            const updated = {
+              ...prev,
+              participants: [...prev.participants, newParticipant]
+            };
+            localStorage.setItem('aura_active_room', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      } catch {
+        // silent json parse error
+      }
+    });
+
+    client.on('error', () => {
+      setMeshStatus('disconnected');
+    });
+
+    client.on('close', () => {
+      setMeshStatus('disconnected');
+    });
+
+    return () => {
+      client.end(true);
+      mqttClientRef.current = null;
+    };
+  }, [activeRoom?.roomId, currentTrack, playTrack]);
+
+  // Host playback synchronization
+  useEffect(() => {
+    if (activeRoom?.isHost && currentTrack) {
+      const syncMsg = {
+        type: 'SYNC_TRACK',
+        roomId: activeRoom.roomId,
+        senderId: myUserIdRef.current,
+        track: currentTrack
+      };
+      channelRef.current?.postMessage(syncMsg);
+      if (mqttClientRef.current?.connected) {
+        mqttClientRef.current.publish(`aura/jam/${activeRoom.roomId}`, JSON.stringify(syncMsg));
+      }
+    }
+  }, [currentTrack, activeRoom?.isHost, activeRoom?.roomId]);
 
   const triggerEmojiBubble = (emoji: string) => {
     const id = `${Date.now()}-${Math.random()}`;
@@ -204,11 +323,16 @@ export const RoomView: React.FC = () => {
 
   const handleSendReaction = (emoji: string) => {
     triggerEmojiBubble(emoji);
-    channelRef.current?.postMessage({
+    const packet = {
       type: 'EMOJI_BURST',
       emoji,
-      roomId: activeRoom?.roomId
-    });
+      roomId: activeRoom?.roomId,
+      senderId: myUserIdRef.current
+    };
+    channelRef.current?.postMessage(packet);
+    if (mqttClientRef.current?.connected && activeRoom) {
+      mqttClientRef.current.publish(`aura/jam/${activeRoom.roomId}`, JSON.stringify(packet));
+    }
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -216,7 +340,7 @@ export const RoomView: React.FC = () => {
     if (!chatMessage.trim() || !activeRoom) return;
 
     const msg: RoomMessage = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(7)}`,
       sender: activeRoom.isHost ? activeRoom.hostName : userNameInput || 'Guest',
       text: chatMessage.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -229,11 +353,16 @@ export const RoomView: React.FC = () => {
     setActiveRoom(updated);
     localStorage.setItem('aura_active_room', JSON.stringify(updated));
 
-    channelRef.current?.postMessage({
+    const packet = {
       type: 'CHAT_MESSAGE',
       roomId: activeRoom.roomId,
+      senderId: myUserIdRef.current,
       message: msg
-    });
+    };
+    channelRef.current?.postMessage(packet);
+    if (mqttClientRef.current?.connected) {
+      mqttClientRef.current.publish(`aura/jam/${activeRoom.roomId}`, JSON.stringify(packet));
+    }
 
     setChatMessage('');
   };
@@ -404,11 +533,18 @@ export const RoomView: React.FC = () => {
               />
 
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                    Live Jam Sync
-                  </span>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                      Live Jam Sync
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/10 text-[11px] font-medium text-white/80">
+                    <Globe className="w-3 h-3 text-sky-400" />
+                    <span className={`w-1.5 h-1.5 rounded-full ${meshStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : meshStatus === 'connecting' ? 'bg-amber-400 animate-ping' : 'bg-red-400'}`} />
+                    <span>{meshStatus === 'connected' ? 'Global Mesh Active' : meshStatus === 'connecting' ? 'Connecting Mesh...' : 'Local Relay'}</span>
+                  </div>
                 </div>
 
                 <button

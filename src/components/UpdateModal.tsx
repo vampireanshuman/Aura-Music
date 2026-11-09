@@ -26,20 +26,31 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ isOpen, onClose, updat
   const handleDownload = () => {
     triggerHaptic('success');
     if (!updateInfo.apkDownloadUrl) {
-      window.open(updateInfo.htmlUrl, '_blank');
+      window.open(updateInfo.htmlUrl, '_system', 'noopener,noreferrer');
       return;
     }
 
     setIsDownloading(true);
-    // Trigger direct APK download
-    const link = document.createElement('a');
-    link.href = updateInfo.apkDownloadUrl;
-    link.download = `Aura-Music-v${updateInfo.latestVersion}.apk`;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // On Android Capacitor WebView or mobile browser, window.open with '_system' hands off directly to Android's OS Download Manager & Package Installer
+    try {
+      window.open(updateInfo.apkDownloadUrl, '_system', 'noopener,noreferrer');
+    } catch {
+      // fallback to anchor
+    }
+
+    // Trigger anchor fallback
+    try {
+      const link = document.createElement('a');
+      link.href = updateInfo.apkDownloadUrl;
+      link.download = `Aura-Music-v${updateInfo.latestVersion}.apk`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch {
+      // fallback
+    }
 
     setTimeout(() => {
       setIsDownloading(false);

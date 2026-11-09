@@ -340,13 +340,25 @@ export const SyncedLyricsModal: React.FC = () => {
                       ? (isActive ? 'text-xl md:text-2xl font-bold' : 'text-base md:text-lg font-medium')
                       : (isActive ? 'text-2xl md:text-3xl font-extrabold' : 'text-xl md:text-2xl font-semibold');
 
+                  const nextTime = lyrics[idx + 1]?.time || (line.time + 4);
+                  const lineDuration = Math.max(1, nextTime - line.time);
+                  const progress = Math.min(100, Math.max(0, ((currentTime - line.time) / lineDuration) * 100));
+
                   return (
                     <div
                       key={idx}
                       ref={isActive ? activeLineRef : null}
-                      className={`relative group/line flex items-center justify-between cursor-pointer transition-all duration-300 transform origin-left py-1.5 ${sizeClasses} ${
+                      style={isActive ? {
+                        background: `linear-gradient(90deg, #ffffff ${progress}%, rgba(255,255,255,0.30) ${Math.min(100, progress + 12)}%)`,
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        filter: `drop-shadow(0 0 20px ${currentTrack?.dominantColor || '#fa2d48'}88)`,
+                        transform: 'scale(1.03)',
+                        transformOrigin: 'left center'
+                      } : undefined}
+                      className={`relative group/line flex items-center justify-between cursor-pointer transition-all duration-200 transform origin-left py-1.5 ${sizeClasses} ${
                         isActive
-                          ? 'text-white scale-[1.02] drop-shadow-[0_4px_16px_rgba(255,255,255,0.3)]'
+                          ? ''
                           : isPassed
                           ? 'text-white/40 hover:text-white/80'
                           : 'text-white/25 hover:text-white/70'

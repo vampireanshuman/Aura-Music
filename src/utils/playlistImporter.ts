@@ -1,5 +1,6 @@
 import type { Track, Playlist } from '../types/music';
 import { getApiUrl } from './apiConfig';
+import { searchMusic, resolveDirectStream } from './serverlessMusicEngine';
 
 const CURATED_COVERS = [
   'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80',
@@ -18,9 +19,25 @@ export interface BulkImportResult {
 }
 
 /**
- * Helper to search YouTube Music endpoint for a query string
+ * Helper to search online music endpoints for a query string
+ * Prioritizes direct 320kbps AAC/M4A streams via serverlessMusicEngine
  */
 async function searchOnlineTrack(query: string): Promise<Track | null> {
+  try {
+    const directResults = await searchMusic(query);
+    if (directResults && directResults.length > 0) {
+      const top = directResults[0];
+      if (!top.audioUrl) {
+        const stream = await resolveDirectStream(top);
+        if (stream) top.audioUrl = stream;
+      }
+      return top;
+    }
+  } catch (err) {
+    console.warn(`[PlaylistImporter] Direct searchMusic error for "${query}":`, err);
+  }
+
+  // Fallback to local API if running in localhost development mode
   try {
     const res = await fetch(getApiUrl(`/api/search?q=${encodeURIComponent(query)}`));
     if (res.ok) {
@@ -29,8 +46,8 @@ async function searchOnlineTrack(query: string): Promise<Track | null> {
         return data.tracks[0];
       }
     }
-  } catch (err) {
-    console.warn(`Online search failed for "${query}":`, err);
+  } catch {
+    // ignore
   }
   return null;
 }
@@ -185,6 +202,18 @@ async function parseYouTubePlaylist(url: string): Promise<BulkImportResult> {
       year: 2026,
       lyrics: []
     };
+
+    // Pre-resolve direct 320kbps audio stream if available
+    try {
+      const directMatch = await searchOnlineTrack(`${videoTitle} ${authorName}`);
+      if (directMatch?.audioUrl) {
+        singleTrack.audioUrl = directMatch.audioUrl;
+        if (directMatch.coverUrl) singleTrack.coverUrl = directMatch.coverUrl;
+        if (directMatch.duration) singleTrack.duration = directMatch.duration;
+      }
+    } catch {
+      // fallback to youtube player
+    }
 
     return {
       playlist: {

@@ -22,48 +22,53 @@ export const AmbientBackground: React.FC = () => {
       
       {/* Node 1: Dominant Hue Atmosphere (Top-Left Liquid Bubble) */}
       <div
-        className="absolute -top-[16%] -left-[12%] w-[72vw] h-[72vw] rounded-full blur-[120px] mix-blend-screen opacity-50 pointer-events-none animate-mesh-1 transition-all duration-1000"
+        className="absolute -top-[16%] -left-[12%] w-[72vw] h-[72vw] rounded-full blur-[120px] mix-blend-screen opacity-50 pointer-events-none animate-mesh-1"
         style={{
           background: `radial-gradient(circle, ${dominant}cc 0%, #1e1347 50%, #0c0a21 100%)`,
-          transformOrigin: 'center center'
+          transformOrigin: 'center center',
+          transition: 'background 1.2s cubic-bezier(0.22, 1, 0.36, 1), transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.2s ease'
         }}
       />
 
       {/* Node 2: Secondary Harmonic Node (Top-Right Atmospheric Cloud) */}
       <div
-        className="absolute -top-[5%] -right-[18%] w-[68vw] h-[68vw] rounded-full blur-[130px] mix-blend-screen opacity-40 pointer-events-none animate-mesh-2 transition-all duration-1000"
+        className="absolute -top-[5%] -right-[18%] w-[68vw] h-[68vw] rounded-full blur-[130px] mix-blend-screen opacity-40 pointer-events-none animate-mesh-2"
         style={{
           background: `radial-gradient(circle, ${secondary}bb 0%, #380c4a 50%, #18052b 100%)`,
-          transformOrigin: 'center center'
+          transformOrigin: 'center center',
+          transition: 'background 1.2s cubic-bezier(0.22, 1, 0.36, 1), transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.2s ease'
         }}
       />
 
       {/* Node 3: Deep Indigo / Violet Liquid Core (Bottom-Left) */}
       <div
-        className="absolute -bottom-[20%] -left-[10%] w-[65vw] h-[65vw] rounded-full blur-[110px] mix-blend-screen opacity-35 pointer-events-none animate-mesh-3 transition-all duration-1000"
+        className="absolute -bottom-[20%] -left-[10%] w-[65vw] h-[65vw] rounded-full blur-[110px] mix-blend-screen opacity-35 pointer-events-none animate-mesh-3"
         style={{
           background: `radial-gradient(circle, #3b0764 0%, #170d38 60%, #07080e 100%)`,
-          transformOrigin: 'center center'
+          transformOrigin: 'center center',
+          transition: 'background 1.2s cubic-bezier(0.22, 1, 0.36, 1), transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.2s ease'
         }}
       />
 
       {/* Node 4: Dynamic Song Accent Node (Center Liquid Orb - expands & pulses with playback) */}
       <div
-        className={`absolute top-[28%] left-[22%] w-[52vw] h-[52vw] rounded-full blur-[95px] mix-blend-screen pointer-events-none animate-mesh-4 transition-all duration-1000 ${
+        className={`absolute top-[28%] left-[22%] w-[52vw] h-[52vw] rounded-full blur-[95px] mix-blend-screen pointer-events-none animate-mesh-4 ${
           isPlaying ? 'opacity-35 scale-110' : 'opacity-20 scale-95'
         }`}
         style={{
           background: `radial-gradient(circle, ${dominant}ee 0%, ${secondary}66 45%, transparent 75%)`,
-          transformOrigin: 'center center'
+          transformOrigin: 'center center',
+          transition: 'background 1.2s cubic-bezier(0.22, 1, 0.36, 1), transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.2s ease'
         }}
       />
 
       {/* Node 5: Atmospheric Bottom-Right Warmth Drift */}
       <div
-        className="absolute -bottom-[15%] -right-[12%] w-[58vw] h-[58vw] rounded-full blur-[115px] mix-blend-screen opacity-30 pointer-events-none animate-mesh-5 transition-all duration-1000"
+        className="absolute -bottom-[15%] -right-[12%] w-[58vw] h-[58vw] rounded-full blur-[115px] mix-blend-screen opacity-30 pointer-events-none animate-mesh-5"
         style={{
           background: `radial-gradient(circle, ${dominant}88 0%, #1e1b4b 55%, transparent 80%)`,
-          transformOrigin: 'center center'
+          transformOrigin: 'center center',
+          transition: 'background 1.2s cubic-bezier(0.22, 1, 0.36, 1), transform 1.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 1.2s ease'
         }}
       />
 

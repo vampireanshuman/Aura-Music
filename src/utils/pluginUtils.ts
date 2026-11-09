@@ -1,5 +1,6 @@
 import type { Track } from '../types/music';
 import { getApiUrl } from './apiConfig';
+import { searchMusic } from './serverlessMusicEngine';
 
 export function extractYouTubeId(url: string): string | null {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -35,13 +36,24 @@ export async function resolveYouTubeTrack(url: string): Promise<Track | null> {
       // ignore
     }
 
+    // Pre-resolve direct 320kbps audio stream if available
+    let directAudioUrl = '';
+    try {
+      const matches = await searchMusic(`${title} ${artist}`);
+      if (matches?.[0]?.audioUrl) {
+        directAudioUrl = matches[0].audioUrl;
+      }
+    } catch {
+      // fallback
+    }
+
     return {
       id: `yt-${videoId}`,
       title,
       artist,
       album: 'YouTube Music Stream',
       duration: 210,
-      audioUrl: '',
+      audioUrl: directAudioUrl,
       coverUrl: thumbnail,
       dominantColor: '#ef4444',
       secondaryColor: '#f97316',
@@ -84,16 +96,30 @@ export async function resolveSpotifyTrack(url: string): Promise<Track | null> {
 
     const coverUrl = data.thumbnail_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=80';
 
-    // Query online YouTube Music search to match the real streaming videoId!
+    // Query serverless music engine (JioSaavn / Piped / iTunes) to match real 320kbps audio & artwork
     let matchedYoutubeId = '3_g2un5M350';
+    let matchedAudioUrl = '';
+    let matchedCoverUrl = coverUrl;
+    let matchedDuration = 210;
+
     try {
-      const searchRes = await fetch(getApiUrl(`/api/search?q=${encodeURIComponent(`${title} ${artist}`)}`));
-      if (searchRes.ok) {
-        const sData = await searchRes.json();
-        if (sData.tracks && sData.tracks.length > 0) {
-          const top = sData.tracks[0];
-          if (top.youtubeId) {
-            matchedYoutubeId = top.youtubeId;
+      const serverlessResults = await searchMusic(`${title} ${artist}`);
+      if (serverlessResults && serverlessResults.length > 0) {
+        const top = serverlessResults[0];
+        if (top.audioUrl) matchedAudioUrl = top.audioUrl;
+        if (top.youtubeId) matchedYoutubeId = top.youtubeId;
+        if (top.coverUrl) matchedCoverUrl = top.coverUrl;
+        if (top.duration) matchedDuration = top.duration;
+      } else {
+        const searchRes = await fetch(getApiUrl(`/api/search?q=${encodeURIComponent(`${title} ${artist}`)}`));
+        if (searchRes.ok) {
+          const sData = await searchRes.json();
+          if (sData.tracks && sData.tracks.length > 0) {
+            const top = sData.tracks[0];
+            if (top.audioUrl) matchedAudioUrl = top.audioUrl;
+            if (top.youtubeId) matchedYoutubeId = top.youtubeId;
+            if (top.coverUrl) matchedCoverUrl = top.coverUrl;
+            if (top.duration) matchedDuration = top.duration;
           }
         }
       }
@@ -106,10 +132,10 @@ export async function resolveSpotifyTrack(url: string): Promise<Track | null> {
       title,
       artist,
       album: 'Spotify Synced Track',
-      duration: 210,
-      audioUrl: '',
+      duration: matchedDuration,
+      audioUrl: matchedAudioUrl,
       youtubeId: matchedYoutubeId,
-      coverUrl,
+      coverUrl: matchedCoverUrl,
       dominantColor: '#1db954',
       secondaryColor: '#10b981',
       genre: 'Spotify Sync',
