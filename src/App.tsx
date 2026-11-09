@@ -13,6 +13,7 @@ import { AudioQualityModal } from './components/AudioQualityModal';
 import { MobileNavBar } from './components/MobileNavBar';
 import { VideoModal } from './components/VideoModal';
 import { DynamicIsland } from './components/DynamicIsland';
+import { UpdateModal } from './components/UpdateModal';
 
 import { ListenNowView } from './components/views/ListenNowView';
 import { BrowseView } from './components/views/BrowseView';
@@ -26,7 +27,7 @@ import { SettingsView } from './components/views/SettingsView';
 import { RoomView } from './components/views/RoomView';
 
 const MainLayout: React.FC = () => {
-  const { activeTab } = useAudio();
+  const { activeTab, isUpdateModalOpen, setIsUpdateModalOpen, updateInfo } = useAudio();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const renderActiveView = () => {
@@ -105,6 +106,11 @@ const MainLayout: React.FC = () => {
       <CreatePlaylistModal />
       <AudioQualityModal />
       <VideoModal />
+      <UpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        updateInfo={updateInfo}
+      />
     </div>
   );
 };

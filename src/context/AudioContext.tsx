@@ -25,6 +25,7 @@ import { get4kArtworkUrl } from '../utils/artworkUtils';
 import { pipIslandController } from '../utils/pipIslandController';
 import { searchMusic, resolveDirectStream } from '../utils/serverlessMusicEngine';
 import { triggerHaptic } from '../utils/haptics';
+import { checkForAppUpdate, isAutoUpdateCheckEnabled, type UpdateInfo } from '../utils/updater';
 
 export const getThemeAccentColor = (themeAccent: ThemeAccent, dominantColor?: string): string => {
   switch (themeAccent) {
@@ -212,6 +213,14 @@ interface AudioContextType {
   requestPipIsland: () => Promise<boolean>;
   exitPipIsland: () => Promise<void>;
   isPipActive: () => boolean;
+
+  // OTA Software Updater
+  updateInfo: UpdateInfo | null;
+  setUpdateInfo: (info: UpdateInfo | null) => void;
+  isUpdateModalOpen: boolean;
+  setIsUpdateModalOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
+  checkUpdates: (manual?: boolean) => Promise<UpdateInfo | null>;
+  isCheckingUpdate: boolean;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -386,6 +395,38 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const wasAudioPlayingBeforeVideoRef = useRef(false);
+
+  // OTA Software Updater State
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+
+  const checkUpdates = useCallback(async (manual: boolean = false): Promise<UpdateInfo | null> => {
+    setIsCheckingUpdate(true);
+    try {
+      const res = await checkForAppUpdate();
+      setUpdateInfo(res);
+      if (res && res.hasUpdate && manual) {
+        setIsUpdateModalOpen(true);
+      }
+      return res;
+    } catch (e) {
+      console.warn('Update check failed:', e);
+      return null;
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  }, []);
+
+  // Periodic / startup auto update check
+  useEffect(() => {
+    if (isAutoUpdateCheckEnabled()) {
+      const timer = setTimeout(() => {
+        checkUpdates(false);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [checkUpdates]);
 
   // Audio Playback
   const [currentTrack, setCurrentTrack] = useState<Track | null>(INITIAL_TRACKS[0]);
@@ -1778,6 +1819,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         requestPipIsland: () => pipIslandController.requestPipIsland(),
         exitPipIsland: () => pipIslandController.exitPipIsland(),
         isPipActive: () => pipIslandController.isPipActive(),
+        updateInfo,
+        setUpdateInfo,
+        isUpdateModalOpen,
+        setIsUpdateModalOpen,
+        checkUpdates,
+        isCheckingUpdate,
       }}
     >
       {children}

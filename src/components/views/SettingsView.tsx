@@ -18,8 +18,12 @@ import {
   Smartphone,
   Radio,
   Flame,
-  Waves
+  Waves,
+  ArrowUpCircle,
+  RefreshCw
 } from 'lucide-react';
+import { APP_VERSION, isAutoUpdateCheckEnabled, setAutoUpdateCheckEnabled } from '../../utils/updater';
+import { triggerHaptic } from '../../utils/haptics';
 import type { 
   LyricsFontSize, 
   ThemeAccent, 
@@ -61,11 +65,39 @@ export const SettingsView: React.FC = () => {
     spatialRoom,
     setSpatialRoom,
     visualizerMode,
-    setVisualizerMode
+    setVisualizerMode,
+    updateInfo,
+    isCheckingUpdate,
+    checkUpdates,
+    setIsUpdateModalOpen
   } = useAudio();
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [autoUpdateEnabled, setAutoUpdateEnabledState] = useState(() => isAutoUpdateCheckEnabled());
+  const [updateStatusMessage, setUpdateStatusMessage] = useState<string | null>(null);
+
+  const handleManualCheck = async () => {
+    triggerHaptic('medium');
+    setUpdateStatusMessage(null);
+    const res = await checkUpdates(false);
+    if (res && res.hasUpdate) {
+      setIsUpdateModalOpen(true);
+    } else if (res && !res.hasUpdate) {
+      setUpdateStatusMessage(`Aura Music is up to date (v${APP_VERSION}).`);
+      setTimeout(() => setUpdateStatusMessage(null), 5000);
+    } else {
+      setUpdateStatusMessage('Could not reach GitHub Releases. Check network connection.');
+      setTimeout(() => setUpdateStatusMessage(null), 5000);
+    }
+  };
+
+  const toggleAutoUpdate = () => {
+    triggerHaptic('light');
+    const next = !autoUpdateEnabled;
+    setAutoUpdateEnabledState(next);
+    setAutoUpdateCheckEnabled(next);
+  };
 
   const soundModes: { id: typeof soundQualityMode; title: string; desc: string; badge: string }[] = [
     { 
@@ -258,9 +290,100 @@ export const SettingsView: React.FC = () => {
 
         <div className="self-start sm:self-center px-4 py-2 rounded-2xl glass-pill text-xs font-semibold text-meta-secondary flex items-center gap-2.5 shadow-lg">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-          <span>Aura Pro v2.5 Audiophile Engine</span>
+          <span>Aura Pro v{APP_VERSION} Audiophile Engine</span>
         </div>
       </div>
+
+      {/* ============================================================== */}
+      {/* SOFTWARE UPDATE & OTA RELEASES CARD                            */}
+      {/* ============================================================== */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md">
+              <ArrowUpCircle className="w-4 h-4" />
+            </div>
+            <h2 className="text-base sm:text-lg font-bold text-title-primary tracking-tight">
+              Software Update & Releases
+            </h2>
+          </div>
+          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 text-white/70 font-bold border border-white/10">
+            OTA v{APP_VERSION}
+          </span>
+        </div>
+
+        <div className="glass-sheet rounded-[24px] p-5 sm:p-6 divide-y divide-white/[0.06] space-y-5 shadow-2xl">
+          {/* Version status & check button */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">
+                  Aura Music Pro
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[#fa2d48]/20 text-[#fa2d48] font-bold border border-[#fa2d48]/30">
+                  Installed v{APP_VERSION}
+                </span>
+                {updateInfo?.hasUpdate && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/40 animate-pulse">
+                    New v{updateInfo.latestVersion} Available
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-white/50 max-w-lg leading-relaxed">
+                {updateInfo?.hasUpdate
+                  ? `A newer release (v${updateInfo.latestVersion}) is ready with performance upgrades and bug fixes.`
+                  : updateStatusMessage || 'Your build is up to date with the latest GitHub production release.'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full sm:w-auto">
+              {updateInfo?.hasUpdate ? (
+                <button
+                  onClick={() => {
+                    triggerHaptic('heavy');
+                    setIsUpdateModalOpen(true);
+                  }}
+                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 hover:brightness-110 spring-button"
+                >
+                  <ArrowUpCircle className="w-4 h-4" />
+                  <span>Update to v{updateInfo.latestVersion}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleManualCheck}
+                  disabled={isCheckingUpdate}
+                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors spring-button disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin text-[#fa2d48]' : ''}`} />
+                  <span>{isCheckingUpdate ? 'Checking GitHub...' : 'Check for Updates'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Automatic update check toggle */}
+          <div className="pt-5 flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-semibold text-white">Automatic Update Checks</h4>
+              <p className="text-xs text-white/50 mt-0.5">
+                Silently check GitHub Releases when opening Aura Music and display an update badge when a newer APK is released.
+              </p>
+            </div>
+            <button
+              onClick={toggleAutoUpdate}
+              className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-1 spring-button ${
+                autoUpdateEnabled ? 'bg-[#fa2d48]' : 'bg-white/20'
+              }`}
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                  autoUpdateEnabled ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* ============================================================== */}
       {/* SECTION 1: AUDIOPHILE & STUDIO DSP ENGINE                      */}
@@ -1270,7 +1393,7 @@ export const SettingsView: React.FC = () => {
 
       {/* App Info Footer */}
       <div className="text-center text-xs text-white/30 pt-4 space-y-1">
-        <p className="font-semibold text-white/40">Aura Pro Audiophile Studio • Version 2.5.0</p>
+        <p className="font-semibold text-white/40">Aura Music Pro Audiophile Studio • Version {APP_VERSION}</p>
         <p>Engineered with Apple Music aesthetics, Poweramp DSP, AutoEQ headphone database & LRCLIB synced lyrics</p>
       </div>
     </div>

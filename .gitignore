@@ -13,6 +13,9 @@ android/app/build/
 android/build/
 *.apk
 *.aab
+*.jks
+*.keystore
+!android/app/aura-release-key.jks
 
 # Environment Variables & Secrets (NEVER commit to git)
 .env

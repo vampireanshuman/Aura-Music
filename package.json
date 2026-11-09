@@ -1,7 +1,7 @@
 {
   "name": "aura-music",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "Ultra-modern, glassmorphic music streaming web player inspired by Apple Music & Spotify with dynamic atmospheric lighting, time-synced lyrics, and studio-grade Web Audio DSP.",
   "type": "module",
   "license": "GPL-3.0-or-later",

@@ -1,14 +1,35 @@
 apply plugin: 'com.android.application'
 
+def getAppVersionName() {
+    try {
+        def packageJsonFile = new File("$rootDir/../package.json")
+        if (packageJsonFile.exists()) {
+            def packageJson = new groovy.json.JsonSlurper().parseText(packageJsonFile.text)
+            return packageJson.version ?: "1.0.5"
+        }
+    } catch (Exception ignored) {}
+    return "1.0.5"
+}
+
 android {
     namespace = "com.auramusic.app"
     compileSdk = rootProject.ext.compileSdkVersion
+
+    signingConfigs {
+        release {
+            storeFile file("aura-release-key.jks")
+            storePassword "auramusic123"
+            keyAlias "aura-key"
+            keyPassword "auramusic123"
+        }
+    }
+
     defaultConfig {
         applicationId "com.auramusic.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode System.getenv("GITHUB_RUN_NUMBER") ? (100 + System.getenv("GITHUB_RUN_NUMBER").toInteger()) : 105
+        versionName getAppVersionName()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -17,8 +38,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.release
+        }
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

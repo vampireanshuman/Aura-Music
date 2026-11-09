@@ -13,7 +13,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     activeTab, 
     setActiveTab, 
     setIsEqualizerOpen,
-    equalizerPreset
+    equalizerPreset,
+    updateInfo,
+    setIsUpdateModalOpen
   } = useAudio();
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,10 +93,26 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           <span className="capitalize">{equalizerPreset}</span>
         </button>
 
+        {/* Update Available Badge */}
+        {updateInfo?.hasUpdate && (
+          <button
+            onClick={() => setIsUpdateModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-xs font-semibold spring-button shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:bg-emerald-500/25 transition-all"
+            title={`Update available: v${updateInfo.latestVersion}`}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="hidden sm:inline">Update</span>
+            <span className="text-[11px] font-bold">v{updateInfo.latestVersion}</span>
+          </button>
+        )}
+
         {/* Settings button */}
         <button
           onClick={() => setActiveTab('settings')}
-          className={`p-2 rounded-full border transition-all spring-button ${
+          className={`relative p-2 rounded-full border transition-all spring-button ${
             activeTab === 'settings'
               ? 'bg-white/20 border-white/40 text-white shadow-md'
               : 'glass-pill text-white/65 hover:text-white'
@@ -102,6 +120,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           title="Settings"
         >
           <Settings className="w-4 h-4" />
+          {updateInfo?.hasUpdate && (
+            <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#07080e]" />
+          )}
         </button>
 
         {/* Profile Avatar */}

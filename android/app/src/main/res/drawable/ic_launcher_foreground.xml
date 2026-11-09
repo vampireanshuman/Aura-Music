@@ -1,0 +1,40 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportHeight="108"
+    android:viewportWidth="108">
+    <!-- Subtle ambient glow circle behind the note -->
+    <path
+        android:fillColor="#1AFA2D48"
+        android:pathData="M54,54m-28,0a28,28 0 1,1 56,0a28,28 0 1,1 -56,0" />
+
+    <!-- Musical note group perfectly centered in 108dp canvas -->
+    <group
+        android:translateX="10.5"
+        android:translateY="7.5"
+        android:scaleX="1.05"
+        android:scaleY="1.05">
+        <!-- Soft Shadow Layer -->
+        <path
+            android:fillColor="#33000000"
+            android:pathData="M68,29.5v32.5a11.5,11.5 0 1,1 -11.5,-11.5c2.3,0 4.4,0.7 6.2,1.9V35.3L38,41.7v26.3a11.5,11.5 0 1,1 -11.5,-11.5c2.3,0 4.4,0.7 6.2,1.9V34.7a5.5,5.5 0 0,1 4.3,-5.4l24.7,-5.5a5.5,5.5 0 0,1 6.3,5.7z" />
+
+        <!-- Aura Neon Rose Note with Linear Gradient -->
+        <path
+            android:pathData="M68,28v32.5a11.5,11.5 0 1,1 -11.5,-11.5c2.3,0 4.4,0.7 6.2,1.9V33.8L38,40.2v26.3a11.5,11.5 0 1,1 -11.5,-11.5c2.3,0 4.4,0.7 6.2,1.9V33.2a5.5,5.5 0 0,1 4.3,-5.4l24.7,-5.5a5.5,5.5 0 0,1 6.3,5.7z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="15"
+                    android:startY="70"
+                    android:endX="70"
+                    android:endY="20"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FA2D48" />
+                    <item android:offset="0.5" android:color="#FF4364" />
+                    <item android:offset="1.0" android:color="#FF758C" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+</vector>
