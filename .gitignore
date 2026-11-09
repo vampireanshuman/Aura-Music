@@ -34,3 +34,5 @@ Thumbs.db
 .kotlin/
 *.log
 bin/
+
+.vercel
