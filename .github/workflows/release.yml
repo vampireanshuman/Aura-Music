@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g., v1.2.2)'
+        description: 'Release Tag (e.g., v2.0.0)'
         required: true
-        default: 'v1.2.2'
+        default: 'v2.0.0'
 
 permissions:
   contents: write
@@ -53,6 +53,9 @@ jobs:
 
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x gradlew
+
+      - name: Run Unit Tests
+        run: ./gradlew :app:testDebugUnitTest :core:lyrics:test :player:testDebugUnitTest :sources:addon:test :sources:youtube:test --stacktrace
 
       - name: Assemble Release APK
         run: ./gradlew :app:assembleRelease --stacktrace
@@ -108,17 +111,17 @@ jobs:
           tag_name: ${{ github.ref_name || inputs.tag_name }}
           name: "Aura Music ${{ github.ref_name || inputs.tag_name }}"
           body: |
-            ## Aura Music Release ${{ github.ref_name || inputs.tag_name }}
-            
+            **Aura Music ${{ github.ref_name || inputs.tag_name }}** brings upstream AETHER v2.0.0 to Aura — lyrics from seven libraries drawn three ways, on-device romanisation, crossfade, better lossless copies found mid-song, music videos, kept files exported to `Music/Aura`, offline album shelves, and in-app updates.
+
             > Powered by [AETHER](https://github.com/GHOSTxASR/AETHER) by [GHOSTxASR](https://github.com/GHOSTxASR) under [GPL-3.0](LICENSE).
-            
-            ### Highlights
-            - **Pure Native Kotlin / Jetpack Compose Architecture**: Zero web wrappers, zero hybrid overhead.
+
+            ### What's new
+            - **Lyrics from Seven Libraries & Verse**: lrc.red, BiniLyrics, BetterLyrics, LyricsPlus, Unison, LRCLIB and KuGou queried together, drawn word-by-word in the new Verse view, Constellations, or Continuous Line.
+            - **On-Device Script Romanisation**: Korean, Chinese pinyin, Japanese kana, and other scripts transliterated privately on device.
+            - **Crossfade & Exact Copy Upgrade**: 2–12 second crossfade (respecting gapless album transitions) and seamless mid-song switching to lossless/exact copies from custom addon sources (DASH/HLS supported).
+            - **Music Videos & Offline Albums**: Play music videos at up to 1080p/720p in place of artwork, browse on-phone and kept music as album shelves, and export kept tracks cleanly to `Music/Aura` with artwork and LRC metadata tags.
+            - **In-App Updates & Full Screen**: Automatic GitHub release checks with SHA-256 verification and immersive full-screen toggle.
             - **Float32 & Bit-Perfect DAC Output**: Honest signal path directly to external USB DACs without resampling.
-            - **Headphone Correction Engine**: AutoEq integration for 39 models with published acoustic measurements.
-            - **Antiquity Halftone Particle Morphing**: Real-time AGSL GPU shader particle transitions.
-            - **Watchmaker Arc Dial**: Tactile fine-pitch scrub dial.
-            - **Brushed Titanium & Obsidian Charge Cards**: Direct export of high-fidelity listening certificates.
             
             ### Installation
             Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required).

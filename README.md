@@ -7,7 +7,7 @@ Built around the sound. Unlike anything you've used.
 
 <p align="center">
   <a href="https://quick-maple-l6t3qaq.tmp.now"><img alt="Website" src="https://img.shields.io/badge/Website-Live-ffffff?style=for-the-badge&labelColor=000000" /></a>
-  <a href="https://github.com/vampireanshuman/Aura-Music/releases/latest/download/Aura-Music-v1.2.2.apk"><img alt="Download the APK" src="https://img.shields.io/badge/Download-APK-ffffff?style=for-the-badge&labelColor=000000" /></a>
+  <a href="https://github.com/vampireanshuman/Aura-Music/releases/latest/download/Aura-Music-v2.0.0.apk"><img alt="Download the APK" src="https://img.shields.io/badge/Download-APK-ffffff?style=for-the-badge&labelColor=000000" /></a>
   <a href="https://github.com/vampireanshuman/Aura-Music/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/vampireanshuman/Aura-Music?style=for-the-badge&labelColor=000000&color=ffffff" /></a>
   <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-ffffff?style=for-the-badge&labelColor=000000" /></a>
   <img alt="Android 10 or later" src="https://img.shields.io/badge/Android-10%2B-ffffff?style=for-the-badge&labelColor=000000" />
@@ -39,7 +39,7 @@ It plays all of YouTube Music and your own files through an audio path that repo
 
 ## Download
 
-1. Download **[Aura-Music-v1.2.2.apk](https://github.com/vampireanshuman/Aura-Music/releases/latest/download/Aura-Music-v1.2.2.apk)** from the latest release.
+1. Download **[Aura-Music-v2.0.0.apk](https://github.com/vampireanshuman/Aura-Music/releases/latest/download/Aura-Music-v2.0.0.apk)** from the latest release.
 2. Open it on your phone. Android asks once to allow installs from your browser or file manager.
 3. Open Aura and press play.
 
@@ -59,7 +59,11 @@ Needs Android 10 or later. Every release is signed with the same persistent key,
 
 **An equaliser that knows your headphones.** Choose the pair you're wearing from 39 models, including AirPods Max and Pro, Sennheiser, Sony, Marshall and Bose, and it applies a correction made from that model's published measurements. Seven tunings of our own are there too, and profiles from AutoEq, squig.link, Equalizer APO or Wavelet import in a tap. Boosts can't clip, and with nothing chosen every sample passes through untouched.
 
-**Your whole library.** The complete YouTube Music catalogue, as a guest or signed in on Google's own page. Your own FLAC, ALAC and WAV files, folder by folder. Songs and whole playlists kept for offline, picking up new additions on Wi-Fi. Your own server, added by address over an open protocol.
+**Your whole library.** The complete YouTube Music catalogue, as a guest or signed in on Google's own page. Your own FLAC, ALAC and WAV files, as albums and folder by folder. Songs and whole playlists kept for offline, as files in your Music folder, picking up new additions on Wi-Fi. Your own sources, added by address over an open protocol.
+
+**The best copy there is.** For a song from YouTube Music, your own sources are asked for the very same recording first, lossless where they have it. When one turns up while the song plays, Aura goes over to it mid-song, lined up by its sound and handed over in a crossfade you shouldn't hear.
+
+**Songs that meet.** Crossfade of 2 to 12 seconds, never between an album's songs that run into each other.
 
 ## Features
 
@@ -73,7 +77,7 @@ Needs Android 10 or later. Every release is signed with the same persistent key,
 
 **A song going into the phone.** Keep a song and its cover lifts off, carries to the foot of the screen and sinks in, and the whole display ripples as it lands.
 
-**Lyrics drawn by hand.** Words as a night sky of constellations, or the entire song written as one unbroken line.
+**Lyrics, three ways.** From seven libraries at once, word by word where one has it: a page that's sung, each word lighting as it's sung and a held note glowing; words as a night sky of constellations; or the entire song written as one unbroken line. Korean, Chinese and Japanese come in Latin letters too, worked out on the phone.
 
 **A portrait of how you listen.** Your most played artists as a deck to throw aside, your day as a dial, your genres and habits, all worked out on the phone and shown to nobody else.
 
@@ -81,13 +85,14 @@ Needs Android 10 or later. Every release is signed with the same persistent key,
 
 ## Privacy
 
-Your YouTube sign-in is sealed with the Android Keystore, and a card leaves the phone only when you send it. Apart from fetching music, Aura makes three kinds of request. Each can be turned off in Settings, and none says anything about you.
+Your YouTube sign-in is sealed with the Android Keystore, and a card leaves the phone only when you send it. Apart from fetching music, Aura makes four kinds of request. Each can be turned off in Settings, and none says anything about you.
 
 | For | Asks | Sends |
 |---|---|---|
-| Timed lyrics | LRCLIB | A song's title, artist and length |
+| Timed lyrics | lrc.red, BiniLyrics, BetterLyrics, LyricsPlus, Unison, LRCLIB and KuGou, each one switchable | A song's title, artist, album and length |
 | Artist and album art | Apple's public pages | An artist's name and an album's title |
 | Song video | Apple's public pages | A song's title and artist |
+| Updates | GitHub's list of Aura's releases | Nothing: it reads the newest release's number |
 
 ## Principles
 
