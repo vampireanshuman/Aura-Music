@@ -75,7 +75,7 @@ internal class ChosenSources(
     private suspend fun choose(id: MediaId, item: MediaItem): MediaSource {
         env.keptFile(id)?.let { file ->
             return ProgressiveMediaSource.Factory(DefaultDataSource.Factory(context))
-                .createMediaSource(MediaItem.Builder().setUri(file).setMediaId(item.mediaId).build())
+                .createMediaSource(item.buildUpon().setUri(file).setMimeType(null).build())
         }
         if (AudioStore.kept(context, id)) return plain.createMediaSource(item)
         val stream = when (val outcome = env.stream(id, StreamPurpose.LISTEN, item.toTrack())) {
@@ -92,11 +92,11 @@ internal class ChosenSources(
      */
     fun copySource(stream: Stream, item: MediaItem): MediaSource = when (stream.manifest) {
         Stream.Manifest.NONE -> ProgressiveMediaSource.Factory(pieces(stream)).apply { errors?.let(::setLoadErrorHandlingPolicy) }
-            .createMediaSource(MediaItem.Builder().setUri(stream.url).setMediaId(item.mediaId).build())
+            .createMediaSource(item.buildUpon().setUri(stream.url).setMimeType(null).build())
         Stream.Manifest.DASH -> DashMediaSource.Factory(pieces(stream)).apply { errors?.let(::setLoadErrorHandlingPolicy) }
-            .createMediaSource(MediaItem.Builder().setUri(stream.url).setMimeType(MimeTypes.APPLICATION_MPD).setMediaId(item.mediaId).build())
+            .createMediaSource(item.buildUpon().setUri(stream.url).setMimeType(MimeTypes.APPLICATION_MPD).build())
         Stream.Manifest.HLS -> HlsMediaSource.Factory(pieces(stream)).apply { errors?.let(::setLoadErrorHandlingPolicy) }
-            .createMediaSource(MediaItem.Builder().setUri(stream.url).setMimeType(MimeTypes.APPLICATION_M3U8).setMediaId(item.mediaId).build())
+            .createMediaSource(item.buildUpon().setUri(stream.url).setMimeType(MimeTypes.APPLICATION_M3U8).build())
     }
 
     /** A manifest's pieces, fetched with the headers its source asked for. */
@@ -111,7 +111,7 @@ internal class ChosenSources(
  */
 @OptIn(UnstableApi::class)
 private class ChosenMediaSource(
-    private val item: MediaItem,
+    private var item: MediaItem,
     private val scope: CoroutineScope,
     private val choose: suspend () -> MediaSource,
 ) : CompositeMediaSource<Unit>() {
@@ -119,8 +119,18 @@ private class ChosenMediaSource(
     private var failure: IOException? = null
     private var job: Job? = null
     private var handler: Handler? = null
+    private var told: Timeline? = null
 
     override fun getMediaItem(): MediaItem = item
+
+    // The same song told better (its artist found after it started): new words, the same sound.
+    override fun canUpdateMediaItem(mediaItem: MediaItem): Boolean =
+        mediaItem.mediaId == item.mediaId && mediaItem.localConfiguration?.uri == item.localConfiguration?.uri
+
+    override fun updateMediaItem(mediaItem: MediaItem) {
+        item = mediaItem
+        told?.let { refreshSourceInfo(Retold(it, item)) }
+    }
 
     override fun prepareSourceInternal(mediaTransferListener: TransferListener?) {
         super.prepareSourceInternal(mediaTransferListener)
@@ -138,7 +148,10 @@ private class ChosenMediaSource(
         }
     }
 
-    override fun onChildSourceInfoRefreshed(childSourceId: Unit?, mediaSource: MediaSource, newTimeline: Timeline) = refreshSourceInfo(newTimeline)
+    override fun onChildSourceInfoRefreshed(childSourceId: Unit?, mediaSource: MediaSource, newTimeline: Timeline) {
+        told = newTimeline
+        refreshSourceInfo(Retold(newTimeline, item))
+    }
 
     override fun createPeriod(id: MediaSource.MediaPeriodId, allocator: Allocator, startPositionUs: Long): MediaPeriod =
         checkNotNull(child) { "asked for a period before the song was chosen" }.createPeriod(id, allocator, startPositionUs)
@@ -158,6 +171,17 @@ private class ChosenMediaSource(
         handler = null
         child = null
         failure = null
+        told = null
         super.releaseSourceInternal()
+    }
+}
+
+/** A song's timeline wearing its item's latest words, over whatever address the copy plays from. */
+@OptIn(UnstableApi::class)
+private class Retold(timeline: Timeline, private val item: MediaItem) : androidx.media3.exoplayer.source.ForwardingTimeline(timeline) {
+    override fun getWindow(windowIndex: Int, window: Window, defaultPositionProjectionUs: Long): Window {
+        super.getWindow(windowIndex, window, defaultPositionProjectionUs)
+        window.mediaItem = window.mediaItem.buildUpon().setMediaMetadata(item.mediaMetadata).setRequestMetadata(item.requestMetadata).build()
+        return window
     }
 }

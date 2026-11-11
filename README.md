@@ -39,7 +39,7 @@ It plays all of YouTube Music and your own files through an audio path that repo
 
 ## Download
 
-1. Download **[Aura-Music-v2.0.0.apk](https://github.com/vampireanshuman/Aura-Music/releases/download/v2.0.0/Aura-Music-v2.0.0.apk)** (or always get the newest version via **[AuraMusic-release.apk](https://github.com/vampireanshuman/Aura-Music/releases/latest/download/AuraMusic-release.apk)**).
+1. Download **[Aura-Music-v2.2.0.apk](https://github.com/vampireanshuman/Aura-Music/releases/download/v2.2.0/Aura-Music-v2.2.0.apk)** (or always get the newest version via **[AuraMusic-release.apk](https://github.com/vampireanshuman/Aura-Music/releases/latest/download/AuraMusic-release.apk)**).
 2. Open it on your phone. Android asks once to allow installs from your browser or file manager.
 3. Open Aura and press play.
 
@@ -59,7 +59,7 @@ Needs Android 10 or later. Every release is signed with the same persistent key,
 
 **An equaliser that knows your headphones.** Choose the pair you're wearing from 39 models, including AirPods Max and Pro, Sennheiser, Sony, Marshall and Bose, and it applies a correction made from that model's published measurements. Seven tunings of our own are there too, and profiles from AutoEq, squig.link, Equalizer APO or Wavelet import in a tap. Boosts can't clip, and with nothing chosen every sample passes through untouched.
 
-**Your whole library.** The complete YouTube Music catalogue, as a guest or signed in on Google's own page. Your own FLAC, ALAC and WAV files, as albums and folder by folder. Songs and whole playlists kept for offline, as files in your Music folder, picking up new additions on Wi-Fi. Your own sources, added by address over an open protocol.
+**Your whole library.** The complete YouTube Music catalogue, as a guest or signed in on Google's own page—with your saved YouTube Music playlists automatically synced into Library and per-playlist song sorting. Your own FLAC, ALAC and WAV files, as albums and folder by folder. Songs and whole playlists kept for offline, as files in your Music folder, keeping offline covers intact. Your own sources, added by address over an open protocol.
 
 **The best copy there is.** For a song from YouTube Music, your own sources are asked for the very same recording first, lossless where they have it. When one turns up while the song plays, Aura goes over to it mid-song, lined up by its sound and handed over in a crossfade you shouldn't hear.
 

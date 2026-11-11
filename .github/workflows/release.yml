@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g., v2.0.0)'
+        description: 'Release Tag (e.g., v2.2.0)'
         required: true
-        default: 'v2.0.0'
+        default: 'v2.2.0'
 
 permissions:
   contents: write
@@ -111,17 +111,17 @@ jobs:
           tag_name: ${{ github.ref_name || inputs.tag_name }}
           name: "Aura Music ${{ github.ref_name || inputs.tag_name }}"
           body: |
-            **Aura Music ${{ github.ref_name || inputs.tag_name }}** brings upstream AETHER v2.0.0 to Aura — lyrics from seven libraries drawn three ways, on-device romanisation, crossfade, better lossless copies found mid-song, music videos, kept files exported to `Music/Aura`, offline album shelves, and in-app updates.
+            **Aura Music ${{ github.ref_name || inputs.tag_name }}** brings upstream AETHER v2.1.0 & v2.2.0 improvements to Aura — signed-in YouTube Music library playlist sync, per-playlist sorting, high-bitrate cover films, missing-artist resolution & Profile crash fix, offline kept-song cover & metadata preservation, "See all" playlist browsing fixes, unified Now Playing video toggle, playlist management menus, microtype tattoo restoration, and local crash note sharing.
 
             > Powered by [AETHER](https://github.com/GHOSTxASR/AETHER) by [GHOSTxASR](https://github.com/GHOSTxASR) under [GPL-3.0](LICENSE).
 
             ### What's new
-            - **Lyrics from Seven Libraries & Verse**: lrc.red, BiniLyrics, BetterLyrics, LyricsPlus, Unison, LRCLIB and KuGou queried together, drawn word-by-word in the new Verse view, Constellations, or Continuous Line.
-            - **On-Device Script Romanisation**: Korean, Chinese pinyin, Japanese kana, and other scripts transliterated privately on device.
-            - **Crossfade & Exact Copy Upgrade**: 2–12 second crossfade (respecting gapless album transitions) and seamless mid-song switching to lossless/exact copies from custom addon sources (DASH/HLS supported).
-            - **Music Videos & Offline Albums**: Play music videos at up to 1080p/720p in place of artwork, browse on-phone and kept music as album shelves, and export kept tracks cleanly to `Music/Aura` with artwork and LRC metadata tags.
-            - **In-App Updates & Full Screen**: Automatic GitHub release checks with SHA-256 verification and immersive full-screen toggle.
-            - **Float32 & Bit-Perfect DAC Output**: Honest signal path directly to external USB DACs without resampling.
+            - **YouTube Music Library Sync & Playlist Sorting**: Saved YouTube Music playlists sync cleanly when signed in, and every playlist can be sorted by custom order, title, artist, album, added date, or duration.
+            - **Fixed Launch Crash & Missing Artists**: Resolved startup crashes when history held songs with unnamed artists, and automatically fetches missing artist metadata after playback begins.
+            - **Kept Songs & Offline Covers**: Fixed kept tracks missing titles/artists/artwork across Now Playing, notifications, and offline playback; preserves `Music/Aura` covers cleanly.
+            - **Cover Films & Now Playing**: Plays the highest-bitrate Apple cover film your phone decodes cleanly, restores the microtype cover tattoo (`AURA`), unifies the Now Playing video toggle, and merges downloads into a single compact disc counter.
+            - **Trending & "See all" Fixes**: Fixed Trending, Top Songs, and Videos "See all" lists opening empty; added in-page playlist search and menu actions (Rename, Edit, Delete).
+            - **On-Device Crash Notes**: Unexpected crashes are captured locally with an option to share or clear under Settings ▸ About.
             
             ### Installation
             Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required).

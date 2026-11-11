@@ -59,8 +59,20 @@ class YouTubeSource(
     override suspend fun browse(destination: Destination): Outcome<Feed> = when (destination.key) {
         // Explore's entries that are pages of their own kind.
         YouTubeMusic.CHARTS -> charts(null).let { r -> if (r is Outcome.Ok) Outcome.Ok(Feed(r.value.sections, title = "Charts")) else r as Outcome.Err }
-        else -> yt.browse(destination.toYt()).toOutcome { it.toFeed() }
+        // A "See all" that is a playlist (Explore's Trending, say): its songs and videos, as one section.
+        else -> if (destination.key.startsWith("VL")) {
+            yt.playlist(destination.key).toOutcome { c ->
+                val page = c.toPlaylistPage(destination.key.removePrefix("VL"))
+                Feed(
+                    sections = listOf(app.aether.core.model.FeedSection(page.playlist.title, page.tracks, wide = page.tracks.isNotEmpty() && page.tracks.all { it.kind == app.aether.core.model.MediaKind.MUSIC_VIDEO || it.kind == app.aether.core.model.MediaKind.VIDEO })),
+                    title = page.playlist.title,
+                )
+            }
+        } else {
+            yt.browse(destination.toYt()).toOutcome { it.toFeed() }
+        }
     }
+
 
     override suspend fun browseMore(token: PageToken): Outcome<Feed> = yt.browseMore(token.toContinuation()).toOutcome { it.toFeed() }
 
@@ -70,6 +82,21 @@ class YouTubeSource(
 
     override suspend fun account(): Outcome<app.aether.core.model.ListenerAccount> =
         yt.account().toOutcome { app.aether.core.model.ListenerAccount(it.name, it.handle, it.photo.toArtwork()) }
+
+    override suspend fun accountPlaylists(): Outcome<List<app.aether.core.model.Playlist>> {
+        val first = yt.library(YouTubeMusic.LIBRARY_PLAYLISTS)
+        val page = (first as? app.aether.ytmusic.YtResult.Success)?.value ?: return first.toOutcome { emptyList() }
+        val all = page.items.toMutableList()
+        var next = page.continuation
+        // A long library comes a page at a time; twenty pages is far past any real one.
+        var pages = 0
+        while (next != null && pages++ < 20) {
+            val more = (yt.libraryMore(next) as? app.aether.ytmusic.YtResult.Success)?.value ?: break
+            all += more.items
+            next = more.continuation
+        }
+        return Outcome.Ok(all.map { it.toEntity() }.filterIsInstance<app.aether.core.model.Playlist>().distinctBy { it.id })
+    }
 
     override suspend fun playlist(id: MediaId): Outcome<PlaylistPage> = yt.playlist(id.key).toOutcome { it.toPlaylistPage(id.key) }
 

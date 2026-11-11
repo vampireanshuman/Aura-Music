@@ -213,16 +213,16 @@ internal val Rising = Motion.fluid(0.7f, 1f, 0.002f)
 
 /**
  * A short film, looping and silent, in black and white unless told otherwise. It never touches the music: it
- * has no sound, asks for no audio focus, and is limited to the screen's width (less on a metered
- * connection). What's been fetched is kept, so it starts at once the next time. It rests when it's
+ * has no sound, asks for no audio focus, and plays at the best quality that fits the screen's width (half
+ * of it on a metered connection), from its first frame. What's been fetched is kept, so it starts at once the next time. It rests when it's
  * out of sight or the app is, and is let go when the page is.
  */
 @OptIn(UnstableApi::class)
 @Composable
-internal fun HeroFilm(url: String, playing: Boolean, onFirstFrame: () -> Unit, modifier: Modifier, mono: Boolean = true, onVideoAspect: (Float) -> Unit = {}) {
+internal fun HeroFilm(url: String, playing: Boolean, onFirstFrame: () -> Unit, modifier: Modifier, mono: Boolean = true, finest: Boolean = false, onVideoAspect: (Float) -> Unit = {}) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val player = remember(url) {
+    val player = remember(url, finest) {
         val metered = (context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.isActiveNetworkMetered == true
         val side = if (metered) 540 else 1080
         val data = CacheDataSource.Factory()
@@ -232,13 +232,40 @@ internal fun HeroFilm(url: String, playing: Boolean, onFirstFrame: () -> Unit, m
         ExoPlayer.Builder(context).build().apply {
             trackSelectionParameters = trackSelectionParameters.buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
-                .setMaxVideoSize(side, side)
+                // As wide as the screen, and as tall as a portrait film needs (a square cap took a tall
+                // film's 1080 x 1920 down to its 608 x 1080 copy).
+                .setMaxVideoSize(side, side * 2)
+                // A song's own film on Now Playing, on any connection: the finest copy there is
+                // (Apple's run to 2160 square and 2048 x 2732), drawn down to the screen, sharper than
+                // a screen-sized copy drawn up; only what this phone can decode is ever chosen.
+                .apply { if (finest) clearVideoSizeConstraints() }
+                // The best that fits, from the first frame: a film only plays on a fast connection, and a
+                // short loop never ran long enough for the player to climb from where it guessed low.
+                .setForceHighestSupportedBitrate(true)
                 .build()
             setMediaSource(
                 HlsMediaSource.Factory(data).createMediaSource(
                     MediaItem.Builder().setUri(url).setMimeType(MimeTypes.APPLICATION_M3U8).build(),
                 ),
             )
+            // The player's own pick lands mid-ladder on Apple's playlists (a 4.9 Mbps copy of a film
+            // that has 7, 10 and 20): once the copies are known, the film is set to the richest one
+            // this phone can decode within the size allowed, trick-play copies aside.
+            val wide = if (finest) 8192 else side
+            addListener(object : Player.Listener {
+                override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                    if (trackSelectionParameters.overrides.isNotEmpty()) return
+                    val group = tracks.groups.firstOrNull { it.type == C.TRACK_TYPE_VIDEO } ?: return
+                    val best = (0 until group.length)
+                        .filter { group.isTrackSupported(it) }
+                        .map { it to group.getTrackFormat(it) }
+                        .filter { (_, f) -> f.roleFlags and C.ROLE_FLAG_TRICK_PLAY == 0 && f.width in 1..wide && f.height <= wide * 2 }
+                        .maxByOrNull { (_, f) -> f.bitrate }?.first ?: return
+                    trackSelectionParameters = trackSelectionParameters.buildUpon()
+                        .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, best))
+                        .build()
+                }
+            })
             repeatMode = Player.REPEAT_MODE_ONE
             volume = 0f
             prepare()
