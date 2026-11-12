@@ -24,7 +24,9 @@ fun SourceError.explain(): Load.Failed = when (this) {
     SourceError.Offline -> Load.Failed("You're offline", "Connect to the internet, then try again. Your library still plays what's on this phone.")
     SourceError.Network -> Load.Failed("The connection dropped", "Check your network and try again.")
     is SourceError.RateLimited -> Load.Failed("The music service is busy", "Give it a moment, then try again.")
-    SourceError.AuthRequired, SourceError.AuthExpired -> Load.Failed("Sign in to see this", "This needs a YouTube Music account.")
+    SourceError.AuthRequired -> Load.Failed("Sign in to see this", "This needs a YouTube Music account.")
+    // The session was refused: it ended (signed out elsewhere, or a password changed), not the page.
+    SourceError.AuthExpired -> Load.Failed("Your sign-in has ended", "In Settings, sign out of YouTube Music and sign in again.")
     is SourceError.NotFound -> Load.Failed("This isn't here any more", "It may have been removed by the music service.")
     is SourceError.NotPlayable -> Load.Failed("This can't play right now", reason ?: "Try again later.")
     SourceError.Unsupported -> Load.Failed("Not available", "This source doesn't offer it.")

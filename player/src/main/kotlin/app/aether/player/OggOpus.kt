@@ -133,15 +133,46 @@ internal object OggOpus {
         else -> null
     }
 
-    /** A FLAC PICTURE block: the front cover, its type, and the picture. */
+    /** A FLAC PICTURE block: the front cover, its type, its size in pixels, and the picture. */
     private fun picture(image: ByteArray, mime: String): ByteArray = ByteArrayOutputStream().apply {
         be32(3) // front cover
         val m = mime.toByteArray(StandardCharsets.US_ASCII)
         be32(m.size); write(m)
         be32(0) // no description
-        be32(0); be32(0); be32(0); be32(0) // width, height, depth, colours: unknown, as allowed
+        // Width, height and bits per pixel, read from the picture itself, as taggers write them (some
+        // readers pass over a picture that says it's 0 by 0); colours 0, for a picture that isn't indexed.
+        val (w, h, depth) = dimensions(image) ?: Triple(0, 0, 0)
+        be32(w); be32(h); be32(depth); be32(0)
         be32(image.size); write(image)
     }.toByteArray()
+
+    /** A JPEG's or PNG's width, height and bits per pixel, from its header; null for anything else. */
+    internal fun dimensions(b: ByteArray): Triple<Int, Int, Int>? {
+        fun u16(at: Int) = ((b[at].toInt() and 0xFF) shl 8) or (b[at + 1].toInt() and 0xFF)
+        fun u32(at: Int) = (u16(at) shl 16) or u16(at + 2)
+        if (b.size > 26 && b[0] == 0x89.toByte() && String(b, 12, 4, StandardCharsets.US_ASCII) == "IHDR") {
+            val channels = when (b[25].toInt()) { 0 -> 1; 2 -> 3; 3 -> 1; 4 -> 2; 6 -> 4; else -> return null }
+            return Triple(u32(16), u32(20), (b[24].toInt() and 0xFF) * channels)
+        }
+        if (b.size < 4 || b[0] != 0xFF.toByte() || b[1] != 0xD8.toByte()) return null
+        var at = 2
+        while (at + 9 < b.size) {
+            if (b[at] != 0xFF.toByte()) return null
+            val marker = b[at + 1].toInt() and 0xFF
+            when {
+                marker == 0xFF -> { at++; continue } // fill byte
+                marker == 0x01 || marker in 0xD0..0xD9 -> { at += 2; continue } // markers without a length
+            }
+            // A start-of-frame (baseline, progressive, lossless, arithmetic), not DHT, JPG or DAC.
+            if (marker in 0xC0..0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC) {
+                val precision = b[at + 4].toInt() and 0xFF
+                val components = b[at + 9].toInt() and 0xFF
+                return Triple(u16(at + 7), u16(at + 5), precision * components)
+            }
+            at += 2 + u16(at + 2)
+        }
+        return null
+    }
 
     /** An Opus packet's length in samples at 48 kHz, from its table of contents (RFC 6716). */
     internal fun duration(packet: ByteArray): Int? {

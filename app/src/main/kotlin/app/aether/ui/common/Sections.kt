@@ -1,5 +1,6 @@
 package app.aether.ui.common
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
@@ -162,13 +163,14 @@ fun LazyListScope.sections(sections: List<FeedSection>, topSpace: Dp = 52.dp, ti
     sections.forEachIndexed { index, section ->
         val links = section.items.filterIsInstance<Link>()
         val tracks = section.items.filterIsInstance<Track>()
-        if (whole && tracks.isNotEmpty() && tracks.size == section.items.size) {
-            // A page of its own: every song and video in it, two to a row.
+        if (whole && links.isEmpty() && section.items.isNotEmpty()) {
+            // A page of its own: every song, video, album, single, playlist or artist in it, two to a
+            // row, down the page.
             if (section.title.isNotBlank()) item(key = "h:$index:${section.title}") {
                 SectionHeading(section.title, Modifier.padding(top = topSpace, bottom = 18.dp), strapline = section.strapline)
             } else item(key = "h:$index") { Spacer(Modifier.height(18.dp)) }
-            val rows = tracks.distinctBy { it.id }.chunked(2)
-            items(rows.size, key = { "g:$index:$it" }) { i -> TrackGridRow(rows[i], wide = section.wide, all = tracks) }
+            val rows = section.items.distinctBy { it.stableKey() }.chunked(2)
+            items(rows.size, key = { "g:$index:$it" }) { i -> GridRow(rows[i], wide = section.wide, tracks = tracks) }
             return@forEachIndexed
         }
         if (links.isNotEmpty() && links.size == section.items.size) {
@@ -186,16 +188,27 @@ fun LazyListScope.sections(sections: List<FeedSection>, topSpace: Dp = 52.dp, ti
     }
 }
 
-/** Two cards of a page's grid, each half the width; touched, a song plays among the page's. */
+/**
+ * Two cards of a page's grid, each half the width: a song plays among the page's songs; an album, a
+ * single, a playlist or an artist opens. A playlist is a folder, at its own size, in its half.
+ */
 @Composable
-private fun TrackGridRow(pair: List<Track>, wide: Boolean, all: List<Track>) {
+private fun GridRow(pair: List<MediaEntity>, wide: Boolean, tracks: List<Track>) {
     val actions = LocalActions.current
     BoxWithConstraints(Modifier.separate().fillMaxWidth().padding(horizontal = Space.edge).padding(bottom = 14.dp)) {
         val each = (maxWidth - 14.dp) / 2
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            pair.forEach { t ->
-                // A wide card already runs half again as wide: it's given its half and no more.
-                TrackCard(t, onClick = { actions.play(all, all.indexOf(t).coerceAtLeast(0)) }, width = if (wide) each / 1.45f else each, wide = wide)
+            pair.forEach { e ->
+                Box(Modifier.width(each), contentAlignment = Alignment.TopCenter) {
+                    when (e) {
+                        // A wide card already runs half again as wide: it's given its half and no more.
+                        is Track -> TrackCard(e, onClick = { actions.play(tracks, tracks.indexOf(e).coerceAtLeast(0)) }, width = if (wide) each / 1.45f else each, wide = wide)
+                        is Album -> AlbumCard(e, onClick = { actions.open(e) }, width = each)
+                        is Podcast -> PodcastCard(e, onClick = { actions.open(e) }, width = each)
+                        is Artist -> ArtistCard(e, onClick = { actions.open(e) }, width = each)
+                        else -> EntityCard(e, wide)
+                    }
+                }
             }
         }
     }

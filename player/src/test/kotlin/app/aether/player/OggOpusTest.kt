@@ -61,6 +61,23 @@ class OggOpusTest {
         assertEquals(listOf("Words here", "And here"), lyrics.lines.map { it.text })
     }
 
+    @Test fun `the cover's picture block says its size, as taggers write it`() {
+        // A JPEG's opening: SOI, then a baseline frame 1425 wide, 1200 tall, three 8-bit components.
+        val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xC0.toByte(), 0, 17, 8, 0x04, 0xB0.toByte(), 0x05, 0x91.toByte(), 3) + ByteArray(9) + byteArrayOf(0xFF.toByte(), 0xD9.toByte())
+        val bytes = stream(jpeg)
+        val key = String(bytes, Charsets.ISO_8859_1).indexOf("METADATA_BLOCK_PICTURE=")
+        // The comment's own length, little-endian, just before it.
+        val length = java.nio.ByteBuffer.wrap(bytes, key - 4, 4).order(java.nio.ByteOrder.LITTLE_ENDIAN).int
+        val value = String(bytes, key, length, Charsets.ISO_8859_1).substringAfter('=')
+        val buf = java.nio.ByteBuffer.wrap(java.util.Base64.getDecoder().decode(value))
+        assertEquals(3, buf.int) // front cover
+        val mime = ByteArray(buf.int).also { buf.get(it) }
+        assertEquals("image/jpeg", String(mime))
+        buf.position(buf.position() + 4 + buf.getInt(buf.position()))
+        assertEquals(listOf(1425, 1200, 24, 0), List(4) { buf.int })
+        assertEquals(jpeg.size, buf.int)
+    }
+
     @Test fun `a cover too large for one page carries its tags over several`() {
         val cover = byteArrayOf(0xFF.toByte(), 0xD8.toByte()) + ByteArray(200_000) { it.toByte() }
         val bytes = stream(cover)

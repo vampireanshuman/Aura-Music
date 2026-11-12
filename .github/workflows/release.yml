@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g., v2.2.0)'
+        description: 'Release Tag (e.g., v2.3.0)'
         required: true
-        default: 'v2.2.0'
+        default: 'v2.3.0'
 
 permissions:
   contents: write
@@ -55,7 +55,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run Unit Tests
-        run: ./gradlew :app:testDebugUnitTest :core:lyrics:test :player:testDebugUnitTest :sources:addon:test :sources:youtube:test --stacktrace
+        run: ./gradlew :app:testDebugUnitTest :core:lyrics:test :player:testDebugUnitTest :sources:addon:test :sources:youtube:test :ytmusic:test --stacktrace
 
       - name: Assemble Release APK
         run: ./gradlew :app:assembleRelease --stacktrace
@@ -111,17 +111,16 @@ jobs:
           tag_name: ${{ github.ref_name || inputs.tag_name }}
           name: "Aura Music ${{ github.ref_name || inputs.tag_name }}"
           body: |
-            **Aura Music ${{ github.ref_name || inputs.tag_name }}** brings upstream AETHER v2.1.0 & v2.2.0 improvements to Aura — signed-in YouTube Music library playlist sync, per-playlist sorting, high-bitrate cover films, missing-artist resolution & Profile crash fix, offline kept-song cover & metadata preservation, "See all" playlist browsing fixes, unified Now Playing video toggle, playlist management menus, microtype tattoo restoration, and local crash note sharing.
+            **Aura Music ${{ github.ref_name || inputs.tag_name }}** brings upstream AETHER v2.3.0 fixes and source improvements to Aura — resolving unsupported locale/country errors on YouTube Music, matching region to your connection, tagging kept M4A songs with covers and lyrics, BitChord-compatible lossless-output & Bluetooth codec checks for addons, automatic addon reconnection, and Aura's mark on the media notification.
 
             > Powered by [AETHER](https://github.com/GHOSTxASR/AETHER) by [GHOSTxASR](https://github.com/GHOSTxASR) under [GPL-3.0](LICENSE).
 
             ### What's new
-            - **YouTube Music Library Sync & Playlist Sorting**: Saved YouTube Music playlists sync cleanly when signed in, and every playlist can be sorted by custom order, title, artist, album, added date, or duration.
-            - **Fixed Launch Crash & Missing Artists**: Resolved startup crashes when history held songs with unnamed artists, and automatically fetches missing artist metadata after playback begins.
-            - **Kept Songs & Offline Covers**: Fixed kept tracks missing titles/artists/artwork across Now Playing, notifications, and offline playback; preserves `Music/Aura` covers cleanly.
-            - **Cover Films & Now Playing**: Plays the highest-bitrate Apple cover film your phone decodes cleanly, restores the microtype cover tattoo (`AURA`), unifies the Now Playing video toggle, and merges downloads into a single compact disc counter.
-            - **Trending & "See all" Fixes**: Fixed Trending, Top Songs, and Videos "See all" lists opening empty; added in-page playlist search and menu actions (Rename, Edit, Delete).
-            - **On-Device Crash Notes**: Unexpected crashes are captured locally with an option to share or clear under Settings ▸ About.
+            - **Fixed Unsupported Language / Country Errors**: Resolved `"The music service didn't answer"` across all pages on phones set to languages or regions YouTube Music rejects (e.g. Santali, Konkani, Kashmiri, Sindhi, Dogri, Maithili, Bodo, Manipuri, Yiddish, and restricted countries), and aligned offered content to the region YouTube Music detects.
+            - **Clearer Sign-In Expiry**: Expired Google sessions now report `"Your sign-in has ended"` rather than claiming a page requires an account.
+            - **Kept M4A Tagging & Retried Covers**: Kept M4A files now embed cover art (always converted to JPEG/PNG), title, artist, album, and lyrics for file managers and external players, with automatic cover download retries.
+            - **Addon Reliability & Lossless Output Matching**: Addons that fail at launch automatically retry when connectivity returns and every 2 minutes (plus a **Try again** button in Settings), report refusal reasons directly, follow BitChord's stream-first protocol with covers, and wait for lossless wired/USB/HDMI or Bluetooth LDAC/LHDC/aptX Lossless output when required (requesting Nearby devices / Android 14+ companion permission only from that source's row when needed).
+            - **Media Notification Icon & Artist Grid Browsing**: Uses Aura's mark in the status bar / notification and lays out an artist's Albums and Singles & EPs in a clean two-column grid.
             
             ### Installation
             Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required).

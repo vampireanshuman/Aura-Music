@@ -42,3 +42,25 @@ tasks.register<JavaExec>("browseCheck") {
     mainClass.set("app.aether.sources.youtube.BrowseCheckKt")
     args = listOf("region", "filter", "artist", "album", "radio").mapNotNull { name -> project.findProperty(name)?.let { "$name=$it" } }
 }
+
+// Asks Home with the languages and countries phones send, and says which the service refuses.
+tasks.register<JavaExec>("localeCheck") {
+    group = "verification"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.aether.sources.youtube.LocaleCheckKt")
+}
+
+// What the service answers a session it won't accept (no real session is used).
+tasks.register<JavaExec>("sessionCheck") {
+    group = "verification"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.aether.sources.youtube.SessionCheckKt")
+}
+
+// Saves the opening of a song's AAC copy, to read how its file is laid out (needs the network).
+tasks.register<JavaExec>("aacLayoutCheck") {
+    group = "verification"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.aether.sources.youtube.AacLayoutCheckKt")
+    args = listOf("ids", "out", "bytes").mapNotNull { name -> project.findProperty(name)?.let { "$name=$it" } }
+}

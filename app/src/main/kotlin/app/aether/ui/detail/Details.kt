@@ -296,8 +296,18 @@ private fun FeedPage(title: String?, load: Load<Feed>, retry: () -> Unit, whole:
     LazyColumn(Modifier.fillMaxSize(), state = rememberPageListState(), contentPadding = PaddingValues(bottom = 0.dp)) {
         item { BackLine() }
         item {
-            val name = (load as? Load.Ready)?.value?.title ?: title ?: ""
-            Txt(name, Type.name(name), align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp))
+            // The shelf that was opened names the page ("Singles & EPs"); the service's own title for
+            // it, when it says something else (the artist's name), stands small above it.
+            val own = (load as? Load.Ready)?.value?.title?.takeIf { it.isNotBlank() }
+            val name = title?.takeIf { it.isNotBlank() } ?: own ?: ""
+            val over = own?.takeIf { title != null && !title.contains(it, ignoreCase = true) && !it.contains(title, ignoreCase = true) }
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (over != null) {
+                    Strapline(over)
+                    Spacer(Modifier.height(10.dp))
+                }
+                Txt(name, Type.name(name), align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            }
         }
         if (extra != null) item { extra() }
         when (load) {

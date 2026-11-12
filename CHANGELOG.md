@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-11
+
+### Fixed
+- Every page said "The music service didn't answer" on phones set to a language or country YouTube Music doesn't take (Santali, Konkani, Kashmiri, Sindhi, Dogri, Maithili, Bodo, Manipuri, Yiddish; China, Iran, Afghanistan, Myanmar and a few more), signed in or not. AETHER now finds out which it was and asks without it.
+- What's offered follows where you are, not where your phone is set: AETHER sends the country YouTube Music finds you in, as its website does.
+- A sign-in that has ended says so ("Your sign-in has ended"), instead of saying a page needs an account.
+- Songs kept as M4A carry their cover, name, artist, album and words, so file managers and other players show them; a kept song's cover is fetched again if the first try fails, and is always a JPEG or PNG.
+- Your own sources: one that didn't answer when AETHER started (no connection yet, a slow server) was left out until AETHER restarted. It's asked again when the connection comes back and every two minutes, and Settings has Try again. Adding one allows a slow server longer.
+- A source that refuses says why in Settings, in its own words, and rests after refusing twice, so songs don't wait on it.
+
+### Changed
+- Your own sources are handled as BitChord's host handles them: a song's stream is asked for before the address its search row gave (kept as the fallback, so a source that only searches plays too), its songs show their covers, and one that asks to be used only with a lossless output (wired or USB headphones, HDMI, or Bluetooth on LDAC, LHDC or aptX Lossless) waits until one is connected. To tell which codec Bluetooth headphones are using, AETHER asks for Nearby devices and, on Android 14 and later, for Android's one-time permission to know those headphones, both from that source's row and only when it matters.
+- The player's notification wears AETHER's mark instead of a play symbol.
+- An artist's Albums, Singles & EPs (every "See all" of albums, playlists or artists) run down the page two to a row, as videos do, and the page is named for the shelf, the artist's name above it.
+
 ## [2.2.0] - 2026-11-11
 
 ### Fixed
@@ -80,7 +95,8 @@ The first release.
 - **Cards:** a metal charge card of your profile or any song, black or silver, at 1080 by 1920.
 - **Privacy:** no ads, no analytics, no tracking, no account and no server of ours.
 
-[Unreleased]: https://github.com/GHOSTxASR/AETHER/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/GHOSTxASR/AETHER/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/GHOSTxASR/AETHER/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/GHOSTxASR/AETHER/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/GHOSTxASR/AETHER/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/GHOSTxASR/AETHER/compare/v1.0.0...v2.0.0

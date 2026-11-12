@@ -39,7 +39,7 @@ It plays all of YouTube Music and your own files through an audio path that repo
 
 ## Download
 
-1. Download **[Aura-Music-v2.2.0.apk](https://github.com/vampireanshuman/Aura-Music/releases/download/v2.2.0/Aura-Music-v2.2.0.apk)** (or always get the newest version via **[AuraMusic-release.apk](https://github.com/vampireanshuman/Aura-Music/releases/latest/download/AuraMusic-release.apk)**).
+1. Download **[Aura-Music-v2.3.0.apk](https://github.com/vampireanshuman/Aura-Music/releases/download/v2.3.0/Aura-Music-v2.3.0.apk)** (or always get the newest version via **[AuraMusic-release.apk](https://github.com/vampireanshuman/Aura-Music/releases/latest/download/AuraMusic-release.apk)**).
 2. Open it on your phone. Android asks once to allow installs from your browser or file manager.
 3. Open Aura and press play.
 

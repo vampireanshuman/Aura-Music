@@ -1,5 +1,6 @@
 package app.aether
 
+import app.aether.output.LosslessOutput
 import android.app.Application
 import android.app.PendingIntent
 import android.content.Intent
@@ -116,9 +117,17 @@ class Container(app: Application) {
             (answer as? LyricsResult.Found)?.lyrics?.let(LrcWriter::write)
         },
         coverOf = { t ->
-            val url = t.artwork.url(1200) ?: return@Downloads null
+            // Asked once, a moment's blip would leave the file without its cover for good: the full size
+            // twice more after a pause, then a smaller one.
+            val tries = listOfNotNull(t.artwork.url(1200), t.artwork.url(1200), t.artwork.url(1200), t.artwork.url(600))
             withContext(Dispatchers.IO) {
-                runCatching { http.newCall(Request.Builder().url(url).header("User-Agent", UserAgent).build()).await().use { r -> if (r.isSuccessful) r.body?.bytes()?.takeIf { it.size < 4 * 1024 * 1024 } else null } }.getOrNull()
+                var cover: ByteArray? = null
+                for ((i, url) in tries.withIndex()) {
+                    if (i > 0) kotlinx.coroutines.delay(1_500L * i)
+                    cover = runCatching { http.newCall(Request.Builder().url(url).header("User-Agent", UserAgent).build()).await().use { r -> if (r.isSuccessful) r.body?.bytes()?.takeIf { it.isNotEmpty() && it.size < 4 * 1024 * 1024 } else null } }.getOrNull()
+                    if (cover != null) break
+                }
+                cover
             }
         },
     ).also { it.start() }
@@ -132,11 +141,41 @@ class Container(app: Application) {
     /** AETHER's own updates, from its GitHub releases (PODIUM's update check), off the main thread. */
     val updates: UpdateCenter = UpdateCenter.of(app, CoroutineScope(SupervisorJob() + Dispatchers.IO))
 
-    init {
-        // The listener's own sources, reconnected by their addresses.
+    /** Whether a lossless-capable output is connected, for addons that ask for one (BitChord's test). */
+    val losslessOutput = LosslessOutput.also { it.init(app) }
+
+    /** Connects [address] as one of the listener's sources: the addon, or why not. */
+    suspend fun connectAddon(address: String) =
+        AddonSource.connect(address, http, { settings.addonChoices(address) }, { losslessOutput.capable })
+
+    private val reconnecting = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Every saved source not yet connected, asked again. At launch the phone may not be online yet, or
+     * an addon's server may be waking: one that doesn't answer then is asked when the connection comes
+     * back and every two minutes after, never left out for the rest of the session.
+     */
+    fun reconnectAddons() {
         scope.launch {
-            settings.addons.value.forEach { address ->
-                (AddonSource.connect(address, http) { settings.addonChoices(address) } as? Outcome.Ok)?.value?.let(sources::register)
+            if (!reconnecting.tryLock()) return@launch
+            try {
+                settings.addons.value.filter { sources.of(AddonSource.idFor(it)) == null }.forEach { address ->
+                    (connectAddon(address) as? Outcome.Ok)?.value?.let(sources::register)
+                }
+            } finally {
+                reconnecting.unlock()
+            }
+        }
+    }
+
+    init {
+        // The listener's own sources, reconnected by their addresses, and again until each answers.
+        reconnectAddons()
+        scope.launch { online.now.collect { up -> if (up) reconnectAddons() } }
+        scope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(120_000)
+                if (online.now.value && settings.addons.value.any { sources.of(AddonSource.idFor(it)) == null }) reconnectAddons()
             }
         }
     }

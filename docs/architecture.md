@@ -244,6 +244,19 @@ decent-usb-audio-driver (MIT), libsoxr (LGPL-2.1, built as a shared library), Ne
   addon that declares `bitchordAuth` (answering only BitChord's own app, proved by a key Android vouches
   for) isn't added: AETHER can't make that proof and doesn't fake it. Keeping is always the song's own
   source. Now Playing names the source a copy came from beside what the decoder measured.
+  Since 2026-11-11, closer to BitChord's host (`AddonSource`, `app` `output/`): `/stream` is asked first
+  and a row's `streamURL` is the fallback, so an addon that only searches plays too; rows keep their
+  cover (`artworkURL`, `albumArtworkURL`); an addon that declares `checkValidLossless` is asked only
+  while a lossless-capable output is connected (BitChord's `LosslessOutput` and
+  `BluetoothAudioTracker`, ported: wired, USB, HDMI, a dock, or Bluetooth on LDAC, LHDC, aptX Lossless
+  or SSC UHQ, the codec read with Nearby devices, asked for in that addon's row only when it decides;
+  since Android 14 `getCodecStatus` also wants the app associated with the headphones as a companion
+  device, so the row then offers Android's own one-time dialog, `CodecCompanion`, after which the codec
+  is read whenever it's wanted; checked with LDAC earphones, 2026-11-11);
+  any refusal but a 404 counts toward resting, and is shown in Settings in the addon's own words
+  (`{"error": …}`). Adding an addon allows 20 s and asks twice; saved ones that didn't connect at launch
+  are asked again when the phone comes online and every two minutes, never left out for the session.
+  Checked live: `./gradlew :sources:addon:addonCheck -Paddress=… -Pq=…`.
 - **Lyrics libraries** (`core:lyrics` `Libraries.kt`, `LyricsChain`, after BitChord's providers):
   lrc.red, BiniLyrics and BetterLyrics (Apple Music's TTML, syllable by syllable), LyricsPlus and Unison,
   then LRCLIB and KuGou (by the line). All are asked at once; word timing beats line timing beats plain
@@ -301,7 +314,14 @@ decent-usb-audio-driver (MIT), libsoxr (LGPL-2.1, built as a shared library), Ne
   needed for AETHER's own files), YouTube's Opus moved from WebM into Ogg packet for packet (granules
   with pre-skip, the declared end, CRCs; a tag packet larger than a page continues over pages), its tags
   the title, artist, album, year, number, cover (`METADATA_BLOCK_PICTURE`), words as LRC (enhanced when
-  timed) and the track itself (`AETHER_TRACK`); AAC goes out as the M4A it is. Then the keep's copy is
+  timed) and the track itself (`AETHER_TRACK`), the cover's picture block carrying its real width,
+  height and depth. AAC goes out as the M4A it is, with iTunes tags (`Mp4Tags`): `moov/udta/meta/ilst`
+  with `©nam`, `©ART`, `©alb`, `©day`, `trkn`, `©lyr`, `covr` and the track as a `----` item; only the
+  header is rebuilt (YouTube's copies are fragmented, each fragment placing its samples relative to
+  itself), an older layout's chunk offsets move with it, and a file it can't tag safely goes out as it
+  came. The cover is always a JPEG or PNG (anything else is redrawn as a JPEG), fetched with retries.
+  Android's own media store reads both kinds' covers (checked on the phone, 2026-11-11); a file manager
+  that shows no audio covers at all (the system Files app) shows none for any format. Then the keep's copy is
   let go, so a song takes its room once. A song that can't be written out stays in the keep and plays
   from there. Kept files play from the file (`keptFile`), are hidden from On this phone, and a file the
   listener deletes in the file manager is no longer kept. Songs kept by 1.0 are written out the same way.

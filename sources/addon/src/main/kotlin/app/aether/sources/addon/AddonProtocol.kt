@@ -31,6 +31,12 @@ data class AddonManifest(
      * Android vouches for. AETHER can't, and doesn't pretend to: such an addon isn't added.
      */
     val onlyForBitChord: Boolean = false,
+    /**
+     * `checkValidLossless`: the addon asks to be used only while the phone has an output that carries
+     * lossless audio (wired, USB, HDMI, a dock, or Bluetooth on a lossless-class codec), as BitChord
+     * honours it. Its wish is kept: on the speaker or ordinary Bluetooth it isn't asked.
+     */
+    val requiresLosslessOutput: Boolean = false,
 ) {
     val canSearch: Boolean get() = RESOURCE_SEARCH in resources
     val canStream: Boolean get() = RESOURCE_STREAM in resources
@@ -113,6 +119,8 @@ internal data class AddonTrack(
     val quality: String? = null,
     /** An immersive mix (Dolby Atmos, 360) rather than the stereo one: never taken for the stereo song. */
     val immersive: Boolean = false,
+    /** Its cover, when the row names one (`artworkURL`, `albumArtworkURL`, `artwork`, `cover`). */
+    val artwork: String? = null,
 )
 
 /** An addon's answer for one song's stream. */
@@ -163,6 +171,7 @@ internal object AddonProtocol {
             settings = settings,
             allowsDownloads = o["allowDownloads"].flag() == true,
             onlyForBitChord = o["bitchordAuth"].flag() == true,
+            requiresLosslessOutput = o["checkValidLossless"].flag() == true,
         )
     }
 
@@ -205,6 +214,7 @@ internal object AddonProtocol {
         m.description?.let { put("description", it) }
         putJsonArray("resources") { m.resources.sorted().forEach { add(it) } }
         put("allowDownloads", m.allowsDownloads)
+        put("checkValidLossless", m.requiresLosslessOutput)
         putJsonArray("settings") {
             m.settings.forEach { s ->
                 addJsonObject {
@@ -264,6 +274,9 @@ internal object AddonProtocol {
             quality = quality?.take(MAX_NAME),
             immersive = o["atmos"].flag() == true || modes.any { IMMERSIVE.containsMatchIn(it) } ||
                 quality?.let { IMMERSIVE.containsMatchIn(it) } == true,
+            artwork = listOf("artworkURL", "artworkUrl", "albumArtworkURL", "albumArtworkUrl", "artwork", "cover", "coverUrl", "image", "thumbnail")
+                .firstNotNullOfOrNull { k -> o[k].text() ?: (o[k] as? JsonObject)?.get("url").text() }
+                ?.takeIf { it.startsWith("https://") || it.startsWith("http://") },
         )
     }
 
@@ -322,6 +335,13 @@ internal object AddonProtocol {
         )
     }
 
+    /** An addon's own words in a refusal (`{"error": "…"}` or `{"message": "…"}`), when it gave any. */
+    fun errorText(bytes: ByteArray): String? {
+        val o = parse(bytes) as? JsonObject ?: return null
+        val said = o["error"].text() ?: (o["error"] as? JsonObject)?.get("message").text() ?: o["message"].text() ?: o["detail"].text()
+        return said?.replace(SPACE, " ")?.take(160)
+    }
+
     /** `false`, `"none"` or nothing: open. `true`, or the name of any scheme: encrypted. */
     private fun isEncrypted(e: JsonElement?): Boolean {
         val p = e as? JsonPrimitive ?: return false
@@ -344,6 +364,7 @@ internal object AddonProtocol {
     private val KHZ = Regex("""([\d.]+)\s*kHz""", RegexOption.IGNORE_CASE)
     private val BITS = Regex("""(\d{1,2})\s*-?\s*bit""", RegexOption.IGNORE_CASE)
     private val SETTING_KEY = Regex("[A-Za-z0-9_.-]{1,64}")
+    private val SPACE = Regex("""\s+""")
     private val HEADER_NAME = Regex("[A-Za-z0-9-]{1,64}")
     private const val MAX_NAME = 300
     private const val MAX_DESCRIPTION = 1_000

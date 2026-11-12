@@ -157,9 +157,15 @@ fun SettingsScreen() {
                     "Add a source by its address: your own server, or a library that speaks the addon protocol BitChord and LastWave use. For a song from YouTube Music, your sources are asked first for an exact copy (the same recording, the same length); the first that has one plays it, lossless when it is, and YouTube Music plays whatever they don't have. Aura plays open media only, and ships no sources.",
                     Modifier.padding(vertical = 18.dp),
                 )
+                val output by container.losslessOutput.state.collectAsStateWithLifecycle()
                 addresses.forEach { address ->
                     val connected = sources.firstOrNull { (it as? AddonSource)?.address == address } as? AddonSource
-                    AddedSource(address, connected, choices[address].orEmpty(), onChoose = { key, value -> settings.setAddonChoice(address, key, value) }) {
+                    AddedSource(
+                        address, connected, choices[address].orEmpty(), output,
+                        onChoose = { key, value -> settings.setAddonChoice(address, key, value) },
+                        onRetry = { container.reconnectAddons() },
+                        onOutputChanged = { container.losslessOutput.refresh() },
+                    ) {
                         settings.removeAddon(address)
                         container.sources.unregister(AddonSource.idFor(address))
                     }
@@ -366,7 +372,7 @@ fun SettingsScreen() {
         }
         connecting = true
         scope.launch {
-            when (val r = AddonSource.connect(address, container.http) { settings.addonChoices(address) }) {
+            when (val r = container.connectAddon(address)) {
                 is Outcome.Ok -> {
                     container.sources.register(r.value)
                     settings.addAddon(address)
@@ -386,20 +392,76 @@ fun SettingsScreen() {
 
 /**
  * A source the listener added: its name, where it is (the host alone: the rest of an address can
- * carry their token), how it's doing, and each setting it declares as a choice on the bar of glass.
+ * carry their token), how it's doing in its own words, and each setting it declares as a choice on the
+ * bar of glass. One that asks for a lossless output says whether one is connected, and offers the
+ * Nearby devices permission when that's all that stands between Bluetooth headphones and an answer.
  */
 @Composable
-private fun AddedSource(address: String, source: AddonSource?, chosen: Map<String, String>, onChoose: (String, String) -> Unit, onRemove: () -> Unit) {
+private fun AddedSource(
+    address: String,
+    source: AddonSource?,
+    chosen: Map<String, String>,
+    output: app.aether.output.LosslessOutput.State,
+    onChoose: (String, String) -> Unit,
+    onRetry: () -> Unit,
+    onOutputChanged: () -> Unit,
+    onRemove: () -> Unit,
+) {
     val host = remember(address) { AddonSource.base(address)?.host ?: address }
+    // Read so the row follows the source as it's asked: an error, a rest, an answer.
+    val changes = (source?.changes ?: remember { kotlinx.coroutines.flow.MutableStateFlow(0L) }).collectAsStateWithLifecycle()
+    changes.value
+    val wantsLossless = source?.manifest?.requiresLosslessOutput == true
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { onOutputChanged() }
+    val associate = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()) { onOutputChanged() }
+    var companionTrouble by remember { mutableStateOf<String?>(null) }
+    val nearbyGranted = android.os.Build.VERSION.SDK_INT < 31 ||
+        androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
     Row(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         val state = when {
-            source == null -> "Not reachable just now, at $host."
+            source == null -> "Not reachable just now, at $host. Asked again when the connection's back."
+            wantsLossless && !output.capable -> "$host. It asks to be used only with an output that carries lossless audio: wired or USB headphones, HDMI, or Bluetooth on LDAC, LHDC or aptX Lossless. " +
+                when {
+                    output.bluetoothCodec != null -> "Your headphones are on ${output.bluetoothCodec}, so it waits."
+                    output.bluetoothCodecUnknown && !nearbyGranted -> "Android tells Aura your headphones' codec only with Nearby devices."
+                    output.needsCompanion -> "Android names your headphones' codec only to an app it knows them by: allow Aura once, and it can tell when they play over LDAC."
+                    output.bluetoothCodecUnknown -> "Android hasn't named your headphones' codec yet: it does when they connect."
+                    else -> "None is connected, so it waits."
+                } + (companionTrouble?.let { " ($it)" }.orEmpty())
             source.trouble != null -> "$host. Resting: ${source.trouble}"
+            source.lastError != null -> "$host. Its last answer: \u201c${source.lastError}\u201d"
+            wantsLossless -> "$host. Lossless output connected${output.bluetoothCodec?.let { " ($it)" }.orEmpty()}: asked first for exact copies of songs from YouTube Music."
             else -> "$host. Asked first for exact copies of songs from YouTube Music."
         }
         Words(source?.name ?: "A source", state, Modifier.weight(1f))
         Spacer(Modifier.width(18.dp))
-        GlassPill("Remove", small = true, onClick = onRemove)
+        Column(horizontalAlignment = Alignment.End) {
+            if (source == null) {
+                GlassPill("Try again", small = true, onClick = onRetry)
+                Spacer(Modifier.height(10.dp))
+            }
+            if (wantsLossless && output.bluetoothCodecUnknown && !nearbyGranted) {
+                GlassPill("Nearby devices", small = true, lit = true, onClick = { ask.launch(android.Manifest.permission.BLUETOOTH_CONNECT) })
+                Spacer(Modifier.height(10.dp))
+            } else if (wantsLossless && output.needsCompanion) {
+                GlassPill("Allow headphones", small = true, lit = true, onClick = {
+                    val address = app.aether.output.LosslessOutput.headphonesAddress
+                    if (address == null) {
+                        companionTrouble = "Android didn't say which headphones are connected."
+                    } else {
+                        app.aether.output.CodecCompanion.ask(
+                            context, address,
+                            onPending = { sender -> associate.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build()) },
+                            onDone = { companionTrouble = null; onOutputChanged() },
+                            onFailed = { why -> companionTrouble = why },
+                        )
+                    }
+                })
+                Spacer(Modifier.height(10.dp))
+            }
+            GlassPill("Remove", small = true, onClick = onRemove)
+        }
     }
     source?.manifest?.settings?.filter { it.type != app.aether.sources.addon.AddonSetting.Type.TEXT }?.forEach { setting ->
         val options = when (setting.type) {

@@ -24,8 +24,10 @@ import java.io.File
  * Kept songs as files of their own, in the listener's Music folder (`Music/AETHER`), as BitChord and
  * LastWave keep theirs: the phone's file manager lists them, any player opens them, and they can be
  * copied, backed up or deleted like any music. Each is the very audio that streamed, never encoded
- * again: YouTube's Opus moved into an Ogg Opus file ([OggOpus]), its AAC kept as the M4A it is. An Opus
- * file carries the song's title, artist, album, cover and words in its tags.
+ * again: YouTube's Opus moved into an Ogg Opus file ([OggOpus]), its AAC kept as the M4A it is. Either
+ * carries the song's title, artist, album, cover and words in its tags (Vorbis comments in the Opus,
+ * iTunes tags in the M4A, [Mp4Tags]); the cover always as a JPEG or PNG, the pictures every reader
+ * opens.
  *
  * Written through Android's media store, which needs no permission for the files AETHER makes;
  * hidden from everything else until it's whole. Which file each kept song is lives in a small list of
@@ -52,6 +54,7 @@ class KeptFiles internal constructor(private val context: Context) {
      */
     suspend fun export(track: Track, lyrics: String?, cover: ByteArray?): Entry? = withContext(Dispatchers.IO) {
         _entries.value[track.id]?.let { return@withContext it }
+        val art = cover?.let(::readableCover)
         val work = File(context.cacheDir, "keeping").apply { mkdirs() }
         val raw = File(work, "${track.id.value.hashCode()}.part")
         try {
@@ -86,12 +89,24 @@ class KeptFiles internal constructor(private val context: Context) {
                             year = track.year,
                             number = track.trackNumber,
                             lyrics = lyrics,
-                            cover = cover,
+                            cover = art,
                             aether = String(track.toBytes(), Charsets.UTF_8),
                         )
                         OggOpus.remux(raw, out, tags)
                     } else {
-                        raw.inputStream().use { it.copyTo(out, 256 * 1024) }
+                        val tags = Mp4Tags.Tags(
+                            title = track.title,
+                            artist = track.artistLine.takeIf { it.isNotBlank() },
+                            album = track.album?.title,
+                            year = track.year,
+                            number = track.trackNumber,
+                            lyrics = lyrics,
+                            cover = art,
+                            aether = String(track.toBytes(), Charsets.UTF_8),
+                        )
+                        // Tagged where it can be done safely; as it came otherwise. Nothing is written
+                        // before the tagger says yes, so the plain copy starts clean.
+                        if (!Mp4Tags.write(raw, out, tags)) raw.inputStream().use { it.copyTo(out, 256 * 1024) }
                         true
                     }
                 } == true
@@ -109,6 +124,22 @@ class KeptFiles internal constructor(private val context: Context) {
             null
         } finally {
             raw.delete()
+        }
+    }
+
+    /**
+     * The cover as a JPEG or PNG, the pictures every player and file manager opens from inside an
+     * audio file; anything else (a WebP, say) is drawn once and saved as a JPEG. Null if it can't be read.
+     */
+    private fun readableCover(bytes: ByteArray): ByteArray? {
+        val jpeg = bytes.size > 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte()
+        val png = bytes.size > 8 && bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() && bytes[2] == 'N'.code.toByte()
+        if (jpeg || png) return bytes
+        val bitmap = runCatching { android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull() ?: return null
+        return try {
+            java.io.ByteArrayOutputStream().also { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, it) }.toByteArray()
+        } finally {
+            bitmap.recycle()
         }
     }
 

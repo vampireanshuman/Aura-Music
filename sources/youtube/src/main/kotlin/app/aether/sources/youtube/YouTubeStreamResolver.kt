@@ -119,6 +119,19 @@ class YouTubeStreamResolver(
         }
     }
 
+    /** For the live check: the opening [bytes] of [videoId]'s AAC copy (itag 140), to see how its file is laid out. */
+    internal suspend fun diagnoseAacHead(videoId: String, bytes: Int = 400_000): ByteArray? = withContext(Dispatchers.IO) {
+        for (app in APPS) {
+            val json = (playerOf(app, videoId) as? Outcome.Ok)?.value ?: continue
+            val aac = (json.obj("streamingData")?.get("adaptiveFormats") as? JsonArray).orEmpty()
+                .mapNotNull { it as? JsonObject }
+                .firstOrNull { it.str("mimeType")?.startsWith("audio/mp4") == true && it.str("url") != null } ?: continue
+            val request = Request.Builder().url(aac.str("url")!!).header("User-Agent", app.userAgent).header("Range", "bytes=0-${bytes - 1}").build()
+            probe.newCall(request).execute().use { r -> if (r.isSuccessful) return@withContext r.body?.bytes() }
+        }
+        null
+    }
+
     private fun rangeAnswer(url: String, userAgent: String, range: String): String = try {
         val request = Request.Builder().url(url).header("User-Agent", userAgent).header("Range", "bytes=$range").build()
         probe.newCall(request).execute().use { r -> "${r.code}" }

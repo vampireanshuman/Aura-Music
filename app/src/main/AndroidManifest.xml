@@ -8,6 +8,13 @@
     <!-- AETHER's own updates: a release downloaded from GitHub, checked, then handed to Android's
          installer, which asks the listener to confirm. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Nearby devices, asked for only when an addon wants a lossless output: Android names the codec
+         Bluetooth headphones play over (LDAC, LHDC…) only to an app holding it. Nothing else is read. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <!-- Android 14 and later name the codec only to an app associated with the headphones as a
+         companion device: the system's own one-time dialog. Not required to install. -->
+    <uses-feature android:name="android.software.companion_device_setup" android:required="false" />
 
     <application
         android:name=".AetherApp"

@@ -36,3 +36,10 @@ tasks.register<JavaExec>("liveCheck") {
     mainClass.set("app.aether.ytmusic.LiveCheckKt")
     args = listOfNotNull(providers.gradleProperty("country").orNull)
 }
+
+// What the music page says about where the visitor is (needs the network).
+tasks.register<JavaExec>("pageCountryCheck") {
+    group = "verification"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.aether.ytmusic.PageCountryCheckKt")
+}

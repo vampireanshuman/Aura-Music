@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AETHER's mark for the status bar and the player's notification: the launcher's cross of light (a long
+  vertical beam, a shorter horizontal one, a bright core) as a solid shape, since the bar draws only the
+  silhouette, in white. The beams keep the logo's proportions (60 to 36) and taper to points.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,1.5 Q13.15,10.85 18.3,12 Q13.15,13.15 12,22.5 Q10.85,13.15 5.7,12 Q10.85,10.85 12,1.5 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,9.7 A2.3,2.3 0 1,1 12,14.3 A2.3,2.3 0 1,1 12,9.7 Z" />
+</vector>

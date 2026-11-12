@@ -25,3 +25,11 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
 }
+
+// Adds an addon by its address and tries it as AETHER does, live: -Paddress=https://… -Pq="song artist"
+tasks.register<JavaExec>("addonCheck") {
+    group = "verification"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.aether.sources.addon.AddonCheckKt")
+    args = listOf("address", "q").mapNotNull { name -> project.findProperty(name)?.let { "$name=$it" } }
+}

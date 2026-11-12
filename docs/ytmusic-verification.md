@@ -36,6 +36,19 @@ the client but haven't been run live here: there was no session to run them with
   visitor id whose region field was rewritten, still answered with India's shelves ("India's biggest
   hits", "Diwali szn"). The visitor id carries the region (protobuf field 6.1) and the service
   replaces a rewritten one.
+- **But Home's picks follow `gl`** (2026-11-11). From India, `gl=US` kept the same shelves but Quick
+  picks turned American (Beat It, A Thousand Years, Paparazzi). So AETHER sends what the web app
+  sends: the country the music page placed the visitor in (`INNERTUBE_CONTEXT_GL` in the page, from
+  the connection), not the phone's region setting, which travels with the phone. The phone's region
+  is used only when the page can't be read.
+- **Some languages and countries are refused outright** (2026-11-11): a 400 to every request.
+  Languages: Yiddish (`yi`, `ji`), Santali, Manipuri, Sorani Kurdish, Kashmiri, Sindhi, Dogri,
+  Konkani, Maithili, Bodo, and a blank. Countries: CN, IR, AF, KP, CU, SY, SD, MM, XK, `419`, and a
+  blank. Taken: every major Indian language besides those, `in`/`id`, `iw`/`he`, `fil`/`tl`,
+  `nb`/`no`, zh with TW or HK, BY, VE. The client learns a refusal by asking again without the
+  language (English), then without the country (US), and remembers which it was
+  (`RefusedLocaleTest`; live: `./gradlew :sources:youtube:localeCheck`). Streams aren't affected:
+  the player answered with CN and IR.
 - **Charts take any of the 70 countries**, on request. That's the country picker.
 - `hl` sets the language of titles and labels.
 

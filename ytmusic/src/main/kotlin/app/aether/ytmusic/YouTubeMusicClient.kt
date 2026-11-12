@@ -21,10 +21,12 @@ import java.net.UnknownHostException
  * The client identifies as the music web client (`WEB_REMIX`), at the version the page itself
  * reports (read from the page at most every few hours), with the page's guest visitor id.
  *
- * **Region.** Home and Explore follow where the listener actually is (their network), whatever
- * [region] says — measured 2026-11-03 (docs/ytmusic-verification.md). [region] still goes with every
- * request as the page sends it; Charts are the one page that takes a country of the listener's
- * choosing (`formData`).
+ * **Region.** Every request carries the country the music page itself detected for the visitor (its
+ * `INNERTUBE_CONTEXT_GL`), as the web app sends it: what's offered follows where the listener actually
+ * is, not where their phone is set. Home's shelves follow the network whatever is sent, but its picks
+ * follow the country sent (measured 2026-11-11, docs/ytmusic-verification.md). [region], the phone's
+ * country, is used only when the page can't be read. Charts are the one page that takes a country of
+ * the listener's choosing (`formData`).
  */
 internal class YouTubeMusicClient(
     private val transport: HttpTransport,
@@ -36,10 +38,22 @@ internal class YouTubeMusicClient(
     /** The channel being acted as (its page id), or null for the account's own. */
     private val onBehalfOf: () -> String? = { null },
 ) {
-    private data class PageConfig(val clientVersion: String, val visitorData: String?, val loadedAt: Long)
+    private data class PageConfig(val clientVersion: String, val visitorData: String?, val loadedAt: Long, val region: String? = null)
 
     private val configLock = Mutex()
     @Volatile private var config: PageConfig? = null
+
+    // The phone's language or country, when the service has refused it: it takes only the ones it
+    // offers, and answers anything else (Santali, Konkani, China, Iran, a blank) with a 400 to every
+    // request (measured 2026-11-11). Learned by asking, never from a list that could age; forgotten
+    // as soon as the phone's setting changes.
+    @Volatile private var refusedLanguage: String? = null
+    @Volatile private var refusedRegion: String? = null
+
+    private fun hl(): String = language().trim().let { if (it.isEmpty() || it == refusedLanguage) FALLBACK_LANGUAGE else it }
+    /** Where the page found the listener to be; the phone's own country only when the page couldn't say. */
+    private fun place(): String = (config?.region ?: region()).trim().uppercase()
+    private fun gl(): String = place().let { if (it.length != 2 || it == refusedRegion) FALLBACK_REGION else it }
 
     // --- Endpoints -----------------------------------------------------------------------------------
 
@@ -90,29 +104,51 @@ internal class YouTubeMusicClient(
     // --- Requests ------------------------------------------------------------------------------------
 
     private suspend fun call(endpoint: String, continuation: Continuation?, fields: JsonObjectBuilder.() -> Unit): YtResult<JsonObject> {
-        val first = attempt(endpoint, continuation, fields)
-        // A 400 usually means the page has moved on to a newer client version: learn it, try once more.
-        if (first is YtResult.Failure && first.error == STALE_CLIENT) {
-            config = null
-            return attempt(endpoint, continuation, fields).let {
-                if (it is YtResult.Failure && it.error == STALE_CLIENT) YtResult.Failure(YtError.Server(400)) else it
+        // The page first: it says where the listener is.
+        pageConfig()
+        val first = attempt(endpoint, continuation, fields, hl(), gl())
+        if (!first.refused()) return first
+        // A 400 can mean the page has moved on to a newer client version: learn it, try once more.
+        config = null
+        pageConfig()
+        val hl = hl()
+        val gl = gl()
+        val second = attempt(endpoint, continuation, fields, hl, gl)
+        if (!second.refused()) return second
+        // Still refused: the phone's language or its country may be one the service doesn't take.
+        // Each is tried in turn without it, and what proves refused is remembered.
+        // Only an answer proves which it was; any other failure is passed on, and nothing is learned.
+        if (hl != FALLBACK_LANGUAGE) {
+            val r = attempt(endpoint, continuation, fields, FALLBACK_LANGUAGE, gl)
+            if (r is YtResult.Success) return r.also { refusedLanguage = language().trim() }
+            if (!r.refused()) return r
+        }
+        if (gl != FALLBACK_REGION) {
+            val r = attempt(endpoint, continuation, fields, hl, FALLBACK_REGION)
+            if (r is YtResult.Success) return r.also { refusedRegion = place() }
+            if (!r.refused()) return r
+            if (hl != FALLBACK_LANGUAGE) {
+                val both = attempt(endpoint, continuation, fields, FALLBACK_LANGUAGE, FALLBACK_REGION)
+                if (both is YtResult.Success) return both.also { refusedLanguage = language().trim(); refusedRegion = place() }
+                if (!both.refused()) return both
             }
         }
-        return first
+        return YtResult.Failure(YtError.Server(400))
     }
 
-    private suspend fun attempt(endpoint: String, continuation: Continuation?, fields: JsonObjectBuilder.() -> Unit): YtResult<JsonObject> {
+    private fun YtResult<JsonObject>.refused() = this is YtResult.Failure && error == STALE_CLIENT
+
+    private suspend fun attempt(endpoint: String, continuation: Continuation?, fields: JsonObjectBuilder.() -> Unit, hl: String, gl: String): YtResult<JsonObject> {
         val cfg = pageConfig()
         val signedIn = session()
         val page = if (signedIn != null) onBehalfOf() else null
-        val hl = language()
         val body = buildJsonObject {
             putJsonObject("context") {
                 putJsonObject("client") {
                     put("clientName", CLIENT_NAME)
                     put("clientVersion", cfg.clientVersion)
                     put("hl", hl)
-                    put("gl", region())
+                    put("gl", gl)
                     cfg.visitorData?.let { put("visitorData", it) }
                 }
                 putJsonObject("user") { page?.let { put("onBehalfOfUser", it) } }
@@ -198,13 +234,13 @@ internal class YouTubeMusicClient(
             page = fetchPage(cookie = signedIn.cookieHeader) ?: return null
         }
         if (page.code !in 200..299) return null
-        return PageConfigParser.parse(page.body.toString(Charsets.UTF_8))?.let { (version, visitor) -> PageConfig(version, visitor, now()) }
+        return PageConfigParser.parse(page.body.toString(Charsets.UTF_8))?.let { PageConfig(it.version, it.visitor, now(), it.region) }
     }
 
     private suspend fun fetchPage(cookie: String?): HttpResponse? = try {
         val headers = buildMap {
             put("User-Agent", userAgent())
-            put("Accept-Language", language())
+            put("Accept-Language", hl())
             cookie?.let { put("Cookie", it) }
         }
         transport.send("GET", "$ORIGIN/", headers, null)
@@ -222,6 +258,10 @@ internal class YouTubeMusicClient(
 
         /** Used only until the page says otherwise (and when it can't be read). Seen live 2026-11-03. */
         const val FALLBACK_CLIENT_VERSION = "1.20261031.09.00"
+
+        /** What's sent in place of a language or country the service refuses. */
+        const val FALLBACK_LANGUAGE = "en"
+        const val FALLBACK_REGION = "US"
         private const val CONFIG_TTL_MS = 6 * 60 * 60 * 1000L
         private const val CONFIG_RETRY_MS = 5 * 60 * 1000L
 
@@ -234,14 +274,18 @@ internal class YouTubeMusicClient(
     }
 }
 
-/** Reads the client version and visitor id the music page was served with. */
+/** Reads the client version, visitor id and visitor's country the music page was served with. */
 internal object PageConfigParser {
-    private val version = Regex("\"INNERTUBE_CLIENT_VERSION\"\\s*:\\s*\"([0-9][0-9.]{4,40})\"")
-    // The guest visitor id grew past 400 characters in 2026 (a new protobuf field); allow plenty.
-    private val visitor = Regex("\"VISITOR_DATA\"\\s*:\\s*\"([A-Za-z0-9%_=\\-]{8,2000})\"")
+    data class Facts(val version: String, val visitor: String?, val region: String?)
 
-    fun parse(html: String): Pair<String, String?>? {
+    private val version = Regex(""""INNERTUBE_CLIENT_VERSION"\s*:\s*"([0-9][0-9.]{4,40})"""")
+    // The guest visitor id grew past 400 characters in 2026 (a new protobuf field); allow plenty.
+    private val visitor = Regex(""""VISITOR_DATA"\s*:\s*"([A-Za-z0-9%_=\-]{8,2000})"""")
+    // The country the service placed the visitor in, from their connection: two letters, or nothing.
+    private val country = Regex(""""INNERTUBE_CONTEXT_GL"\s*:\s*"([A-Za-z]{2})"""")
+
+    fun parse(html: String): Facts? {
         val v = version.find(html)?.groupValues?.get(1) ?: return null
-        return v to visitor.find(html)?.groupValues?.get(1)
+        return Facts(v, visitor.find(html)?.groupValues?.get(1), country.find(html)?.groupValues?.get(1)?.uppercase())
     }
 }
