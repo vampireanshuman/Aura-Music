@@ -52,6 +52,7 @@ private const val MeshVertex = """
         v.position = c + corner * reach;
         v.local = corner * reach;
         v.radius = r;
+        v.dotColor = float4(mix(a.colorA.rgb, a.colorB.rgb, e), 1.0);
         return v;
     }
 """
@@ -59,7 +60,7 @@ private const val MeshVertex = """
 private const val MeshFragment = """
     float2 main(const Varyings v, out float4 color) {
         float ink = 1.0 - smoothstep(v.radius - 0.75, v.radius + 0.75, length(v.local));
-        color = float4(ink);
+        color = float4(v.dotColor.rgb * ink, ink);
         return v.position;
     }
 """
@@ -70,7 +71,7 @@ private const val Shares = 24
 /** Dots both ends leave smaller than this are never seen, and are left out. */
 private const val SmallestPx = 0.35f
 
-private const val VertexBytes = 28
+private const val VertexBytes = 36
 private const val CurveSide = 1024
 
 /** A dot morph made and ready to draw. Android 14 and later: it needs a programmable mesh. */
@@ -98,6 +99,10 @@ class DotMorph private constructor(private val mesh: Mesh) {
             val l = (0.2126f * ((c shr 16) and 255) + 0.7152f * ((c shr 8) and 255) + 0.0722f * (c and 255)) / 255f
             return ((l - 0.5f) * contrast + 0.5f).coerceIn(0f, 1f)
         }
+
+        fun color(x: Float, y: Float): Int {
+            return pixels[((y - top) / scale).toInt().coerceIn(0, bh - 1) * bw + ((x - left) / scale).toInt().coerceIn(0, bw - 1)]
+        }
     }
 
     companion object {
@@ -108,9 +113,15 @@ class DotMorph private constructor(private val mesh: Mesh) {
                     Attribute(MeshSpecification.TYPE_FLOAT2, 8, "goal"),
                     Attribute(MeshSpecification.TYPE_FLOAT2, 16, "radii"),
                     Attribute(MeshSpecification.TYPE_UBYTE4, 24, "extra"),
+                    Attribute(MeshSpecification.TYPE_UBYTE4, 28, "colorA"),
+                    Attribute(MeshSpecification.TYPE_UBYTE4, 32, "colorB"),
                 ),
                 VertexBytes,
-                arrayOf(Varying(MeshSpecification.TYPE_FLOAT2, "local"), Varying(MeshSpecification.TYPE_FLOAT, "radius")),
+                arrayOf(
+                    Varying(MeshSpecification.TYPE_FLOAT2, "local"),
+                    Varying(MeshSpecification.TYPE_FLOAT, "radius"),
+                    Varying(MeshSpecification.TYPE_FLOAT4, "dotColor"),
+                ),
                 MeshVertex,
                 MeshFragment,
             )
@@ -214,11 +225,22 @@ class DotMorph private constructor(private val mesh: Mesh) {
                 if (max(ra, rb) < SmallestPx) continue
                 // From the foot of the picture up, a little unevenly: the face comes last.
                 val delay = ((0.72f * (1f - cy[c] / height) + 0.28f * seeds[c] / 255f).coerceIn(0f, 1f) * 255f).toInt().toByte()
+                val colA = a.color(cx[c], cy[c])
+                val colB = b.color(cx[g], cy[g])
+                val rA = ((colA ushr 16) and 255).toByte()
+                val gA = ((colA ushr 8) and 255).toByte()
+                val bA = (colA and 255).toByte()
+                val rB = ((colB ushr 16) and 255).toByte()
+                val gB = ((colB ushr 8) and 255).toByte()
+                val bB = (colB and 255).toByte()
+                val fullAlpha = 255.toByte()
                 for (v in 0 until 6) {
                     buffer.putFloat(cx[c]).putFloat(cy[c])
                     buffer.putFloat(cx[g]).putFloat(cy[g])
                     buffer.putFloat(ra).putFloat(rb)
                     buffer.put(cornersX[v]).put(cornersY[v]).put(delay).put(seeds[c].toByte())
+                    buffer.put(rA).put(gA).put(bA).put(fullAlpha)
+                    buffer.put(rB).put(gB).put(bB).put(fullAlpha)
                 }
             }
             buffer.rewind()

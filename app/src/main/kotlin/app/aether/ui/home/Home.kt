@@ -126,18 +126,12 @@ import androidx.compose.foundation.layout.size
 
 /** The figures behind Listen, each held a while before the next comes up. */
 private val Statues = listOf(
-    R.drawable.art_statue,
-    R.drawable.art_god_zeus,
-    R.drawable.art_god_hera,
-    R.drawable.art_god_apollo,
-    R.drawable.art_god_nike,
-    R.drawable.art_god_smyrna,
-    R.drawable.art_god_artemis,
-    R.drawable.art_god_poseidon,
-    R.drawable.art_god_athena,
-    R.drawable.art_god_hermes,
-    R.drawable.art_god_aphrodite,
-    R.drawable.art_god_dionysus,
+    R.drawable.art_aura_1,
+    R.drawable.art_aura_2,
+    R.drawable.art_aura_3,
+    R.drawable.art_aura_4,
+    R.drawable.art_aura_5,
+    R.drawable.art_aura_6,
 )
 /** How long each figure is on show before the next may come: time Listen is seen, not time away. */
 private const val StatueHoldMs = 9_000L
@@ -171,13 +165,13 @@ private suspend fun dotsBetween(context: Context, from: Int, to: Int, box: IntSi
         }
         val a = BitmapFactory.decodeResource(context.resources, from, options)
         val b = BitmapFactory.decodeResource(context.resources, to, options)
-        DotMorph.build(a, b, box.width, box.height, StatuePrint.dotDp * density, StatuePrint.angle, StatuePrint.contrast, density).also {
+        DotMorph.build(a, b, box.width, box.height, 2.3f * density, 0.6f, 1.45f, density).also {
             a.recycle()
             b.recycle()
         }
     }.onFailure { Log.w("AETHER", "Dot morph unavailable", it) }.getOrNull()
 }
-private val StatuePrint = ArtTreatment.Halftone(dotDp = 2.3f, angle = 0.6f, contrast = 1.45f)
+private val StatuePrint: ArtTreatment = ArtTreatment.Original
 
 /** What Home has loaded past its first page, and the first page it continues ([anchor], its first section's name). */
 private class HomeMore(val anchor: String?, val sections: List<FeedSection>, val next: PageToken?)
