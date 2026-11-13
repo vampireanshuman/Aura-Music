@@ -7,8 +7,8 @@ Built around the sound. Unlike anything you've used.
 
 <p align="center">
   <a href="https://aura-music-android.vercel.app"><img alt="Website" src="https://img.shields.io/badge/Website-Live-ffffff?style=for-the-badge&labelColor=000000" /></a>
-  <a href="https://github.com/vampireanshuman/Aura-Music/releases/latest/download/AuraMusic-release.apk"><img alt="Download the APK" src="https://img.shields.io/badge/Download-APK-ffffff?style=for-the-badge&labelColor=000000" /></a>
-  <a href="https://github.com/vampireanshuman/Aura-Music/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/vampireanshuman/Aura-Music?style=for-the-badge&labelColor=000000&color=ffffff" /></a>
+  <a href="https://github.com/vampireanshuman/Aura-Music/raw/main/release/AuraMusic.apk"><img alt="Download the APK" src="https://img.shields.io/badge/Download-APK-ffffff?style=for-the-badge&labelColor=000000" /></a>
+  <a href="release/AuraMusic.apk"><img alt="Direct Download" src="https://img.shields.io/badge/Package-AuraMusic.apk-ffffff?style=for-the-badge&labelColor=000000&color=ffffff" /></a>
   <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/License-GPL--3.0-ffffff?style=for-the-badge&labelColor=000000" /></a>
   <img alt="Android 10 or later" src="https://img.shields.io/badge/Android-10%2B-ffffff?style=for-the-badge&labelColor=000000" />
 </p>
@@ -35,11 +35,11 @@ Aura is made the way a fine watch is made: every part considered, nothing there 
 
 It plays all of YouTube Music and your own files through an audio path that reports exactly what it measured, in an interface no other music app looks or moves like.
 
-<p align="center"><a href="https://aura-music-android.vercel.app"><b>Interactive Website & Audio Bench</b></a> &bull; <a href="https://github.com/vampireanshuman/Aura-Music/releases/latest">Releases</a></p>
+<p align="center"><a href="https://aura-music-android.vercel.app"><b>Interactive Website & Audio Bench</b></a> &bull; <a href="https://github.com/vampireanshuman/Aura-Music/raw/main/release/AuraMusic.apk"><b>Download APK</b></a></p>
 
 ## Download
 
-1. Download **[Aura-Music-v2.3.0.apk](https://github.com/vampireanshuman/Aura-Music/releases/download/v2.3.0/Aura-Music-v2.3.0.apk)** (or always get the newest version via **[AuraMusic-release.apk](https://github.com/vampireanshuman/Aura-Music/releases/latest/download/AuraMusic-release.apk)**).
+1. Download **[AuraMusic.apk](https://github.com/vampireanshuman/Aura-Music/raw/main/release/AuraMusic.apk)** directly from the repository.
 2. Open it on your phone. Android asks once to allow installs from your browser or file manager.
 3. Open Aura and press play.
 
