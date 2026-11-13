@@ -328,9 +328,9 @@ img, video, canvas { display: block; }
 
   .name, .edition { position: relative; overflow: hidden; }
   .name::before, .creed__stage::before, .edition::before { content: ''; position: absolute; inset: -6% -24%; background-position: center 18%; background-size: cover; filter: blur(30px) brightness(.34); opacity: .5; -webkit-mask: radial-gradient(58% 46% at 50% 44%, #000 30%, transparent); mask: radial-gradient(58% 46% at 50% 44%, #000 30%, transparent); }
-  .name::before { background-image: url(assets/statues/hera.jpg); }
-  .creed__stage::before { background-image: url(assets/statues/athena.jpg); opacity: .4; }
-  .edition::before { background-image: url(assets/statues/poseidon.jpg); opacity: .34; }
+  .name::before { background-image: url(assets/statues/aura_2.jpg); }
+  .creed__stage::before { background-image: url(assets/statues/aura_3.jpg); opacity: .4; }
+  .edition::before { background-image: url(assets/statues/aura_4.jpg); opacity: .34; }
   .name > *, .edition > *, .lit { position: relative; z-index: 1; }
 
   .name { min-height: 0; padding: 60px var(--gutter) 36px; gap: 12px; }

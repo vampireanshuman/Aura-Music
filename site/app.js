@@ -83,26 +83,22 @@ requestAnimationFrame((now) => { last = now; frame(now) })
 // --- The statues ------------------------------------------------------------------------------------
 
 const FIGURES = [
-  ['statue', 'The Listener', 'Made for Aura, MMXXVI'],
-  ['zeus', 'Zeus', 'Bronze from Cape Artemision, c. 460 BC'],
-  ['hera', 'Hera', 'The Barberini type'],
-  ['apollo', 'Apollo', 'The Belvedere, after Leochares'],
-  ['nike', 'Nike', 'Samothrace, c. 190 BC'],
-  ['smyrna', 'Zeus', 'From Smyrna, the Louvre'],
-  ['artemis', 'Artemis', 'Versailles, after Leochares'],
-  ['poseidon', 'Poseidon', 'Parian marble from Melos'],
-  ['athena', 'Athena', 'The Giustiniani, the Vatican'],
-  ['hermes', 'Hermes', 'Olympia, with the infant Dionysus'],
-  ['aphrodite', 'Aphrodite', 'Milo, c. 100 BC'],
-  ['dionysus', 'Dionysus', 'The Richelieu, the Louvre'],
+  ['aura_1', 'The Nomads', 'Skating the cosmic desert road under a dying red sun'],
+  ['aura_2', 'The Traveler', 'Ascending the starbound trail into the radiant deep space'],
+  ['aura_3', 'The Dreamer', 'Standing amidst blooming golden flora beneath celestial sparks'],
+  ['aura_4', 'The Scholar', 'Drifting in contemplation among fluttering scrolls and serene blossoms'],
+  ['aura_5', 'The Wanderers', 'Silhouettes taking flight across a violet-dusk horizon'],
+  ['aura_6', 'The Crossing', 'Walking the threshold between vibrant spring and untamed fire'],
 ]
-const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
+const NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI']
 
 const VERTEX = `
 attribute vec2 a_from, a_to, a_size, a_mix;
+attribute vec3 a_colA, a_colB;
 uniform float u_t, u_unit, u_rise, u_time, u_hover;
 uniform vec2 u_res, u_mouse;
 varying float v_r, v_half, v_alpha;
+varying vec3 v_color;
 void main() {
   float u = clamp((u_t / 0.94 - a_mix.x * 0.46) / 0.54, 0.0, 1.0);
   float e = u * u * (3.0 - 2.0 * u);
@@ -131,6 +127,7 @@ void main() {
 
   v_r = r;
   v_half = r + 1.5;
+  v_color = mix(a_colA, a_colB, e);
   gl_PointSize = v_half * 2.0;
   gl_Position = vec4(c.x / u_res.x * 2.0 - 1.0, 1.0 - c.y / u_res.y * 2.0, 0.0, 1.0);
 }`
@@ -138,10 +135,11 @@ void main() {
 const FRAGMENT = `
 precision mediump float;
 varying float v_r, v_half, v_alpha;
+varying vec3 v_color;
 void main() {
   float d = length(gl_PointCoord - 0.5) * 2.0 * v_half;
   float ink = (1.0 - smoothstep(v_r - 0.75, v_r + 0.75, d)) * v_alpha;
-  gl_FragColor = vec4(ink);
+  gl_FragColor = vec4(v_color * ink, ink);
 }`
 
 const CURVE_SIDE = 1024
@@ -196,7 +194,7 @@ class Dots {
     this.u = {}
     for (const name of ['u_t', 'u_unit', 'u_rise', 'u_time', 'u_hover', 'u_res', 'u_mouse']) this.u[name] = gl.getUniformLocation(p, name)
     this.a = {}
-    for (const name of ['a_from', 'a_to', 'a_size', 'a_mix']) { this.a[name] = gl.getAttribLocation(p, name); gl.enableVertexAttribArray(this.a[name]) }
+    for (const name of ['a_from', 'a_to', 'a_size', 'a_mix', 'a_colA', 'a_colB']) { this.a[name] = gl.getAttribLocation(p, name); gl.enableVertexAttribArray(this.a[name]) }
     this.buffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
     gl.enable(gl.BLEND)
@@ -268,33 +266,46 @@ class Dots {
     if (this.toneCache.has(name)) return this.toneCache.get(name)
     const p = this.prints.get(name)
     const { x, y } = this.cells
-    const out = new Float32Array(x.length)
+    const tones = new Float32Array(x.length)
+    const colors = new Float32Array(x.length * 3)
     for (let i = 0; i < x.length; i++) {
       const u = (x[i] - this.fx) / this.fw, v = (y[i] - this.fy) / this.fh
       const px = Math.floor(clamp(u, 0, 0.9999) * p.w), py = Math.floor(clamp(v, 0, 0.9999) * p.h)
-      const l = p.data[(py * p.w + px) * 4] / 255
+      const idx = (py * p.w + px) * 4
+      const r = p.data[idx] / 255
+      const g = p.data[idx + 1] / 255
+      const b = p.data[idx + 2] / 255
+      const l = 0.2126 * r + 0.7152 * g + 0.0722 * b
       let tone = clamp((l - 0.5) * 1.45 + 0.5)
       // The niche's edges and foot go to black, so the figure stands out of the wall.
       const ex = (u - 0.5) / 0.56, ey = (v - 0.36) / 0.72
       tone *= 1 - ramp(Math.sqrt(ex * ex + ey * ey), 0.6, 1)
       tone *= 1 - 0.97 * ramp(y[i] / this.h, 0.48, 0.88)
-      out[i] = tone
+      tones[i] = tone
+      colors[i * 3] = r
+      colors[i * 3 + 1] = g
+      colors[i * 3 + 2] = b
     }
-    this.toneCache.set(name, out)
-    return out
+    const res = { tones, colors }
+    this.toneCache.set(name, res)
+    return res
   }
 
-  // From scattered points of light, or from one statue, to the next.
+  // From scattered points of light, or from one figure, to the next.
   prepare(fromName, toName) {
     const { x, y, curve, seed } = this.cells
     const n = x.length
     const reach = this.pitch * 0.66
-    const b = this.tones(toName)
+    const resB = this.tones(toName)
+    const b = resB.tones
+    const colB = resB.colors
     const stars = !fromName
-    const a = stars ? null : this.tones(fromName)
+    const resA = stars ? null : this.tones(fromName)
+    const a = stars ? null : resA.tones
+    const colA = stars ? null : resA.colors
     const orderA = stars ? null : ranked(a, curve)
     const orderB = ranked(b, curve)
-    const v = new Float32Array(n * 8)
+    const v = new Float32Array(n * 14)
     let w = 0
     for (let q = 0; q < n; q++) {
       const g = orderB[q]
@@ -312,15 +323,29 @@ class Dots {
       v[w++] = rb
       v[w++] = clamp(0.72 * (1 - fromY / this.h) + 0.28 * seed[stars ? q : c])
       v[w++] = seed[stars ? q : c]
+      if (stars) {
+        v[w++] = colB[g * 3]
+        v[w++] = colB[g * 3 + 1]
+        v[w++] = colB[g * 3 + 2]
+      } else {
+        v[w++] = colA[c * 3]
+        v[w++] = colA[c * 3 + 1]
+        v[w++] = colA[c * 3 + 2]
+      }
+      v[w++] = colB[g * 3]
+      v[w++] = colB[g * 3 + 1]
+      v[w++] = colB[g * 3 + 2]
     }
     const gl = this.gl
     gl.bufferData(gl.ARRAY_BUFFER, v.subarray(0, w), gl.DYNAMIC_DRAW)
-    const stride = 32
+    const stride = 14 * 4
     gl.vertexAttribPointer(this.a.a_from, 2, gl.FLOAT, false, stride, 0)
     gl.vertexAttribPointer(this.a.a_to, 2, gl.FLOAT, false, stride, 8)
     gl.vertexAttribPointer(this.a.a_size, 2, gl.FLOAT, false, stride, 16)
     gl.vertexAttribPointer(this.a.a_mix, 2, gl.FLOAT, false, stride, 24)
-    this.count = w / 8
+    gl.vertexAttribPointer(this.a.a_colA, 3, gl.FLOAT, false, stride, 32)
+    gl.vertexAttribPointer(this.a.a_colB, 3, gl.FLOAT, false, stride, 44)
+    this.count = w / 14
   }
 
   draw(time) {
