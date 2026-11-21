@@ -19,7 +19,7 @@ object CrashNote {
             runCatching {
                 val version = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull()
                 File(app.filesDir, FILE).writeText(
-                    "Aura $version on Android ${Build.VERSION.RELEASE} (${Build.MANUFACTURER} ${Build.MODEL}), " +
+                    "AETHER $version on Android ${Build.VERSION.RELEASE} (${Build.MANUFACTURER} ${Build.MODEL}), " +
                         "thread ${thread.name}, ${java.time.Instant.now()}\n\n" + error.stackTraceToString(),
                 )
             }

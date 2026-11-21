@@ -1,5 +1,11 @@
 package app.aether.core.data
 
+import java.util.concurrent.ConcurrentHashMap
+
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
+
 import app.aether.core.data.db.AetherDatabase
 import app.aether.core.data.db.FolderRow
 import app.aether.core.data.db.HistoryRow
@@ -62,7 +68,7 @@ class Library(private val db: AetherDatabase, private val now: () -> Long = Syst
 
     // --- Liked songs ---
 
-    val liked: Flow<List<Track>> = dao.liked().map { rows -> rows.mapNotNull(::trackFromJson) }
+    val liked: Flow<List<Track>> = dao.liked().map { rows -> rows.mapNotNull(::trackFromJson) }.onEach { lastLiked = it }.flowOn(Dispatchers.Default)
     val likedIds: Flow<Set<String>> = dao.likedIds().map { it.toSet() }
     fun isLiked(id: MediaId): Flow<Boolean> = dao.isLiked(id.value)
 
@@ -75,10 +81,25 @@ class Library(private val db: AetherDatabase, private val now: () -> Long = Syst
         }
     }
 
+    /**
+     * Likes those of [tracks] not liked yet, keeping their order: the first reads as the most recently
+     * liked of them, as the liked songs are listed. Each song once; one liked already keeps when it was.
+     * Liked one by one, a file's songs would share a moment and come out in no order. Returns how many.
+     */
+    suspend fun likeAll(tracks: List<Track>): Int {
+        val have = dao.likedIds().first().toHashSet()
+        val fresh = tracks.distinctBy { it.id }.filter { it.id.value !in have }
+        if (fresh.isEmpty()) return 0
+        remember(fresh)
+        val at = now()
+        db.withWriteTransaction { fresh.forEachIndexed { i, t -> dao.like(LikedRow(t.id.value, at - i)) } }
+        return fresh.size
+    }
+
     // --- History ---
 
     fun recent(limit: Int = 30): Flow<List<Track>> = dao.recent(limit).map { rows -> rows.mapNotNull(::trackFromJson) }
-    fun history(limit: Int = 300): Flow<List<Played>> = dao.history(limit).map { rows -> rows.mapNotNull { r -> trackFromJson(r.json)?.let { Played(r.playedAt, it) } } }
+    fun history(limit: Int = 300): Flow<List<Played>> = dao.history(limit).map { rows -> rows.mapNotNull { r -> trackFromJson(r.json)?.let { Played(r.playedAt, it) } } }.flowOn(Dispatchers.Default)
     suspend fun clearHistory() = dao.clearHistory()
 
     override suspend fun played(track: Track) {
@@ -116,16 +137,42 @@ class Library(private val db: AetherDatabase, private val now: () -> Long = Syst
             val preview = lists.entries(p.id).first().take(3).mapNotNull { trackFromJson(it.json) }
             LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, p.count, p.updatedAt, preview)
         }
-    }
+    }.flowOn(Dispatchers.Default)
 
     fun playlist(id: Long): Flow<LocalPlaylist?> = combine(lists.playlist(id), lists.entries(id)) { row, entries ->
         row?.let { p ->
-            val tracks = entries.mapNotNull { trackFromJson(it.json) }
-            LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, tracks.size, p.updatedAt, tracks.take(3))
+            // Its count and its face need only the first three songs read, not every one.
+            val preview = entries.asSequence().mapNotNull { trackFromJson(it.json) }.take(3).toList()
+            LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, entries.size, p.updatedAt, preview)
+        }
+    }.onEach { if (it != null) lastPlaylists[id] = it else lastPlaylists.remove(id) }
+
+    fun entries(id: Long): Flow<List<PlaylistEntry>> =
+        lists.entries(id).map { rows -> rows.mapNotNull { r -> trackFromJson(r.json)?.let { PlaylistEntry(r.entryId, it) } } }.onEach { lastEntries[id] = it }
+
+    // What the library last said, kept for the app's life: a page opened shows it on its first frame,
+    // where it used to show nothing until the database answered (its keys and its songs came in late).
+    private val lastEntries = ConcurrentHashMap<Long, List<PlaylistEntry>>()
+    private val lastPlaylists = ConcurrentHashMap<Long, LocalPlaylist>()
+    @Volatile private var lastLiked: List<Track>? = null
+
+    /** [entries] as last read, or null if it never has been. */
+    fun entriesNow(id: Long): List<PlaylistEntry>? = lastEntries[id]
+
+    /** [playlist] as last read, or null if it never has been. */
+    fun playlistNow(id: Long): LocalPlaylist? = lastPlaylists[id]
+
+    /** [liked] as last read, or null if it never has been. */
+    fun likedNow(): List<Track>? = lastLiked
+
+    /** Reads the liked songs and every playlist's songs once, so even the first page opened has them at once. */
+    suspend fun warm() {
+        liked.first()
+        for (p in lists.playlists().first()) {
+            playlist(p.id).first()
+            entries(p.id).first()
         }
     }
-
-    fun entries(id: Long): Flow<List<PlaylistEntry>> = lists.entries(id).map { rows -> rows.mapNotNull { r -> trackFromJson(r.json)?.let { PlaylistEntry(r.entryId, it) } } }
 
     suspend fun createPlaylist(title: String, description: String? = null, folderId: Long? = null, tracks: List<Track> = emptyList()): Long {
         val at = now()

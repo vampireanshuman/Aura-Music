@@ -31,7 +31,7 @@ data class Route(val device: String?, val bitPerfect: Boolean)
  */
 @OptIn(UnstableApi::class)
 @RequiresApi(34)
-internal class BitPerfect(context: Context, private val player: ExoPlayer, private val report: (Route) -> Unit) {
+internal class BitPerfect(context: Context, private val player: () -> ExoPlayer, private val report: (Route) -> Unit) {
     private val audio = context.getSystemService(AudioManager::class.java)
     private val media = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
     private var applied: AudioDeviceInfo? = null
@@ -54,7 +54,7 @@ internal class BitPerfect(context: Context, private val player: ExoPlayer, priva
     /** Looks again: a DAC came or went, or the song (and so its format) changed. */
     fun reconsider() {
         val dac = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
-        val format = player.audioFormat
+        val format = player().audioFormat
         if (dac == null || format == null) {
             clear()
             report(Route(dac?.productName?.toString(), false))

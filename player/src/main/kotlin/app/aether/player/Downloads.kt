@@ -55,6 +55,22 @@ internal object AudioStore {
         cache ?: SimpleCache(File(context.applicationContext.filesDir, "kept"), NoOpCacheEvictor(), database(context)).also { cache = it }
     }
 
+    @Volatile private var automix: SimpleCache? = null
+
+    /**
+     * Automix's own audio cache: songs fetched whole for its analysis, the least recently used going
+     * first past [AUTOMIX_CACHE_BYTES]. Apart from the keep, which is never evicted.
+     */
+    fun automixCache(context: Context): SimpleCache = automix ?: synchronized(this) {
+        automix ?: SimpleCache(
+            File(context.applicationContext.cacheDir, "automix-audio"),
+            androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(AUTOMIX_CACHE_BYTES),
+            database(context),
+        ).also { automix = it }
+    }
+
+    private const val AUTOMIX_CACHE_BYTES = 256L * 1024 * 1024
+
     /** Whether the whole of [id]'s audio is kept in the store (a song kept before kept songs went to Music). */
     fun kept(context: Context, id: MediaId): Boolean = runCatching {
         val key = "track:${id.value}"
@@ -73,6 +89,22 @@ internal object AudioStore {
     fun upstream(context: Context, purpose: StreamPurpose): DataSource.Factory {
         val env = context.applicationContext as PlaybackEnvironment
         return ResolvingDataSource.Factory(DefaultDataSource.Factory(context.applicationContext, http(env)), Resolver(env, purpose))
+    }
+
+    /**
+     * Streams as the player hears them: resolved as they're read, and taken from Automix's cache
+     * where its analysis already fetched that very stream (the next song, studied while this one
+     * played), so it isn't downloaded a second time. Nothing is written there by listening.
+     */
+    fun listening(context: Context): DataSource.Factory {
+        val env = context.applicationContext as PlaybackEnvironment
+        val network = DefaultDataSource.Factory(context.applicationContext, http(env))
+        val fetchedAhead = CacheDataSource.Factory()
+            .setCache(automixCache(context))
+            .setUpstreamDataSourceFactory(network)
+            .setCacheWriteDataSinkFactory(null)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        return ResolvingDataSource.Factory(fetchedAhead, Resolver(env, StreamPurpose.LISTEN))
     }
 
     /** The app's own HTTP client, asked for only when a request is made. */

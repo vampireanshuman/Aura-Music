@@ -55,7 +55,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run Unit Tests
-        run: ./gradlew :app:testDebugUnitTest :core:lyrics:test :player:testDebugUnitTest :sources:addon:test :sources:youtube:test :ytmusic:test --stacktrace
+        run: ./gradlew :app:testDebugUnitTest :core:lyrics:test :core:automix:test :player:testDebugUnitTest :sources:addon:test :sources:canvas:test :sources:youtube:test :ytmusic:test --stacktrace
 
       - name: Assemble Release APK
         run: ./gradlew :app:assembleRelease --stacktrace

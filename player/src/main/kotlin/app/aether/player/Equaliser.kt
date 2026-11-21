@@ -22,14 +22,47 @@ import kotlin.math.pow
 private const val SwapSeconds = 0.03
 
 /** The standard renderers with the equaliser in the audio path. */
-internal class ShapedRenderers(context: Context, private val equaliser: EqualiserProcessor, private val meter: AudioMeter? = null) : DefaultRenderersFactory(context) {
+internal class ShapedRenderers(
+    context: Context,
+    private val equaliser: EqualiserProcessor,
+    private val meter: AudioMeter? = null,
+    /** Automix's filters, echo and headroom, on the players that mix; parked, every byte passes as it came. */
+    private val transition: app.aether.player.automix.TransitionFilterProcessor? = null,
+) : DefaultRenderersFactory(context) {
     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioOutputPlaybackParams: Boolean): AudioSink =
         DefaultAudioSink.Builder(context)
             .setEnableFloatOutput(enableFloatOutput)
-            .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+            // Speed is the AudioTrack's own (BitChord's choice too). Done by Media3's time-stretcher
+            // instead, every change of speed drains and restarts it and flushes every step before it,
+            // the equaliser and Automix's filters included: a click each time, and Automix changes the
+            // speed many times a mix (matching tempi, holding the beats in phase). On a float route
+            // Media3's stretcher isn't in the path at all, so only this way does the speed change there.
+            .setEnableAudioOutputPlaybackParameters(true)
+            // Sized for the speeds AETHER plays at, not Media3's 8x: the buffer stays short, so what the
+            // equaliser and Automix do is heard soon after it's done.
+            .setAudioTrackBufferSizeProvider(SpeedSizedBuffer)
             // The meter after the equaliser hears what's heard, and passes every byte on as it came.
-            .setAudioProcessors(listOfNotNull(equaliser, meter).toTypedArray())
+            .setAudioProcessors(listOfNotNull(equaliser, transition, meter).toTypedArray())
             .build()
+}
+
+/** The AudioTrack's buffer as Media3 sizes it, for speeds up to [MaxSpeed] rather than its 8x. */
+@OptIn(UnstableApi::class)
+private object SpeedSizedBuffer : DefaultAudioSink.AudioTrackBufferSizeProvider {
+    private val base = androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider.Builder().build()
+
+    /** Automix's fastest (a quarter up, and its phase lock's nudge), and crossfade's catching up. */
+    private const val MaxSpeed = 1.5
+
+    override fun getBufferSizeInBytes(
+        minBufferSizeInBytes: Int,
+        encoding: Int,
+        outputMode: Int,
+        pcmFrameSize: Int,
+        sampleRate: Int,
+        bitrate: Int,
+        maxAudioTrackPlaybackSpeed: Double,
+    ): Int = base.getBufferSizeInBytes(minBufferSizeInBytes, encoding, outputMode, pcmFrameSize, sampleRate, bitrate, minOf(maxAudioTrackPlaybackSpeed, MaxSpeed))
 }
 
 /**

@@ -251,13 +251,15 @@ private fun SleeveRow(track: Track, playing: Boolean, isPlaying: Boolean, first:
                 }
             }
         }
-        BasicText(
-            line,
-            Modifier.weight(1f),
-            style = RowStyle.copy(color = if (playing) Ink.White else Ink.White.copy(alpha = if (track.available) 0.88f else 0.35f)),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        val lineStyle = RowStyle.copy(color = if (playing) Ink.White else Ink.White.copy(alpha = if (track.available) 0.88f else 0.35f))
+        if (track.explicit) {
+            // The mark heads the song's name, in the grey of who made it (BitChord, Apple Music).
+            app.aether.core.designsystem.component.Marked(RowStyle, Modifier.weight(1f), markColor = if (track.available) Ink.Grey else Ink.Faint) {
+                BasicText(line, style = lineStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        } else {
+            BasicText(line, Modifier.weight(1f), style = lineStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         // Whether it's on the phone: the arrow of keeping, grey when it's kept, dim while it's coming down.
         val kept = LocalContainer.current.downloads.entries.collectAsStateWithLifecycle().value[track.id]?.status
         when (kept) {

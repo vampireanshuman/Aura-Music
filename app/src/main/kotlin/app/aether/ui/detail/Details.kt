@@ -2,6 +2,7 @@
 
 package app.aether.ui.detail
 
+import app.aether.ui.folderPreview
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
@@ -82,6 +83,7 @@ import app.aether.core.designsystem.component.FolderFile
 import app.aether.core.designsystem.theme.separate
 import app.aether.ui.common.sections
 import app.aether.ui.pageLanded
+import app.aether.ui.rememberStagedRows
 
 /** The space a page leaves at its top for the shell's floating back key and the blurred status bar. */
 @Composable
@@ -158,9 +160,11 @@ fun PlaylistScreen(id: MediaId) {
         if (entries.keys.any { it in ids && it !in keptBefore }) container.snapshots.keptFrom(id)
     }
     val snapshots by container.snapshots.all.collectAsStateWithLifecycle()
-    // The folder that was touched stands open at once; the list follows once it has landed.
-    val preview = actions.preview?.takeIf { it.key == "folder:$id" }
+    // The folder that was touched stands open at once; the list is made a row a frame on the way, and
+    // shows once the page has landed.
+    val preview = folderPreview("folder:$id")
     val landed = pageLanded()
+    val staged = rememberStagedRows()
     LazyColumn(Modifier.fillMaxSize(), state = rememberPageListState(), contentPadding = PaddingValues(bottom = 0.dp)) {
         item { BackLine() }
         when (load) {
@@ -182,10 +186,9 @@ fun PlaylistScreen(id: MediaId) {
                             SleeveActions(kept, saved = null, onSave = null)
                         }
                     }
-                    if (landed) {
-                        sleeveTracks(kept, playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "t") { i -> actions.play(kept, i) }
-                        item(key = "colophon") { Colophon() }
-                    }
+                    val n = staged.value
+                    if (n > 0) sleeveTracks(kept.take(n), playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "t") { i -> actions.play(kept, i) }
+                    if (n == Int.MAX_VALUE) item(key = "colophon") { Colophon() }
                 }
             }
             is Load.Ready -> {
@@ -200,11 +203,14 @@ fun PlaylistScreen(id: MediaId) {
                         SleeveActions(all, saved = saved, onSave = { scope.launch { container.library.save(p.playlist, !saved) } })
                     }
                 }
-                if (!landed) return@LazyColumn
+                val n = staged.value
+                if (n <= 0) return@LazyColumn
                 if (p.tracks.size > 1) item(key = "order") {
                     SongOrderBar(order, { container.settings.setSongOrder("yt:${id.value}", it.key.takeIf { k -> k != "own" }) }, withAdded = false, Modifier.padding(horizontal = Space.edge).padding(top = 10.dp, bottom = 30.dp))
                 }
-                if (whole) sleeveTracks(all, playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "t") { i -> actions.play(all, i) }
+                if (whole) sleeveTracks(all.take(n), playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "t") { i -> actions.play(all, i) }
+                // The foot, once every row may be made.
+                if (n != Int.MAX_VALUE) return@LazyColumn
                 if (!whole) item(key = "gathering") { Loading() }
                 if (order == SongOrder.Own) next?.let { token ->
                     item(key = "more:${token.value.hashCode()}") {
@@ -306,7 +312,7 @@ private fun FeedPage(title: String?, load: Load<Feed>, retry: () -> Unit, whole:
                     Strapline(over)
                     Spacer(Modifier.height(10.dp))
                 }
-                Txt(name, Type.name(name), align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                app.aether.core.designsystem.component.FittedName(name, Type.name(name), modifier = Modifier.fillMaxWidth())
             }
         }
         if (extra != null) item { extra() }

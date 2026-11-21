@@ -356,6 +356,14 @@ class Settings(context: Context) {
     /** A song's cover plays its short film on Now Playing, where it has one. */
     val songVideo: StateFlow<Boolean> = _songVideo.asStateFlow()
 
+    private val _castLyrics = flag(CAST_LYRICS, false)
+    /**
+     * Casting to a TV that shows AETHER's own screen, the song's words come up full screen there as soon
+     * as the song does. Off, the TV opens on the song, and its remote's OK key brings the words up.
+     */
+    val castLyrics: StateFlow<Boolean> = _castLyrics.asStateFlow()
+    fun setCastLyrics(on: Boolean) = set(CAST_LYRICS, on, _castLyrics)
+
     private val _musicVideo = flag(MUSIC_VIDEO, false)
     /**
      * A video (an official music video, or one someone uploaded) plays as video on Now Playing, its
@@ -373,6 +381,15 @@ class Settings(context: Context) {
     /** Seconds the end of one song and the start of the next overlap; 0 is off. */
     val crossfade: StateFlow<Int> = _crossfade.asStateFlow()
     fun setCrossfade(seconds: Int) { prefs.edit().putInt(CROSSFADE, seconds).apply(); _crossfade.value = seconds }
+
+    private val _automix = flag(AUTOMIX, false)
+    /**
+     * Automix (BitChord's): each song measured (tempo, beats, phrases, key, voices) and run into the
+     * next as a DJ would, in time and in key where they allow, a crossfade where they don't. Off until
+     * the listener asks for it.
+     */
+    val automix: StateFlow<Boolean> = _automix.asStateFlow()
+    fun setAutomix(on: Boolean) = set(AUTOMIX, on, _automix)
 
     private val _chartsCountry = MutableStateFlow(prefs.getString(CHARTS_COUNTRY, null))
     val chartsCountry: StateFlow<String?> = _chartsCountry.asStateFlow()
@@ -433,12 +450,14 @@ class Settings(context: Context) {
         const val ARTWORK_CYCLE = "artwork_cycle"
         const val LYRICS_STYLE = "lyrics_style"
         const val SONG_VIDEO = "song_video"
+        const val CAST_LYRICS = "cast_lyrics"
         const val MUSIC_VIDEO = "music_video"
         const val CARD_SILVER = "card_silver"
         const val PROFILE_NAME = "profile_name"
         const val KEPT_COLLECTIONS = "kept_collections"
         const val CHARTS_COUNTRY = "charts_country"
         const val CROSSFADE = "crossfade"
+        const val AUTOMIX = "automix"
         const val SONG_ORDERS = "song_orders"
         const val FULL_SCREEN = "full_screen"
     }

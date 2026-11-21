@@ -24,7 +24,9 @@ Canvas. No analytics, no tracking.
 | ALAC | **PODIUM** `AlacAudioRenderer` (bit-exact port of Apple's decoder) | Phones without a working ALAC decoder |
 | Offline library | **PODIUM**: MediaStore scan, Room database, offline playability, local full-text search, downloads, stream cache keyed by song and quality | LastWave only lists picked folders as one playlist |
 | Custom sources | **Both**: the addon protocol they share (`manifest.json`, `/search`, `/stream/{id}`); LastWave's quality metadata (bit depth, sample rate, hi-res and Atmos flags, not stopping at a downgraded answer) and `StreamAlignment`; PODIUM's exact-recording matcher, per-source health and circuit breaker, 5 s budget, background retries and mid-song crossfade to the better copy | §4 |
-| Spotify | **LastWave**: sign-in on Spotify's own page (`sp_dc`), web-player tokens, playlist import matched to YouTube Music, synced lyrics with syllable timing, Canvas videos | Data from the listener's own account; it never plays Spotify audio |
+| Playlists in and out | **LastWave**'s import pipeline, ported to `:core:transfer`: its CSV, TSV, M3U and text-list reading (`CsvPlaylistImporter`), the public Spotify embed page and Apple Music page readers, a link checked against the words beside it, its query order, its same-song rule and never saving a playlist twice (`PlaylistRepository.save`). **PODIUM**'s exact-recording rules decide a match (a live take never stands in for the studio one). AETHER's own: its file (`AetherFile`), Spotify's data download, and each playlist's origin (`Origins`), so a playlist imported again only gains what it's missing | Every playlist the listener has elsewhere, with no account there; 38 + 16 tests |
+| Automix | **BitChord**'s Automix, ported whole: its analysis (`TrackAnalyzer`: the native DSP pass for tempo, beat grid, energy, phrases, key and mix points; the Beat This! model for the head and tail beat grids; the open-unmix model for where the voice is), its policy and planner (`TransitionPolicy`, `TransitionPlanner`, from Orchard: phrase- and bar-aligned windows, cue points, tempo matching, styles), its two-player controller (`CrossfadeController`, here `AutomixController`: the incoming song armed on the standby player at its cue, the handoff mid-blend, phase lock, holding the outgoing song at its end) and its filter (`TransitionFilterProcessor`: 24 dB/octave sweeps, bass swap, echo out, headroom trim). AETHER's own: the audio it reads (`AutomixAudio`), the filters' lead measured from Media3's stream position, and the change of cover (`DotMorph` in colour) | The best automix of the apps studied: DJ transitions where the evidence allows, a crossfade where it doesn't |
+| Spotify | Playlists only: a public playlist by its link (the embed page Spotify serves anyone, its first 100 songs) and every playlist, liked songs included, from Spotify's own "Download your data". Not its sign-in (§5) | Nothing of Spotify's is played; nothing is asked for in the listener's name |
 
 ## 3. Audio quality: PODIUM against LastWave
 
@@ -69,7 +71,11 @@ to with a secret compiled into its native code:
   the download path that decrypts and remuxes those streams.
 
 That is getting past DRM and serving subscription music to people without the subscription, so
-none of it is ported. Lossless comes from where the listener has the right to it:
+none of it is ported. Nor is LastWave's Spotify sign-in (`SpotifyAuthRepository`, `SpotifyWebPlayer`,
+the Pathfinder queries in `SpotifyPlaylistImporter`): it takes the web player's cookie (`sp_dc`), signs
+the player's time-based tokens and calls Spotify's private API with them, as Spotify's own player.
+AETHER asks Spotify only for the page it serves anyone, as itself, and reads the data download Spotify
+gives the listener. Lossless comes from where the listener has the right to it:
 
 - **Their own files**, offline: FLAC, ALAC and WAV up to 32-bit/384 kHz, bit-perfect to a USB DAC.
 - **Their own servers or open sources**, as custom sources (a Navidrome, Jellyfin or Subsonic
@@ -89,6 +95,9 @@ none of it is ported. Lossless comes from where the listener has the right to it
   the phone. Timed lyrics are the same, with the lyrics libraries (LRCLIB, lrc.red, BiniLyrics,
   BetterLyrics, LyricsPlus, Unison, KuGou), each sent a song's title, artist, album and length and
   nothing else, each one switchable in Settings. Romanisation is worked out on the phone; nothing is sent.
+- Bringing a playlist in by its link asks for that one public page (Spotify's embed page, Apple
+  Music's playlist page) under AETHER's own client name, and only when the listener pastes the link.
+  Its songs are then looked for on YouTube Music as any search is. Files are read on the phone.
 - AETHER's own updates: when it opens (release builds; Settings, "Look for updates"), GitHub's API is
   asked for the newest release of `GHOSTxASR/AETHER`, at most every six hours, with nothing about the
   listener. A release is installed only when the listener asks, after its SHA-256 matches GitHub's and
@@ -100,6 +109,13 @@ PODIUM and LastWave are GPL-3.0, so this app is GPL-3.0. Ported files keep their
 home models credit Metrolist). Third-party parts keep their own licences and notices:
 decent-usb-audio-driver (MIT), libsoxr (LGPL-2.1, built as a shared library), NewPipeExtractor
 (GPL-3.0), and the rest as PODIUM's and LastWave's `third_party` notices list them.
+
+Automix is BitChord's (GPL-3.0, Kushagra Singh). Its policy, planner, analysis model and analyser
+are from Orchard (AGPL-3.0, SFG545): those files say so in their headers and stay under the AGPL as
+part of this GPL-3.0 work, as GPLv3 §13 allows. Signalsmith Stretch and Signalsmith Linear (MIT) are
+verbatim in `player/src/main/cpp/native/third_party`. The beat model is Beat This! (CPJKU, MIT) and the
+voice model open-unmix's UMX-HQ vocals (MIT), both as BitChord quantised them; ONNX Runtime runs them
+(MIT).
 
 ## 8. Modules (planned)
 
@@ -159,9 +175,61 @@ decent-usb-audio-driver (MIT), libsoxr (LGPL-2.1, built as a shared library), Ne
   it was the recent searches: page glass strokes and clips Apple's continuous outline (an arbitrary
   path) six times a capsule, all first drawn together. Small page glass is now painted to images while
   its room is measured out of sight (`PaintedGlass` in `LiquidGlass.kt`); the frame is about 40 ms.
+- **One thing becoming another** (`core:designsystem` `motion/`: `Anchors`, `Becoming`; built 2026-11-18): an
+  element is entered in a registry under a name while it's laid out (`Modifier.anchor`), and a transform
+  reads both its ends there every frame, in the coordinates of what it's drawn in, so a list scrolled, a
+  page resized or a dock folding mid-flight never leaves it landing somewhere stale. One progress, a
+  spring or a finger, carries it, and the way back is the same path. A place on screen is landed in
+  exactly and shown in that frame; one gone a little off screen is landed in where it is; one further
+  off, just past the edge it went by; one never seen, a shrink and a fade in place (iOS's rules for an
+  app's icon). `Glide.follow` holds a value under a finger or a gesture with its speed taken from the
+  last ~90 ms (Apple's window, `VelocityWindow`), so letting go carries on at that speed.
+- **Folders** (`ui/Pages.kt` `FolderFlight`): a folder's page slides in as every page does, and the
+  folder flies on top from its place to the page's head, opening as it goes, and back. It has no clock
+  of its own: it's as far along as the page's slide, so the two can't disagree, and Back, a second
+  touch or the back gesture turns them round with the speed they had. A folder is found by its page
+  and a name for that one copy of it (`SlotKey`: the playlist's key and a saved per-copy number, so a
+  playlist shown twice on a page is two places and a list row made again later is the same place),
+  never by the coordinates it had when touched. Its place is read while the flying folder is drawn,
+  after the frame's layout: read in a layer's own block, which runs before layout, it trailed a scroll
+  by a frame and shook. Touched while its page flies home, the page comes back (`Navigator.open`
+  revives a page on its way out); a drag on the page on its way out scrolls the page coming back, and
+  the page stays (off screen) until the finger lifts. One page arrives at a time: an open asked for
+  while the top page is still more than a tenth of the way off is ignored (two folders touched at once
+  had both open). The page's rows are made three a frame from its second frame and shown as they're
+  made (`rememberStagedRows`): the screen's worth is there while the page is still mostly off to the
+  right. The library remembers each playlist's songs (`Library.entriesNow`, warmed once after launch),
+  so a page has its keys and songs on its first frame.
+- **Moving pages are pictures**: while a page slides, or the page over it does, it's an offscreen layer
+  (`CompositingStrategy.Offscreen`), drawn once and moved, so the rooms' plane (which the glass reads)
+  is drawn each frame from two pictures instead of every row on both pages. Back at rest, it's drawn as
+  before (two screen-sized textures only while something moves).
+- **The back gesture** (`PredictiveBackHandler` on the page on top of a room): the page follows the
+  thumb from wherever it was when the thumb took it, 1:1 from the left edge as iOS's swipe back, by the
+  gesture's progress from the right. Android plays nothing of its own inside the app; at a room's first
+  page the gesture is Android's, leaving the app. One switch in `Pages.kt` turns it into the same
+  transitions run on release. Sheets, menus, dialogs and fields each answer Back first.
+- **Now Playing** grows out of the mini player as the Dynamic Island grows (`ui/player/PlayerWindow.kt`,
+  `Growth`): the pill itself is the island, a rounded rectangle from the pill's bounds, read every
+  frame, to the screen's, its corners from the pill's to the screen's own. Its surface is the pill's
+  tint (the Control glass's 40%) deepening into Now Playing's ground by 30% of the way, with the
+  glass's lit rim along its edge until it's the screen; the real pill is hidden while it's up. What's
+  written on the pill rides its top edge and goes by 12%; the print itself flies from the pill's cover
+  to its place, drawn from its own kept drawing over everything it passes (in a texture of its own
+  while it flies, so its shader and words aren't made again at every size), the pill's own cover over
+  it for the first 8%; Now Playing's parts come in from 30% to 80%, fading up from 94%, always inside
+  the island. Springs with Apple's bounce (opening 0.5 s at 0.78, closing 0.46 s at 0.72): past the
+  pill on the way back, the pill takes it a little smaller and settles (`Growth.squash`). A song's film
+  or video takes over from the print over the last fifth of the way in. Now Playing stays made and in
+  the picture once there's a song, cut to nothing while it's down (an empty clip, which Android
+  neither draws nor sends touches to, and which keeps its drawings: taken out of the picture, the first
+  frame of every opening made them all again). Closed, what moves by itself in it rests, the dial holds
+  its place, and what it fetches waits until it's opened.
 - **What's costly to draw** is kept as a small texture (`Modifier.retained`), best with no layer inside
-  it: a folder's two flat paintings (tilted afterwards, as painting its outlines under a 3D tilt took a
-  tenth of a second or more), the ribbon's capsules, a still print's shader. Sections and pages only
+  it: a folder's two flat paintings, its back's outline alone and its front's (tilted afterwards, by a
+  layer outside the texture: painted inside the tilt, or with the rising songs in the same painting, its
+  large curved outlines were worked out on the processor and sent to the GPU again every frame a folder
+  flew), the ribbon's capsules, a still print's shader. Sections and pages only
   get a layer of their own without a texture (`Modifier.separate`): textures for those held graphics
   memory at Android's limit (372 MB on this phone, 280 MB of it render targets) with only 40 MB free.
 - **The cost of glass**: glass samples the page by reference, so Android visits the page twice a frame
@@ -169,6 +237,12 @@ decent-usb-audio-driver (MIT), libsoxr (LGPL-2.1, built as a shared library), Ne
   in `gfxinfo` don't show this: the phone lowers the GPU's clock to match the load, so they stay
   about level; use janky frames, and `framestats` for each stage. Fewer frames aren't the answer
   either: stepping the ribbon on every other frame dropped the clock until frames missed their deadline.
+  Measure without polling: each `framestats` dump makes the app's render thread answer, and dumping
+  every half second caused stalls of 30 to 400 ms at that rhythm (idle Listen: 3.2% janky polled, 0.14%
+  left alone). Reset, run the gesture, dump once.
+- **Playback state** (`PlaybackConnection`): an event that changed only where the song is or how much
+  is buffered isn't a new state (the position has its own flow), and a queue read again reuses the
+  `Track` of every song whose name, artist and length are unchanged.
 - **Mood ribbon, drifting covers**: they slide as one picture by fractions of a pixel, and the list
   moves only every so often, since a list stands on whole pixels. They use `dispatchRawDelta`: a
   `scrollBy` loses to a finger with a cancellation, which ended the ribbon's loop for good.
@@ -378,6 +452,205 @@ decent-usb-audio-driver (MIT), libsoxr (LGPL-2.1, built as a shared library), Ne
   every format's two ends): `VISIONOS` served every song tried, age-restricted videos too; `ANDROID_VR`
   served the songs (ATV) and refused most videos; `IOS` refused all. BitChord and LastWave keep
   NewPipe's extractor as a last failsafe, as PODIUM does; AETHER doesn't yet.
+- **Automix** (`player` `AutomixController`, `TrackAnalyzer`, `AutomixAudio`, `TransitionFilterProcessor`;
+  `core:automix`; BitChord's, built 2026-11-16): Settings ▸ Sound, off by default. The engine has two
+  players built the same way, each with its own equaliser, meter and transition filter; one has the
+  session, the audio focus and the headphones, the other stands by. A song is measured once and kept
+  measured (`AnalysisStore`): the native DSP pass over the whole song, then Beat This! and open-unmix
+  over its first ~45 s and last ~68 s, the only parts a transition reads. Its audio is read where it
+  is: a kept song's file, a song in the old keep, the phone's own; a stream is fetched whole into
+  Automix's own cache (256 MB, least recently used first), the next song as it will be heard
+  (`StreamPurpose.LISTEN`, the copy the player chooses) and the playing one as its own stream; a copy in
+  pieces or above 48 kHz is measured from the song's own stream instead. The player reads that cache on
+  its way to the network (`AudioStore.listening`), so a song fetched to be measured isn't downloaded
+  again to be heard. BitChord's planner then chooses, per pair: beatmatched (both grids trusted, the
+  incoming song's tempo matched within its limits), DJ-assisted, or a plain crossfade (the listener's
+  crossfade length, or 6 s); phrase- and bar-aligned windows, the incoming song cued into its
+  arrangement, and a style (equal-power, filter sweep, bass handoff, bass swap, echo out, vocal overlap).
+  The controller arms the incoming song on the standby player at its cue, holds the outgoing one at its
+  end (`pauseAtEndOfMediaItems`), rides the faders, filters and echo, nudges the incoming player's speed
+  to hold the beats in phase, and halfway through hands the session over (`PlaybackService.adopt`): the
+  outgoing player lets go of the audio focus, the incoming one takes it, and the session's player, the
+  engine's listeners and the carry to a better copy move to it; nothing is re-buffered. The filters run
+  where audio is written, ahead of what's heard: each counts the frames it has processed since Media3
+  told it where its stream starts (`AudioProcessor.StreamMetadata.positionOffsetUs`), and the
+  difference from the player's position aims each filter at the moment its audio will be heard
+  (BitChord's own sink wrote that lead). Two songs faded equal-power sum to more than one, so both are
+  trimmed by `1 / sqrt(in + out)` while they overlap. Never between an album's songs that run into each
+  other, nor into or out of a video, nor while a DAC plays bit-perfect, nor during a carry to a better
+  copy (a carry waits for a mix to end). A skip, a seek or a failure lets go at once. BitChord's loop mix
+  (two songs looped on a bar while the tempo walks over) needs its own precise audio sink and isn't
+  built: its planner falls back to the blends. On Now Playing the dial's inner ring is brighter where the
+  mix will be; during it the cover goes up as dots of its own colour and comes down as the next one's,
+  following the blend's own progress (the incoming player's clock) frame by frame; a real mix (not a
+  plain crossfade) says "Automixing" at the foot. ONNX Runtime ships for ARM only: on x86 the models
+  don't run and Automix measures with its DSP alone.
+- **Automix, measured on the A059 (2026-11-17).** Speed is the AudioTrack's own
+  (`setEnableAudioOutputPlaybackParameters`, as BitChord does), its buffer sized for 1.5x, not
+  Media3's 8x (`SpeedSizedBuffer`). Done by Media3's Sonic instead, every change of speed drained and
+  restarted it and flushed every processor before it, the equaliser and Automix's filters included:
+  a click at every phase-lock nudge and every beat of the tempo easing back after a mix (13 of them
+  after one measured blend), which was the crackling heard as the next song came in. On a float route
+  Sonic isn't in Media3's path at all, so only this way does tempo matching happen there. A flush that
+  carries straight on keeps the filter's state. Under BitChord's blend trim, a peak catcher holds each
+  song to the trim (`t = 1/sqrt(in + out)`), so two beat-matched kicks can't sum past full scale (the
+  trim alone let them reach 1.19, which the mixer clips). At thermal SEVERE (where this phone sits while
+  it charges) BitChord's analyser started nothing, so every transition was a plain crossfade; it now runs
+  one pass at a time, single-threaded at background priority, resting a minute between passes, and
+  stops only at CRITICAL. The cover's morph: indexed meshes (four vertices a dot, a third less vertex
+  work, ~2.1 to ~0.8 ms of issue time a frame), a 3.1 dp screen, made ahead while the window shows, its
+  own clock drawn toward the engine's reports, the film paused under it and the next one's held until
+  it lands, the dial and the ring kept as layers. Measured over a real 6 s crossfade: 90 fps throughout,
+  0 to 2 late frames a half second, one ~44 ms hitch as the dots appear and one ~36 ms at the handoff
+  (Now Playing composing the new song); the run before these changes was 52% janky. Debug builds:
+  `--es aether.preview morph` plays the morph from the playing song to the next over ten seconds.
+- **Up next** (`QueueSheet`, `QueueDrag`; BitChord's `PlayerQueue.kt`, 2026-11-17): the song in hand is
+  drawn over the list where the finger holds it, placed from the finger alone, so no swap, relayout or
+  scroll underneath can move it; its own row stays in the list unseen and trades places with a
+  neighbour the moment it's carried halfway over it (each swap sent to the queue then and there, the
+  next decided only once the list shows it), the others sliding aside on a spring; within 40 dp of
+  either end the list scrolls on under it, from a fifth of 340 dp a second up. AETHER keeps its lifted
+  card, the haptic tick at each swap, a spring into place when let go, and a long press anywhere on a
+  song as well as its handle.
+- **Updates on launch** (`UpdateCenter.autoCheck`): the first look each launch asks GitHub afresh
+  (BitChord's once per launch), later ones within six hours use its answer; found while Now Playing is
+  open, it's said at the foot at once and the sheet waits for Now Playing to close.
+- **A song that comes round again** (repeat-one, or repeat on with it alone in the queue, or queued twice
+  running) is never mixed (`AutomixController.nextIsItself`). BitChord guards only repeat-one; with the
+  others it mixed the song into itself, so its second time through began on the other player part way
+  in, under the blend's filters, heard as a stutter. A plain repeat isn't touched: Media3 drains and
+  makes again the song's decoder at the loop, and the output's ~750 ms buffer covers it (no underrun,
+  measured 18 Nov on a kept song).
+- **The sleep timer** is BitChord's (`player/SleepTimer.kt`, a deadline on `elapsedRealtime`, its
+  presets and its 5-minute steps to 12 hours, with its tests). The service pauses when the deadline
+  passes; "after this song" pauses when the queue moves on by itself or repeats, and after a blend's
+  handoff. With Automix on, its controller's `SLEEP_FADE` (ported with the controller, wired now) fades
+  the song out over the span its transition would have used, instead of arming the next; with only the
+  engine's crossfade (PODIUM's, which stands down: `blocked`), the service fades the song out over the
+  crossfade's length. The picker is a page of the song's menu opened from Now Playing.
+- **The queue during a mix**: the song being brought in is already playing on the standby player, so
+  Up Next holds it (dimmed, "Mixing in", no handle, nothing dropped in front of it,
+  `AutomixState.incoming`); at the handoff the incoming player takes the whole queue as the listener
+  left it (`reconcileQueue`), where BitChord carried only what was appended (a move or removal made
+  mid-mix was lost there; its comment says the listener bails, but it bails only on a seek or a replaced
+  queue). Before arming, every edit is free, as BitChord's: the planner plans for whatever is next. AETHER
+  measures the song a mix waits on first (`TrackAnalyzer` passes wait in line, the next song ahead of
+  songs that were next before it; BitChord's single thread took them in order), and the dial's mark of
+  the mix glides to a new plan, comes up where it appears and fades where it goes (`ClockDial` `MixArc`).
+- **What plays on** (`PlaybackService.topUp`, `Station`; BitChord's AutoPlay and `QueueBuilder`):
+  in the engine, not on a screen, so a long listen with the app closed never runs dry. As each song
+  begins (an Automix handoff included), ten songs are kept waiting after the listener's own, from the
+  playing song's radio: never one already queued, nor another upload of the same recording (a
+  normalised title and a shared artist), songs before videos, at most two by one artist (four by the
+  seed's). Never while the queue repeats. BitChord's web AutoMix also picks the next track from an
+  analysed library by key and tempo (`selector.ts`); its phone app doesn't, and AETHER's suggestions
+  aren't measured before they're fetched, so it isn't taken.
 - **Not yet**: Spotify import (planned through Spotify's own Web API with the listener's own app
   client id and PKCE, not `sp_dc` tokens), Premium-quality streams for signed-in listeners, and
   LastWave's chunked range requests.
+
+## 10. Built 2026-11-19
+
+- **Pages in the order they were opened.** A room's pages are drawn in the order they were opened
+  (`PageEntry.order`; a page brought back gets a new one), not stack-then-leaving. A page opened while
+  another is still going comes in over it; the page going, and its folder, finish under it. Each
+  folder in the air is drawn just over its own page, inside its room (measured in the room's own
+  terms, so a room sliding along the rail carries it). The page beneath drifts and dims by everything
+  over it as one, `1 - the product of their slides` (`coverBy`): continuous when a new page comes over
+  one going, where following only the nearest page jumped it back up to a third of the screen, and
+  the folder tracking its place with it. A folder under a newer page dims as the pages it's between
+  do, so it lands exactly as dark as its place. A page going is brought back only from the top; under
+  a newer one, a new page comes instead. Each page keeps its own folder preview, set only when the
+  page really opened (`openFolderPage`).
+- **Search lengths.** YouTube Music's mixed search gives a length only to its top result's songs (13
+  songs for "espresso", 3 with one). The rest are asked of `music/get_queue` (YouTube Music's own "add
+  to queue"), all at once, and matched by id (`YouTubeMusic.timed`); a queue that doesn't answer leaves
+  the search as it was.
+- **Albums filed by their videos** (`sources/youtube/SongVersions.kt`). KR$NA's "Yours Truly" is 14
+  official videos of 15 on its YouTube Music page. BitChord's order (`resolveAudio`, `officialVersion`,
+  `playlistAsAudio`): YouTube Music's own pairs, signed in (the album's queue at once); then its Songs
+  shelf, the album's songs together (11 of the 14 there), then each alone. BitChord's rule for a
+  video's song (`bestOfficialAudioForVideo`: the same title and version, a shared artist, the length
+  only ranking) held to PODIUM's normaliser rather than BitChord's own matcher, so AETHER has one
+  judgement of "the same recording". Added to it: a song once only (never one already on the album,
+  never one for two videos), and an Intro, Outro, Interlude or skit only from the same album. Four
+  seconds at most per album; what's found is remembered, a miss only when every search answered.
+- **Lyrics** (measured live 2026-11-19). KuGou answered other recordings' files: its lyrics search,
+  asked by a recording's hash, gave Tchaikovsky's "June" for Pennyy's "Espresso"; for Kizo's, a remix by
+  someone else and "Spice Up Your Life". Every KuGou song and file is now held to the song by
+  `LyricsMatcher` (KuGou's own looser length check kept). Its credits ("BTS (防弹少年团)") read a bracketed
+  name as an alias too (`ArtistNames`), and a Chinese name written in the other script (周杰倫, 周杰伦)
+  counts when it agrees in at least half its characters, place by place. BetterLyrics now answers
+  uncached songs with 401 "API key required": a 401 or 403 counts as "hasn't it", not a failure.
+  LyricsPlus (QQ Music's files) and KuGou set writers' names and the song's own name at a file's head
+  on real stamps: `LyricsFormatter` makes them pauses, as it does section labels. A video asks for no
+  lyrics at all.
+- **Moving covers** (`sources/canvas`): BitChord's and LastWave's canvas order and remembering, with two
+  sources: Apple's motion artwork (AETHER's own lookup on Apple's public pages, with the listener's
+  consent) and the community's index (fetched whole with AETHER's own name, matched on the phone).
+  Their matching kept only a to z and the digits, so a title in another script came out empty and
+  matched any other such title; here it's PODIUM's normaliser (`SameSong`). The film plays where
+  Apple's always has (an MP4 now as well as HLS).
+  Not here: their Tidal source asks Tidal's API with a token issued to Tidal's own embedded player
+  (one Tidal no longer even ships in it), and their Spotify source signs its token requests with
+  one-time-password secrets read out of Spotify's web player, the protection Spotify added to keep
+  other clients out, while presenting itself as a browser. Both are access AETHER isn't given; the
+  safety check in the coding session refused the first live request to Tidal as unauthorised access.
+  They stay out unless the listener decides otherwise, knowing that.
+
+## 11. Playing on a TV (Google Cast), built 2026-11-19
+
+- **Where it comes from.** BitChord's cast (`CastController`, `CastPlayback`, its `CastDialog`) and
+  LastWave's stream server (`CastStreamServer`), GPL-3.0, noted at the head of each ported file.
+  BitChord's model is kept whole: the phone stays the one queue, the TV holds the playing song and
+  three after it (`QueueWindow`), and a TV that can't play a song skips it and says so. BitChord
+  believed a seek for 1.5 s; measured on a Mi TV (Android TV 9), a song handed over takes seconds to
+  load and the TV's first word is its start, so the dial dropped to 0:00 and back. The place asked
+  for now stands until the TV says it's within 2 s of it, 8 s at most (`Requested`), and a song put
+  on the TV paused reads as paused while it loads, not as about to play. BitChord's phone also
+  followed every song change the TV reported, and topped up the TV's queue 0.3 s after a skip from
+  wherever the TV said it was. A slow TV is still on the old song by then: the top-up took away the
+  very song it was on its way to (it jumped to the one after: two skips for one), and a previous was
+  undone by the TV's late report of the skip before it. Now the phone holds the song it asked for
+  (`Expected`, 10 s for a jump, 30 s for a load) until the TV has begun it; until then the TV's word
+  is about the song it's leaving, and its queue is only set from where both agree. Measured on the
+  Mi TV: one skip, two quick skips, and a skip undone at once each land where they should, on both. LastWave's server is kept for its reason: every song AETHER
+  plays needs the phone's own headers (YouTube's streams), a local file, or the listener's own
+  network, so the TV can't fetch any of them itself. The phone serves each one over the room's Wi-Fi
+  at an address nobody could guess (a UUID per song, eight kept), a range at a time, holding a wake
+  lock and a Wi-Fi lock for as long as the cast lasts.
+- **When it works.** The phone and the TV on the same Wi-Fi (or wired): the server binds to the
+  phone's Wi-Fi or Ethernet address and nothing else, so on mobile data the cast says "Put this phone
+  on the same Wi-Fi as the TV" and the music comes back to the phone. A guest network that keeps
+  devices apart can't work, and the phone has to stay on (it is the TV's source). A song of no known
+  length is still sent from its start.
+- **The phone's own player while casting.** Paused, never stopped: the session's player
+  (`SessionPlayer`, a `ForwardingPlayer`) answers for the TV (state, position, length, a remote
+  volume of 0 to 100 that the volume keys move) while the queue, the history and Automix's
+  measurements stay the phone's. The crossfade, Automix and the sleep fade stand down while a TV
+  plays (the TV's player can't be blended into); the sleep timer pauses the TV.
+- **AETHER's own screen on the TV** (`site/cast/`, a Cast web receiver served with the site). Now
+  Playing turned on its side, on one measure (U = 7.2 rem): the house's name and where the music is
+  in the corner, the print the full height in the middle with the phone's wipe and darkroom, the song
+  at the foot on the left, and the dial (ClockDial, mark for mark) standing on the right edge as tall
+  as the print, its keys' place (the lyrics key) in its heart. A film plays across the whole screen,
+  gone in rings round the dial, as on the phone. The words come up full screen (Verse's falloff,
+  focus and lead; the song's name in the corner and where the words are from at the foot) from
+  Settings' "Lyrics on the TV" or the remote's OK key. A song arrives as a download does on the
+  phone, turned round: a mouth of light at the foot, the screen drawn after it, one wave up through
+  it all, each piece of the screen moved by it as it passes. Every motion is Now Playing's spring,
+  solved exactly, with the phone's numbers.
+- **What the TV is sent** (`CastStage`): the song, the cover's largest copy, the film Now Playing
+  would play, the words as the lyrics view finds them (one shared `wordsFor`, credit and all), and the
+  format the phone's decoder measured, in Now Playing's own words (`quality`); the TV never claims a
+  format of its own.
+- **Handing over.** The phone marks the moment the music leaves it with KeepFlight's wave, turned
+  round: from the middle of the screen's top edge (`CastHandoff`), on a ripple of its own, so it never
+  crosses a download's.
+- **What the listener has to do once** (docs/cast.md): AETHER's screen needs registering with Google
+  as a Cast receiver (a developer account, a one-time fee), its id given to the build
+  (`-Paether.castReceiverId`). Without it, casting uses Google's standard receiver: the music, its
+  name and cover, and nothing of AETHER's screen.
+- **Privacy.** Google Play services' Cast framework is the one closed part, as in every app that
+  casts; AETHER adds no analytics to it. The TV is sent the song's details and its stream, from the
+  phone; Google's receiver library is the only thing the TV page fetches from Google.

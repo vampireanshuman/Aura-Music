@@ -15,6 +15,8 @@ import app.aether.core.model.SourceError
 import app.aether.core.model.Stream
 import app.aether.core.model.Track
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Call
@@ -156,7 +158,7 @@ class AddonSource(
         }
         val answer: AddonStream = asked ?: given?.let { AddonStream(it, null, null, null, false, emptyMap(), null) }
             ?: return miss ?: Outcome.Err(SourceError.NotPlayable("no stream"))
-        if (answer.encrypted) return Outcome.Err(SourceError.NotPlayable("This source's stream is encrypted, and Aura plays open media only."))
+        if (answer.encrypted) return Outcome.Err(SourceError.NotPlayable("This source's stream is encrypted, and AETHER plays open media only."))
         if (!answer.url.startsWith("https://") && !answer.url.startsWith("http://")) return Outcome.Err(SourceError.NotPlayable("The source gave no address to play."))
         val manifest = when (answer.manifest) {
             "dash" -> Stream.Manifest.DASH
@@ -166,7 +168,7 @@ class AddonSource(
             else Stream.Manifest.NONE
         }
         if (manifest != Stream.Manifest.NONE && protectedManifest(answer.url, answer.headers, manifest)) {
-            return Outcome.Err(SourceError.NotPlayable("This source's stream is protected, and Aura plays open media only."))
+            return Outcome.Err(SourceError.NotPlayable("This source's stream is protected, and AETHER plays open media only."))
         }
         val stream = Stream(
             url = answer.url,
@@ -210,10 +212,12 @@ class AddonSource(
         (l.startsWith("#EXT-X-KEY") || l.startsWith("#EXT-X-SESSION-KEY")) && !l.contains("METHOD=NONE")
     }
 
-    private suspend fun text(url: String, headers: Map<String, String>): String? = runCatching {
-        val request = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
-        http.newCall(request).await().use { r -> if (r.isSuccessful) r.body?.source()?.let { s -> s.request(MAX_MANIFEST_BYTES); s.buffer.clone().readUtf8() } else null }
-    }.getOrNull()
+    private suspend fun text(url: String, headers: Map<String, String>): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
+            http.newCall(request).await().use { r -> if (r.isSuccessful) r.body?.source()?.let { s -> s.request(MAX_MANIFEST_BYTES); s.buffer.clone().readUtf8() } else null }
+        }.getOrNull()
+    }
 
     private fun trackOf(t: AddonTrack) = Track(
         id = MediaId("$id:${t.id}"),
@@ -237,7 +241,14 @@ class AddonSource(
         return b.build()
     }
 
-    private suspend fun <T> fetch(url: HttpUrl, read: (ByteArray) -> T?): Outcome<T> {
+    /**
+     * One request. Its answer is read, and closed, on the I/O threads whoever asked: reading a body or
+     * closing an unfinished one (which sends the server a reset) is network work Android refuses on
+     * the main thread, and an addon is never worth a crash.
+     */
+    private suspend fun <T> fetch(url: HttpUrl, read: (ByteArray) -> T?): Outcome<T> = withContext(Dispatchers.IO) { fetchHere(url, read) }
+
+    private suspend fun <T> fetchHere(url: HttpUrl, read: (ByteArray) -> T?): Outcome<T> {
         if (now() < restUntil) return Outcome.Err(SourceError.RateLimited(restUntil - now()))
         return try {
             val outcome = withTimeoutOrNull(REQUEST_TIMEOUT_MS) {
@@ -282,6 +293,9 @@ class AddonSource(
         } catch (e: IOException) {
             failed("It couldn't be reached.")
             Outcome.Err(SourceError.Network)
+        } catch (e: RuntimeException) {
+            failed("Its answer couldn't be read.")
+            Outcome.Err(SourceError.Server(null))
         }
     }
 
@@ -336,6 +350,13 @@ class AddonSource(
             http: OkHttpClient,
             choices: () -> Map<String, String>,
             losslessOutput: () -> Boolean,
+        ): Outcome<AddonSource> = withContext(Dispatchers.IO) { connectHere(address, http, choices, losslessOutput) }
+
+        private suspend fun connectHere(
+            address: String,
+            http: OkHttpClient,
+            choices: () -> Map<String, String>,
+            losslessOutput: () -> Boolean,
         ): Outcome<AddonSource> {
             val root = base(address) ?: return Outcome.Err(SourceError.NotFound("address"))
             if (root.scheme != "https" && root.host != "localhost") return Outcome.Err(SourceError.NotPlayable("Sources are reached over https only."))
@@ -346,9 +367,9 @@ class AddonSource(
                         if (!response.isSuccessful) return@use Outcome.Err(SourceError.Server(response.code))
                         val manifest = response.body?.bytes()?.let { AddonProtocol.manifest(it) } ?: return@use Outcome.Err(SourceError.Server(null))
                         when {
-                            manifest.onlyForBitChord -> Outcome.Err(SourceError.NotPlayable("${manifest.name} answers only the BitChord app, which proves who it is with a key Android vouches for. Aura can't, and doesn't pretend to."))
+                            manifest.onlyForBitChord -> Outcome.Err(SourceError.NotPlayable("${manifest.name} answers only the BitChord app, which proves who it is with a key Android vouches for. AETHER can't, and doesn't pretend to."))
                             // Search is what everything starts from; streams may come with the rows.
-                            !manifest.canSearch -> Outcome.Err(SourceError.NotPlayable("${manifest.name} can't search, so Aura can't find songs on it."))
+                            !manifest.canSearch -> Outcome.Err(SourceError.NotPlayable("${manifest.name} can't search, so AETHER can't find songs on it."))
                             else -> Outcome.Ok(AddonSource(address.trim(), http, manifest, choices, losslessOutput))
                         }
                     }
@@ -357,6 +378,8 @@ class AddonSource(
                 throw e
             } catch (e: IOException) {
                 Outcome.Err(SourceError.Network)
+            } catch (e: RuntimeException) {
+                Outcome.Err(SourceError.Server(null))
             }
         }
 

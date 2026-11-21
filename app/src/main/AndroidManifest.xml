@@ -22,7 +22,12 @@
         android:icon="@mipmap/ic_launcher"
         android:label="Aura"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Aura">
+        android:theme="@style/Theme.Aether">
+
+        <!-- Casting to a TV: the Cast framework reads how AETHER casts from here (app.aether.cast.CastOptions). -->
+        <meta-data
+            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+            android:value="app.aether.cast.CastOptions" />
 
         <activity
             android:name=".MainActivity"

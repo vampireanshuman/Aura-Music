@@ -1,7 +1,5 @@
 # Third-party notices
 
-- **AETHER** by GHOSTxASR (https://github.com/GHOSTxASR/AETHER, GNU General Public License v3.0, `LICENSE`):
-  AETHER provides the complete native Android Jetpack Compose music client architecture, bit-perfect DAC audio pipeline, AGSL GPU shaders, and custom UI components.
 - **Backdrop** by Kyant0 (Apache License 2.0, `licenses/Apache-2.0-Kyant-backdrop.txt`), v2.0.0, vendored
   in `core/designsystem/.../glass/backdrop` from BitChord (kushagrasinghx/BitChord, GPL-3.0), which added a
   backdrop resolution scale. Each file keeps its notice.
@@ -31,3 +29,20 @@
   Stats Band by kuratlielia (21st.dev, MIT).
 - **Liquid-lens boot film**: optical model adapted from Travis Fischer's MIT-licensed recreation, via the
   HorizonX "Liquid Lens Logo" export the listener supplied.
+- **Automix** (`core/automix`, `player/.../automix`, `player/src/main/cpp`): BitChord's Automix (kushagrasinghx/BitChord,
+  GPL-3.0), its analysis, planner, two-player controller and transition filters; each file keeps its notice. Its two
+  models, as BitChord quantised them, are run by **ONNX Runtime** 1.28.0 (Microsoft, MIT): the beat model is
+  **Beat This!** by the Institute of Computational Perception, JKU Linz (`player/src/main/assets/beat_this_final0_q8.onnx`, MIT) and the voice model **open-unmix**
+  UMX-HQ vocals by Inria (`player/src/main/assets/vocals_umxhq_int8.onnx`, MIT).
+- **Signalsmith Stretch** 1.3.2 and **Signalsmith Linear** 0.6.6 by Signalsmith Audio (MIT), copied verbatim in
+  `player/src/main/cpp/native/third_party` with their `LICENSE.txt`: Automix's loop mix.
+- **Playing on a TV** (`player/.../cast`, `app/.../cast`): after BitChord's `CastController`, `CastPlayback` and cast
+  sheet, and LastWave-native's `CastStreamServer` (Clash-Projects/LastWave-Native, GPL-3.0); each file keeps its notice.
+  It uses **Google Play services' Cast framework** 22.2.0 (Google's Android SDK terms, not open source), **AndroidX
+  MediaRouter** 1.8.1 (Apache-2.0) and **NanoHTTPD** 2.3.1 (BSD-3-Clause), which serves each song to the TV from the phone.
+- **hls.js** 1.5.20 (Apache-2.0, `site/cast/vendor/hls.js-LICENSE.txt`), vendored in `site/cast/vendor` for the TV's
+  screen to play a cover's film.
+- **Moving covers from the community** (`sources/canvas`): the community's index of looping covers, asked as BitChord
+  and LastWave ask it. The films are the community's and the artists', fetched at run time and not part of AETHER.
+- **Sleep timer, moving songs in Up Next, and the songs that keep the music going**: from BitChord (`SleepTimer.kt`,
+  `PlayerQueue.kt`, `QueueBuilder.kt`; GPL-3.0), in `player/.../SleepTimer.kt`, Now Playing's Up Next and `Station.kt`.

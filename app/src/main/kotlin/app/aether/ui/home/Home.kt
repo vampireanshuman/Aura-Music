@@ -165,7 +165,7 @@ private suspend fun dotsBetween(context: Context, from: Int, to: Int, box: IntSi
         }
         val a = BitmapFactory.decodeResource(context.resources, from, options)
         val b = BitmapFactory.decodeResource(context.resources, to, options)
-        DotMorph.build(a, b, box.width, box.height, 2.3f * density, 0.6f, 1.45f, density).also {
+        DotMorph.build(a, b, box.width, box.height, 2.3f * density, 0.6f, 1.45f, density, colour = true).also {
             a.recycle()
             b.recycle()
         }

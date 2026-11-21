@@ -153,3 +153,31 @@ interface AlbumArtProvider {
     /** A short looping film of the song's cover (an HLS playlist, video only and unencrypted), if its album has one. */
     suspend fun findSongFilm(id: String, title: String, artist: String, album: String?): String? = null
 }
+
+/** A song's moving cover: a short, silent, looping film, played where its print stands. */
+data class Canvas(
+    /** The film, unencrypted and video only: an HLS playlist (Apple's) or a video file. */
+    val url: String,
+    val from: CanvasSource,
+)
+
+/** Who a [Canvas] came from. */
+enum class CanvasSource {
+    /** Apple Music's motion artwork for the song's album. */
+    APPLE,
+
+    /** The community's index of looping covers (ViMusic's, as BitChord and LastWave ask it). */
+    COMMUNITY,
+}
+
+/** Where a song's [Canvas] comes from. Never throws: having none is an answer. */
+interface CanvasProvider {
+    /** What's already known for the song [id], without asking anyone; Apple's only when [apple]. */
+    fun cached(id: String, apple: Boolean): Canvas?
+
+    /**
+     * The moving cover for the song [id], [title] by [artist] on [album]. Apple is asked only when
+     * [apple] (the listener's consent to sending it the song's title and artist).
+     */
+    suspend fun find(id: String, title: String, artist: String, album: String?, apple: Boolean): Canvas?
+}

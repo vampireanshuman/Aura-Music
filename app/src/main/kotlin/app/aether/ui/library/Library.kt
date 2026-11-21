@@ -2,6 +2,14 @@
 
 package app.aether.ui.library
 
+import app.aether.ui.folderPreview
+import app.aether.core.designsystem.theme.Motion
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.ui.zIndex
 import app.aether.ui.detail.inOrder
 import app.aether.ui.detail.SongOrderBar
 import app.aether.ui.detail.SongOrder
@@ -96,7 +104,7 @@ import app.aether.ui.detail.sleeveTracks
 import app.aether.ui.FolderLink
 import app.aether.player.Downloads
 import app.aether.ui.FolderPreview
-import app.aether.ui.pageLanded
+import app.aether.ui.rememberStagedRows
 
 private enum class Shelf(val label: String) { Playlists("Playlists"), Kept("Kept"), Phone("On this phone"), Songs("Songs"), Albums("Albums"), Artists("Artists"), History("History") }
 
@@ -108,12 +116,18 @@ fun LibraryScreen() {
     val scope = rememberCoroutineScope()
     var shelf by rememberSaveable { mutableStateOf(Shelf.Playlists) }
     var naming by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf(false) }
+    val bringing by container.transfer.state.collectAsStateWithLifecycle()
     val liked by container.library.liked.collectAsStateWithLifecycle(emptyList())
-    val playlists by container.library.playlistsWithPreview().collectAsStateWithLifecycle(emptyList())
+    // Kept across recompositions (a download's progress recomposes this page): asked again each time, each
+    // one opened a new subscription and read every playlist's first songs over.
+    val playlistsFlow = remember(container) { container.library.playlistsWithPreview() }
+    val playlists by playlistsFlow.collectAsStateWithLifecycle(emptyList())
     val saved by container.library.savedPlaylists.collectAsStateWithLifecycle(emptyList())
     val albums by container.library.albums.collectAsStateWithLifecycle(emptyList())
     val artists by container.library.artists.collectAsStateWithLifecycle(emptyList())
-    val history by container.library.history(200).collectAsStateWithLifecycle(emptyList())
+    val historyFlow = remember(container) { container.library.history(200) }
+    val history by historyFlow.collectAsStateWithLifecycle(emptyList())
     val kept by container.downloads.entries.collectAsStateWithLifecycle()
     val snapshots by container.snapshots.all.collectAsStateWithLifecycle()
     val online by container.online.now.collectAsStateWithLifecycle()
@@ -143,12 +157,9 @@ fun LibraryScreen() {
                 Shelf.Playlists -> {
                     val cards = buildList<@Composable () -> Unit> {
                         add {
-                            FolderCard(
-                                title = "Liked songs",
-                                detail = songCount(liked.size),
-                                artwork = liked.firstOrNull()?.artwork ?: Artwork.None,
-                                files = liked.take(3).map { FolderFile(it.title, it.artwork) },
-                                onOpen = { actions.nav.open(Route.Liked) },
+                            FolderLink(
+                                FolderPreview(LikedFolderKey, "Liked songs", songCount(liked.size), liked.firstOrNull()?.artwork ?: Artwork.None, liked.take(3).map { FolderFile(it.title, it.artwork) }),
+                                Route.Liked,
                             )
                         }
                         playlists.forEach { p ->
@@ -176,6 +187,16 @@ fun LibraryScreen() {
                             }
                         }
                         add { NewTile(onClick = { naming = true }) }
+                        add {
+                            // How far an import running in the background has got, under its key.
+                            val under = when (val b = bringing) {
+                                is app.aether.transfer.Transfer.State.Reading -> "Reading"
+                                is app.aether.transfer.Transfer.State.Finding -> if (b.total > 0) "${b.done * 100 / b.total}%" else "Finding"
+                                is app.aether.transfer.Transfer.State.Done -> "Done"
+                                else -> null
+                            }
+                            ImportTile(under, onClick = { importing = true })
+                        }
                     }
                     items(cards.chunked(2)) { pair ->
                         Row(Modifier.fillMaxWidth().padding(horizontal = Space.edge, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -240,6 +261,7 @@ fun LibraryScreen() {
             item(key = "colophon") { Colophon() }
         }
         if (naming) NameDialog("New playlist", "", onDone = { name -> naming = false; scope.launch { container.library.createPlaylist(name) } }, onDismiss = { naming = false })
+        if (importing) ImportPane(onClose = { importing = false })
     }
 }
 
@@ -249,6 +271,27 @@ private fun dayLabel(day: LocalDate): String {
         today -> "Today"
         today.minusDays(1) -> "Yesterday"
         else -> day.format(DateTimeFormatter.ofPattern("EEEE d MMMM"))
+    }
+}
+
+/** The same outline with the arrow of bringing in: playlists from a file or a link. [under] says how far one has got. */
+@Composable
+private fun ImportTile(under: String?, onClick: () -> Unit) {
+    Column(Modifier.width(168.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier.size(168.dp, 144.dp).liquidGlass(Corners.Large, GlassWeight.Control, backdrop = null).quietClick(onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                app.aether.core.designsystem.component.Icon(Glyph.Download, size = 22.dp, color = Ink.Grey)
+                Spacer(Modifier.height(10.dp))
+                Txt("Import", Type.Aside, color = Ink.Grey)
+                if (under != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Txt(under, Type.Meta, color = Ink.Dim)
+                }
+            }
+        }
     }
 }
 
@@ -281,21 +324,37 @@ internal fun PlayRow(tracks: List<Track>) {
     }
 }
 
+/** The Liked songs folder's name among the folders, so its page knows the folder that was touched. */
+internal const val LikedFolderKey = "folder:liked"
+
+/**
+ * Liked songs, as every playlist is: a sleeve, its folder open at the head (the one touched flies up
+ * to it), its keys under it, and the songs in sides, made a row a frame while the page comes in.
+ */
 @Composable
 fun LikedScreen() {
     val container = LocalContainer.current
     val actions = LocalActions.current
-    val liked by container.library.liked.collectAsStateWithLifecycle(emptyList())
+    // Null until the library has answered, so "no liked songs" never shows for a moment while it loads.
+    val loaded by container.library.liked.collectAsStateWithLifecycle(container.library.likedNow())
+    val liked = loaded.orEmpty()
+    val playback by container.playback.state.collectAsStateWithLifecycle()
+    val preview = folderPreview(LikedFolderKey)
+    val staged = rememberStagedRows()
     LazyColumn(Modifier.fillMaxSize(), state = rememberPageListState(), contentPadding = PaddingValues(bottom = 0.dp)) {
         item { BackLine() }
-        item { Txt("Liked songs", Type.Monument, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) }
-        item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Strapline(songCount(liked.size)) } }
-        if (liked.isEmpty()) item { Notice("No liked songs yet", "Tap the heart on Now Playing to keep a song here.") }
-        else {
-            item { PlayRow(liked) }
-            item { TrackList(liked, playContext = liked) }
+        item(key = "head") {
+            // As it was when touched: the folder never reloads into something else on its page.
+            val files = preview?.files ?: liked.take(3).map { FolderFile(it.title, it.artwork) }
+            SleeveHead("Liked songs", songCount(liked.size), preview?.artwork ?: liked.firstOrNull()?.artwork ?: Artwork.None, files) {
+                if (liked.isNotEmpty()) PlayRow(liked)
+            }
         }
-        item(key = "colophon") { Colophon() }
+        val n = staged.value
+        if (n <= 0 || loaded == null) return@LazyColumn
+        if (liked.isEmpty()) item { Notice("No liked songs yet", "Tap the heart on Now Playing to keep a song here.") }
+        else sleeveTracks(liked.take(n), playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "l") { i -> actions.play(liked, i) }
+        if (n == Int.MAX_VALUE) item(key = "colophon") { Colophon() }
     }
 }
 
@@ -314,12 +373,15 @@ fun LocalPlaylistScreen(id: Long) {
     val container = LocalContainer.current
     val actions = LocalActions.current
     val scope = rememberCoroutineScope()
-    val playlist by container.library.playlist(id).collectAsStateWithLifecycle(null)
-    val entries by container.library.entries(id).collectAsStateWithLifecycle(emptyList())
+    // Made once for the page (made again on every recomposition, they read the database again), and
+    // starting from what the library last read, so the page has its songs and its keys on its first frame.
+    val playlist by remember(id) { container.library.playlist(id) }.collectAsStateWithLifecycle(container.library.playlistNow(id))
+    val entries by remember(id) { container.library.entries(id) }.collectAsStateWithLifecycle(container.library.entriesNow(id).orEmpty())
     val playback by container.playback.state.collectAsStateWithLifecycle()
     var renaming by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
+    var exporting by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val p = playlist
@@ -334,9 +396,10 @@ fun LocalPlaylistScreen(id: Long) {
         if (words.isEmpty()) tracks
         else tracks.filter { t -> val hay = "${t.title} ${t.artistLine} ${t.album?.title.orEmpty()}".lowercase(); words.all { it in hay } }
     }
-    // The folder that was touched stands open at once; the list follows once it has landed.
-    val preview = actions.preview?.takeIf { it.key == "folder:local:$id" }
-    val landed = pageLanded()
+    // The folder that was touched stands open at once; the list is made a row a frame on the way, and
+    // shows once the page has landed.
+    val preview = folderPreview("folder:local:$id")
+    val staged = rememberStagedRows()
     Box(Modifier.fillMaxSize()) {
         // Searching, the page rises so the field stands near the top and what it finds has the room below,
         // with a screen's room at the foot to rise into however little is found.
@@ -392,36 +455,75 @@ fun LocalPlaylistScreen(id: Long) {
                     }
                 }
             }
-            if (!landed) return@LazyColumn
+            val n = staged.value
+            if (n <= 0) return@LazyColumn
             if (entries.size > 1 && !editing && !searching) item(key = "order") {
                 SongOrderBar(order, { container.settings.setSongOrder("local:$id", it.key.takeIf { k -> k != "own" }) }, withAdded = true, Modifier.padding(horizontal = Space.edge).padding(top = 10.dp, bottom = 30.dp))
             }
             if (entries.isEmpty()) item { Notice("No songs yet", "Hold a song anywhere and choose Add to playlist.") }
             if (searching && query.isNotBlank() && found.isEmpty()) item { Notice("Unavailable", "No song in this playlist matches \u201c${query.trim()}\u201d.") }
             if (!editing) {
-                sleeveTracks(found, playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "t") { i -> actions.play(found, i) }
+                sleeveTracks(found.take(n), playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "t") { i -> actions.play(found, i) }
             } else itemsIndexed(entries, key = { _, e -> e.entryId }) { i, e ->
+                // The row goes with the finger, read on the screen, and moves in the playlist once, where
+                // it's let go. Read on the moving row, each step was partly the row's own move: it went
+                // at half the finger's pace and shook, and jumped back at every step it was moved.
                 var dy by remember { mutableFloatStateOf(0f) }
-                Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp).graphicsLayer { translationY = dy }, verticalAlignment = Alignment.CenterVertically) {
+                var held by remember { mutableStateOf(false) }
+                var landingFrom by remember { mutableStateOf<Int?>(null) }
+                val index by rememberUpdatedState(i)
+                val count by rememberUpdatedState(entries.size)
+                var handleAt by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+                // Moved in the playlist: it's in its new place now, with nothing left to make up.
+                SideEffect { if (landingFrom != null && landingFrom != i) { landingFrom = null; dy = 0f } }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .zIndex(if (held || landingFrom != null) 1f else 0f)
+                        .padding(start = 24.dp, end = 8.dp)
+                        .graphicsLayer { translationY = dy },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(Modifier.weight(1f)) { TrackRow(e.track, onClick = { actions.play(own, i) }, onLongClick = { actions.openMenu(e.track) }, trailing = {}) }
                     IconAction(Glyph.Close, "Remove", { scope.launch { container.library.remove(id, e.entryId) } }, size = 13.dp)
                     Box(
-                        Modifier.size(40.dp).pointerInput(e.entryId) {
-                            detectVerticalDragGestures(onDragEnd = { dy = 0f }) { change, amount ->
-                                change.consume()
-                                dy += amount
-                                val step = 62.dp.toPx()
-                                if (abs(dy) > step) {
-                                    val to = (i + if (dy > 0) 1 else -1).coerceIn(0, entries.lastIndex)
-                                    scope.launch { container.library.move(id, e.entryId, to) }
-                                    dy = 0f
+                        Modifier
+                            .size(40.dp)
+                            .onGloballyPositioned { handleAt = it }
+                            .pointerInput(e.entryId) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    down.consume()
+                                    val step = 62.dp.toPx()
+                                    held = true
+                                    var lastY = handleAt?.localToWindow(down.position)?.y ?: down.position.y
+                                    while (true) {
+                                        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                        if (!change.pressed) break
+                                        change.consume()
+                                        val y = handleAt?.localToWindow(change.position)?.y ?: change.position.y
+                                        dy += y - lastY
+                                        lastY = y
+                                    }
+                                    held = false
+                                    val from = index
+                                    val to = (from + kotlin.math.round(dy / step).toInt()).coerceIn(0, count - 1)
+                                    if (to == from) {
+                                        scope.launch { androidx.compose.animation.core.animate(dy, 0f, animationSpec = Motion.snappy()) { v, _ -> dy = v } }
+                                    } else {
+                                        // Into the gap it was let go over; the playlist then takes it there.
+                                        dy = (to - from) * step
+                                        landingFrom = from
+                                        scope.launch { container.library.move(id, e.entryId, to) }
+                                    }
                                 }
-                            }
-                        },
+                            },
                         contentAlignment = Alignment.Center,
                     ) { Txt("≡", Type.Title, color = Ink.Dim) }
                 }
             }
+            // The foot, once every row may be made.
+            if (n != Int.MAX_VALUE) return@LazyColumn
             if (tracks.isNotEmpty()) item(key = "label") { SleeveLabel(tracks.first().artwork, p.title, "Kept by you", tracks) }
             item(key = "colophon") { Colophon() }
         }
@@ -429,9 +531,11 @@ fun LocalPlaylistScreen(id: Long) {
             entries = listOfNotNull(
                 PageAction(Glyph.Edit, "Rename") { renaming = true },
                 if (tracks.isNotEmpty()) PageAction(if (editing) Glyph.Check else Glyph.Queue, if (editing) "Done editing" else "Edit songs") { editing = !editing; searching = false; query = "" } else null,
+                PageAction(Glyph.Share, "Export") { exporting = true },
                 PageAction(Glyph.Trash, "Delete") { deleting = true },
             ),
         )
+        if (exporting && p != null) ExportPane(id, p.title, onClose = { exporting = false })
         if (renaming && p != null) NameDialog("Rename", p.title, onDone = { name -> renaming = false; scope.launch { container.library.editPlaylist(id, name, p.description) } }, onDismiss = { renaming = false })
         if (deleting && p != null) ConfirmDialog(
             title = "Delete \u201c${p.title}\u201d?",

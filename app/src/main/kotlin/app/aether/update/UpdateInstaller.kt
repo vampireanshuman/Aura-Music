@@ -77,7 +77,7 @@ internal class PackageUpdateInstaller(context: Context) : UpdateInstaller {
         }
         val id = installer.createSession(params)
         installer.openSession(id).use { session ->
-            session.openWrite("aura.apk", 0, file.length()).use { out ->
+            session.openWrite("aether.apk", 0, file.length()).use { out ->
                 file.inputStream().use { it.copyTo(out, 64 * 1024) }
                 session.fsync(out)
             }

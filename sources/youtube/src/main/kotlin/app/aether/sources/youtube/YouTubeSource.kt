@@ -1,5 +1,6 @@
 package app.aether.sources.youtube
 
+import app.aether.ytmusic.YtResult
 import app.aether.core.model.AlbumPage
 import app.aether.core.model.VideoStream
 import app.aether.core.model.ArtistPage
@@ -76,7 +77,14 @@ class YouTubeSource(
 
     override suspend fun browseMore(token: PageToken): Outcome<Feed> = yt.browseMore(token.toContinuation()).toOutcome { it.toFeed() }
 
-    override suspend fun album(id: MediaId): Outcome<AlbumPage> = yt.album(id.key).toOutcome { it.toAlbumPage(id.key) }
+    /** Albums filed by their music videos are played as their songs, where the songs can be found ([SongVersions]). */
+    private val versions = SongVersions(yt)
+
+    override suspend fun album(id: MediaId): Outcome<AlbumPage> {
+        val page = yt.album(id.key)
+        val album = (page as? YtResult.Success)?.value ?: return page.toOutcome { it.toAlbumPage(id.key) }
+        return YtResult.Success(versions.songsOf(album)).toOutcome { it.toAlbumPage(id.key) }
+    }
 
     override suspend fun artist(id: MediaId): Outcome<ArtistPage> = yt.artist(id.key).toOutcome { it.toArtistPage(id.key) }
 
@@ -108,6 +116,13 @@ class YouTubeSource(
 
     override suspend fun searchMore(query: String, token: PageToken): Outcome<Page<MediaEntity>> =
         yt.searchMore(query, token.toContinuation()).toOutcome { p -> Page(p.items.map { it.toEntity() }, p.continuation?.toToken()) }
+
+    override suspend fun searchSongs(query: String, token: PageToken?): Outcome<Page<Track>> =
+        if (token == null) {
+            yt.searchSongs(query).toOutcome { p -> Page(p.items.mapNotNull { it.toEntity() as? Track }, p.continuation?.toToken()) }
+        } else {
+            yt.searchSongsMore(query, token.toContinuation()).toOutcome { p -> Page(p.items.mapNotNull { it.toEntity() as? Track }, p.continuation?.toToken()) }
+        }
 
     override suspend fun suggestions(input: String): Outcome<Suggestions> = yt.suggestions(input).toOutcome { it.toSuggestions() }
 

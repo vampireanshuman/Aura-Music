@@ -114,6 +114,13 @@ interface MusicSource {
 
     suspend fun search(query: String, filter: SearchFilter? = null): Outcome<SearchResults> = unsupported()
     suspend fun searchMore(query: String, token: PageToken): Outcome<Page<MediaEntity>> = unsupported()
+
+    /**
+     * Songs alone for [query], a page at a time ([token], from the page before, for the next): what a
+     * search for songs gives, where the mixed results hold only a few. Search lists them first, and an
+     * import finds a file's songs with it.
+     */
+    suspend fun searchSongs(query: String, token: PageToken? = null): Outcome<Page<Track>> = unsupported()
     suspend fun suggestions(input: String): Outcome<Suggestions> = unsupported()
 
     /** What follows [track]: its radio, or its playlist from where it sits. */

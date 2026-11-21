@@ -153,7 +153,7 @@ fun Onboarding(onDone: () -> Unit, modifier: Modifier = Modifier) {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Txt(
-                    "Aura",
+                    "Aether",
                     MastheadStyle,
                     modifier = Modifier
                         .onGloballyPositioned { arrival.masthead = it.boundsInRoot() }

@@ -194,6 +194,8 @@ internal fun Verse(
     playing: Boolean,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    /** Whether the page is following the song (true) or being read by hand (false). */
+    onFollowing: (Boolean) -> Unit = {},
 ) {
     val reduce = LocalReduceMotion.current
     val rows = remember(lines) { VLine.of(lines) }
@@ -221,6 +223,7 @@ internal fun Verse(
     var browsing by remember(rows) { mutableStateOf(false) }
     var placed by remember(rows) { mutableStateOf(false) }
 
+    LaunchedEffect(browsing) { onFollowing(!browsing) }
     // A finger on the page suspends the following, and nothing else.
     LaunchedEffect(list) {
         list.interactionSource.interactions.collect { if (it is DragInteraction.Start) browsing = true }

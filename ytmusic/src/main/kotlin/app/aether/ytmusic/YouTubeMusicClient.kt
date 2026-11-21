@@ -7,7 +7,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import java.io.IOException
 import java.net.URLEncoder
@@ -93,6 +95,13 @@ internal class YouTubeMusicClient(
                 put("enablePersistentPlaylistPanel", true)
             }
         }
+
+    /**
+     * Songs by their ids, as a queue takes them in (YouTube Music's own "add to queue"): each with its
+     * length, which a search's mixed answer gives only to its top result's songs.
+     */
+    suspend fun queue(videoIds: List<String>): YtResult<JsonObject> =
+        call("music/get_queue", null) { putJsonArray("videoIds") { videoIds.forEach { add(it) } } }
 
     suspend fun like(videoId: String, liked: Boolean): YtResult<JsonObject> =
         call(if (liked) "like/like" else "like/removelike", null) {

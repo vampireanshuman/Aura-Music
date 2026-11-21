@@ -218,8 +218,8 @@ class KeptFiles internal constructor(private val context: Context) {
     }
 
     companion object {
-        /** Where kept songs go: the Music folder's own, for Aura. */
-        const val FOLDER = "Music/Aura"
+        /** Where kept songs go: the Music folder's own, for AETHER. */
+        const val FOLDER = "Music/AETHER"
         private val ILLEGAL = Regex("""[\\/:*?"<>|\x00-\x1F]""")
         private val SPACES = Regex("""\s+""")
     }
