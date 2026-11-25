@@ -38,6 +38,9 @@ import java.util.concurrent.Executors
 object CastController {
     private const val TAG = "AETHER cast"
 
+    /** How long after a session ends the phone's route is put back: past the router's own fallback. */
+    private const val RESTORE_AFTER_MS = 400L
+
     data class Device(
         val id: String,
         val name: String,
@@ -85,6 +88,9 @@ object CastController {
         _handoffs.tryEmit(Unit)
     }
 
+    /** Debug builds (`--es aether.preview handoff`): the handoff's wave on its own, with no TV, to be looked at. */
+    fun previewHandoff() = handedOver()
+
     private var castContext: CastContext? = null
     private var router: MediaRouter? = null
     private var selector: MediaRouteSelector? = null
@@ -93,6 +99,9 @@ object CastController {
 
     /** The session whose volume is being followed, so it can be let go of. */
     private var watched: CastSession? = null
+
+    /** Where the phone's own sound went before a TV took it (the headphones' route, say): it goes back there. */
+    private var beforeCast: String? = null
 
     private val volumeListener = object : Cast.Listener() {
         override fun onVolumeChanged() {
@@ -120,6 +129,8 @@ object CastController {
             update { it.copy(connecting = false, connectedName = null) }
             playback?.onSessionEnded(error)
             publishDevices()
+            // After the router's own choice of where sound goes now, which this has to come after.
+            main.postDelayed(::restoreRoute, RESTORE_AFTER_MS)
         }
 
         override fun onSessionResuming(session: CastSession, sessionId: String) = update { it.copy(connecting = true) }
@@ -208,7 +219,30 @@ object CastController {
         val router = router ?: return
         val route = router.routes.firstOrNull { it.id == deviceId } ?: return
         update { it.copy(connecting = true) }
+        // The phone's own route, before the TV's is chosen: Bluetooth headphones, the speaker, a wired pair.
+        router.selectedRoute.takeIf { it.isSystemRoute }?.let { beforeCast = it.id }
         router.selectRoute(route)
+    }
+
+    /**
+     * Puts the phone's own sound back where it was before the TV. Ending a session, the router falls
+     * back to a route of the phone's own, and on newer Android that's the phone itself even with
+     * Bluetooth headphones connected: the music came back on the speaker, and Android held media there,
+     * so headphones switched off and on again stuttered until the app was restarted. The route chosen
+     * before is chosen again where it's still there; failing that, Bluetooth's, where there is one.
+     */
+    private fun restoreRoute() {
+        val router = router ?: return
+        val before = beforeCast
+        beforeCast = null
+        // A TV again by now (the listener chose another): nothing to put back.
+        if (session() != null) return
+        val selected = router.selectedRoute
+        val wanted = before?.let { id -> router.routes.firstOrNull { it.id == id && it.isEnabled && it.isSystemRoute } }
+            ?: router.bluetoothRoute?.takeIf { it.isEnabled && selected.isDeviceSpeaker }
+            ?: return
+        Log.i(TAG, "after the TV: ${selected.name} (bluetooth=${selected.isBluetooth}, speaker=${selected.isDeviceSpeaker}); back to ${wanted.name}")
+        if (wanted.id != selected.id) router.selectRoute(wanted)
     }
 
     /**

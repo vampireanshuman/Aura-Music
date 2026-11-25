@@ -77,9 +77,13 @@ class CastStreamServer private constructor(
         if (session.method != Method.GET && session.method != Method.HEAD) {
             return newFixedLengthResponse(Response.Status.METHOD_NOT_ALLOWED, MIME_PLAINTEXT, "Method not allowed")
         }
-        val factory = DefaultDataSource.Factory(
-            context,
-            OkHttpDataSource.Factory(Call.Factory { request -> http.newCall(request) }).setDefaultRequestProperties(source.headers),
+        // In bounded ranges, so the TV is sent the song at the line's speed (asked for whole, googlevideo
+        // sends it at about playback speed).
+        val factory = app.aether.player.ChunkedDataSource.Factory(
+            DefaultDataSource.Factory(
+                context,
+                OkHttpDataSource.Factory(Call.Factory { request -> http.newCall(request) }).setDefaultRequestProperties(source.headers),
+            ),
         )
         val spec = DataSpec.Builder().setUri(source.uri).build()
         var input: DataSourceInputStream? = null

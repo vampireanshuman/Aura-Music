@@ -118,6 +118,7 @@ fun LyricsStage(track: Track, pane: DragState, following: androidx.compose.runti
     val playback by container.playback.state.collectAsStateWithLifecycle()
     val style by container.settings.lyricsStyle.collectAsStateWithLifecycle()
     val romanise by container.settings.romanise.collectAsStateWithLifecycle()
+    val latinFirst by container.settings.latinFirst.collectAsStateWithLifecycle()
     val asLine = style == 1
     val asVerse = style == 2
     val positionNow = remember(container) { { container.playback.positionNow() } }
@@ -152,6 +153,7 @@ fun LyricsStage(track: Track, pane: DragState, following: androidx.compose.runti
                         playback.isPlaying,
                         onSeek = { container.playback.seekTo(it) },
                         onFollowing = { following.value = it },
+                        latinFirst = latinFirst,
                         modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility).padding(top = 44.dp),
                     )
                     // The page goes into the black under the song's name and above its credit, as a page under glass.

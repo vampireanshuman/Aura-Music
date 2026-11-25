@@ -110,6 +110,8 @@ fun SongFilm(slot: FilmSlot, playing: Boolean, onGone: () -> Unit, fade: FilmFad
         if (slot.leaving) onGone()
     }
     val showing by remember { derivedStateOf { slot.up.value > 0.002f } }
+    // The fade round the dial, grained so it falls off without bands (Android 13 on; the stops before).
+    val ringFade = rememberRingFade()
     val film = url
     if (film != null && begun && !gaveUp && (on || showing)) {
         Box(
@@ -123,7 +125,7 @@ fun SongFilm(slot: FilmSlot, playing: Boolean, onGone: () -> Unit, fade: FilmFad
                     val outer = fade.full.toPx()
                     val start = fade.gone.toPx() / outer
                     val span = 1f - start
-                    val rings = Brush.radialGradient(
+                    val rings = ringFade?.at(size.width / 2f, fade.pivotY.toPx(), fade.gone.toPx(), outer) ?: Brush.radialGradient(
                         0f to Color.Transparent,
                         start to Color.Transparent,
                         start + span * 0.25f to Color.Black.copy(alpha = 0.12f),

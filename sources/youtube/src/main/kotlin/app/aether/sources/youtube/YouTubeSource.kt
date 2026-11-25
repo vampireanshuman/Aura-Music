@@ -1,6 +1,8 @@
 package app.aether.sources.youtube
 
 import app.aether.ytmusic.YtResult
+import app.aether.core.model.AccountEntry
+import app.aether.core.model.AccountPlaylist
 import app.aether.core.model.AlbumPage
 import app.aether.core.model.VideoStream
 import app.aether.core.model.ArtistPage
@@ -107,6 +109,41 @@ class YouTubeSource(
     }
 
     override suspend fun playlist(id: MediaId): Outcome<PlaylistPage> = yt.playlist(id.key).toOutcome { it.toPlaylistPage(id.key) }
+
+    // --- The listener's own account, changed ----------------------------------------------------------
+
+    override suspend fun accountPlaylist(id: MediaId): Outcome<AccountPlaylist> =
+        yt.playlistWhole(id.key).toOutcome { c ->
+            val page = c.toPlaylistPage(id.key.removePrefix("VL"))
+            AccountPlaylist(page.playlist, c.tracks.zip(page.tracks) { song, track -> AccountEntry(track, song.setVideoId) }, c.editable)
+        }
+
+    override suspend fun createAccountPlaylist(title: String, description: String?, tracks: List<Track>): Outcome<MediaId> =
+        yt.createPlaylist(title, description, tracks.videoIds()).toOutcome { id(it) }
+
+    override suspend fun addToAccountPlaylist(id: MediaId, tracks: List<Track>): Outcome<Unit> {
+        val ids = tracks.videoIds()
+        return if (ids.isEmpty()) Outcome.Ok(Unit) else yt.addToPlaylist(id.key, ids).toOutcome { }
+    }
+
+    override suspend fun removeFromAccountPlaylist(id: MediaId, entries: List<AccountEntry>): Outcome<Unit> {
+        // Without its own id there, an entry can't be named to the account: none is taken out on a guess.
+        val named = entries.filter { it.track.id.source == SOURCE }.map { e -> e.track.id.key to (e.entryId ?: return Outcome.Err(SourceError.NotFound("entry"))) }
+        return if (named.isEmpty()) Outcome.Ok(Unit) else yt.removeFromPlaylist(id.key, named).toOutcome { }
+    }
+
+    override suspend fun renameAccountPlaylist(id: MediaId, title: String): Outcome<Unit> = yt.renamePlaylist(id.key, title).toOutcome { }
+
+    override suspend fun deleteAccountPlaylist(id: MediaId): Outcome<Unit> = yt.deletePlaylist(id.key).toOutcome { }
+
+    override suspend fun accountLiked(): Outcome<List<Track>> =
+        yt.playlistWhole(YouTubeMusic.LIKED_PLAYLIST).toOutcome { c -> c.tracks.map { it.toTrack() } }
+
+    override suspend fun setAccountLiked(track: Track, liked: Boolean): Outcome<Unit> =
+        if (track.id.source != SOURCE) Outcome.Err(SourceError.Unsupported) else yt.like(track.id.key, liked).toOutcome { }
+
+    /** The songs of [this] that are YouTube Music's, each once. */
+    private fun List<Track>.videoIds(): List<String> = filter { it.id.source == SOURCE }.map { it.id.key }.distinct()
 
     override suspend fun tracksMore(token: PageToken): Outcome<Page<Track>> =
         yt.tracksMore(token.toContinuation()).toOutcome { p -> Page(p.items.map { it.toTrack() }, p.continuation?.toToken()) }

@@ -1,5 +1,7 @@
 package app.aether.ytmusic
 
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -174,6 +176,59 @@ class YouTubeMusic(
 
     suspend fun like(videoId: String, liked: Boolean): YtResult<Unit> = client.like(videoId, liked).map { }
 
+    // --- Changing the account's own playlists -----------------------------------------------------------
+
+    /**
+     * A playlist whole: every page of it. Fails rather than answer with part of it, since a page missing
+     * would read as songs taken out of it.
+     */
+    suspend fun playlistWhole(playlistId: String): YtResult<Collection> {
+        val first = playlist(playlistId)
+        val collection = (first as? YtResult.Success)?.value ?: return first
+        val all = collection.tracks.toMutableList()
+        var next = collection.continuation
+        var pages = 0
+        while (next != null) {
+            if (pages++ >= MAX_PAGES) return YtResult.Failure(YtError.Server(null))
+            when (val more = tracksMore(next)) {
+                is YtResult.Success -> { all += more.value.items; next = more.value.continuation }
+                is YtResult.Failure -> return more
+            }
+        }
+        return YtResult.Success(collection.copy(tracks = all, continuation = null))
+    }
+
+    /** A private playlist in the account holding [videoIds]: its id. */
+    suspend fun createPlaylist(title: String, description: String?, videoIds: List<String>): YtResult<String> =
+        client.createPlaylist(title, description, PRIVATE, videoIds).flatMap { parser.createdPlaylist(it).orUnreadable() }
+
+    /** Adds [videoIds] at the end of [playlistId], none that it holds already. */
+    suspend fun addToPlaylist(playlistId: String, videoIds: List<String>): YtResult<Unit> =
+        edit(playlistId, videoIds.map { v -> action("ACTION_ADD_VIDEO") { put("addedVideoId", v); put("dedupeOption", "DEDUPE_OPTION_SKIP") } })
+
+    /** Takes entries out of [playlistId]: each a song's video id and its entry's own id there. */
+    suspend fun removeFromPlaylist(playlistId: String, entries: List<Pair<String, String>>): YtResult<Unit> =
+        edit(playlistId, entries.map { (v, set) -> action("ACTION_REMOVE_VIDEO") { put("removedVideoId", v); put("setVideoId", set) } })
+
+    suspend fun renamePlaylist(playlistId: String, title: String): YtResult<Unit> =
+        edit(playlistId, listOf(action("ACTION_SET_PLAYLIST_NAME") { put("playlistName", title) }))
+
+    suspend fun deletePlaylist(playlistId: String): YtResult<Unit> = client.deletePlaylist(playlistId.removePrefix("VL")).map { }
+
+    private suspend fun edit(playlistId: String, actions: List<JsonObject>): YtResult<Unit> {
+        // A hundred changes at a time, as the page's own editor sends a long list of them.
+        for (chunk in actions.chunked(EDITS_AT_ONCE)) {
+            when (val r = client.editPlaylist(playlistId.removePrefix("VL"), chunk)) {
+                is YtResult.Failure -> return r
+                is YtResult.Success -> if (!parser.edited(r.value)) return YtResult.Failure(YtError.Server(null))
+            }
+        }
+        return YtResult.Success(Unit)
+    }
+
+    private fun action(name: String, fields: JsonObjectBuilder.() -> Unit): JsonObject =
+        buildJsonObject { put("action", name); fields() }
+
     companion object {
         /** Songs asked of one queue at once: a search's leftovers are fewer; an album's are not. */
         private const val QUEUE_AT_ONCE = 50
@@ -192,6 +247,15 @@ class YouTubeMusic(
         const val LIBRARY_ARTISTS = "FEmusic_library_corpus_track_artists"
         const val LIBRARY_SONGS = "FEmusic_liked_videos"
         const val LIKED_PLAYLIST = "LM"
+
+        /** Playlists sync makes are the listener's alone. */
+        private const val PRIVATE = "PRIVATE"
+
+        /** How many changes go in one edit. */
+        private const val EDITS_AT_ONCE = 100
+
+        /** Pages of a playlist read whole before giving up: about ten thousand songs. */
+        private const val MAX_PAGES = 100
 
         /** The desktop browser the music page is asked as (its pages differ by browser). */
         const val DESKTOP_USER_AGENT =

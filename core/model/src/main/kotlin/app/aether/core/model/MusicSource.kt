@@ -107,6 +107,29 @@ interface MusicSource {
     /** The playlists in the signed-in listener's own library on the service, every one of them. */
     suspend fun accountPlaylists(): Outcome<List<Playlist>> = unsupported()
 
+    // The listener's own account, changed: what keeping a playlist in step with it takes.
+
+    /** The account's playlist [id], every page of it, each song with its own id there. */
+    suspend fun accountPlaylist(id: MediaId): Outcome<AccountPlaylist> = unsupported()
+
+    /** Makes a private playlist in the account, holding those of [tracks] the source has: its id. */
+    suspend fun createAccountPlaylist(title: String, description: String?, tracks: List<Track>): Outcome<MediaId> = unsupported()
+
+    /** Adds [tracks] at the end of the account's playlist [id], none of them twice. */
+    suspend fun addToAccountPlaylist(id: MediaId, tracks: List<Track>): Outcome<Unit> = unsupported()
+
+    /** Takes [entries] (as [accountPlaylist] gave them) out of the account's playlist [id]. */
+    suspend fun removeFromAccountPlaylist(id: MediaId, entries: List<AccountEntry>): Outcome<Unit> = unsupported()
+
+    suspend fun renameAccountPlaylist(id: MediaId, title: String): Outcome<Unit> = unsupported()
+
+    suspend fun deleteAccountPlaylist(id: MediaId): Outcome<Unit> = unsupported()
+
+    /** Every song the account has liked, most recent first. */
+    suspend fun accountLiked(): Outcome<List<Track>> = unsupported()
+
+    suspend fun setAccountLiked(track: Track, liked: Boolean): Outcome<Unit> = unsupported()
+
     suspend fun album(id: MediaId): Outcome<AlbumPage> = unsupported()
     suspend fun artist(id: MediaId): Outcome<ArtistPage> = unsupported()
     suspend fun playlist(id: MediaId): Outcome<PlaylistPage> = unsupported()

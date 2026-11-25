@@ -194,6 +194,9 @@ class Actions(
     /** The open page's menu, drawn by the shell in the top corner above the frost, as the back key is. */
     val corner = app.aether.ui.common.PageCorner()
 
+    /** The menu a key on a page opened (a list's orders): drawn by the shell, above the frost and the dock. */
+    val choices = app.aether.ui.common.Choices()
+
     /**
      * Opens a folder's page: the page grows out of the folder in [slot] and the folder flies to its head,
      * standing open while the list loads. With no place to grow from (reduced motion), it slides in
@@ -209,6 +212,7 @@ class Actions(
      * player folds back into the mini player while the page slides in.
      */
     fun go(route: Route) {
+        choices.close()
         if (menu.visible) menu.hide()
         if (player.visible) player.hide()
         nav.open(route)
@@ -339,8 +343,18 @@ fun Shell() {
     LaunchedEffect(automixing) { if (automixing) keep.note("Automixing") }
     // What the TV has to say ("The TV couldn't play this one"), said as every note is.
     LaunchedEffect(Unit) { app.aether.player.cast.CastController.notes.collect { keep.note(it) } }
+    // A playlist that can't be kept in step with YouTube Music any more, and why.
+    LaunchedEffect(Unit) { container.playlistSync.notes.collect { keep.note(it) } }
     LaunchedEffect(Unit) { app.aether.player.cast.CastController.handoffs.collect { handoff.play(keep.screen, keep.density, keep.reduce) } }
     LaunchedEffect(playback.hasMedia) { if (!playback.hasMedia) player.hide() }
+    // Opened from the home-screen widget: on Now Playing, once there's a song to show.
+    val nowPlayingAsked by app.aether.MainActivity.NowPlayingAsked.collectAsStateWithLifecycle()
+    LaunchedEffect(nowPlayingAsked, playback.hasMedia) {
+        if (nowPlayingAsked && playback.hasMedia) {
+            player.show()
+            app.aether.MainActivity.NowPlayingAsked.value = false
+        }
+    }
     // Every new page starts with the dock open.
     LaunchedEffect(nav.current) { dock.unfold() }
 
@@ -443,6 +457,9 @@ fun Shell() {
                         Box(Modifier.fillMaxSize().placedWhile { !dockUnderPlayer }) {
                             Dock(nav, playback, player, dock, grows)
                         }
+                        // Now Playing rising puts a menu away; over the dock, so a touch on it only closes the menu.
+                        LaunchedEffect(player.visible) { if (player.visible) actions.choices.close() }
+                        app.aether.ui.common.ChoiceMenu(actions.choices, footRoom = 170.dp)
                     }
                     // Now Playing stays made once there's a song, and stays in the picture, shut to nothing
                     // while it's down: not drawn, not touchable, and not let go. Taken out of the picture,

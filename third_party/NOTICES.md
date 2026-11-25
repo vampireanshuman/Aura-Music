@@ -44,5 +44,23 @@
   screen to play a cover's film.
 - **Moving covers from the community** (`sources/canvas`): the community's index of looping covers, asked as BitChord
   and LastWave ask it. The films are the community's and the artists', fetched at run time and not part of AETHER.
+- **The sound path** (`player/.../audio`): BitChord's `PrecisionAudioSink`, `AudioOutputPolicy` and the half of its
+  `AudioRouting` that says where music goes (GPL-3.0); its `DirectAudioProbe`, `BitPerfectRoutingSink`,
+  `BitPerfectAudioSink`, `BitPerfectOutput` and `BitPerfectTransport` (Copyright 2026 BitChord Project, Apache License 2.0);
+  and its `MixerTransport` and `BitPerfectPcm`, which BitChord adapted from Mornye (github.com/mornyeapp/Mornye,
+  Copyright 2026 zarzet, LGPL-3.0-only). Each file keeps its notice; their tests came with them.
+- **Apple Lossless** (`player/src/main/java/org/nift4/alacdecoder`, `com/beatofthedrum/alacdecoder`): Gramophone's
+  `AlacRenderer` and `AlacDecoder` (github.com/FoedusProgramme/Gramophone, Copyright 2025 nift4, GPL-3.0) over Peter
+  McQuillan's Java ALAC decoder, after David Hammerton's (BSD-3-Clause, notice in each file), unchanged.
+- **ReplayGain** (`player/.../audio/ReplayGain.kt`): Gramophone's `ReplayGainUtil` and the gain of its
+  `ReplayGainAudioProcessor` (Copyright 2024 nift4, GPL-3.0).
+- **Home-screen widgets** (`app/.../widget`, `player/.../WidgetState.kt`): after BitChord's `MediaWidget`,
+  `MediaWidgetActions`, `MediaWidgetArt` and `MediaWidgetSnapshot` (GPL-3.0), noted at the head of each file.
+- **Songs fetched in bounded ranges** (`player/.../ChunkedDataSource.kt`): BitChord's `ChunkedDataSource` and
+  `PlayerClient.rangeBytesFor` (GPL-3.0), noted at the head of the file.
+- **The light behind Now Playing** (`app/.../ui/player/Ambient.kt`, `core/designsystem/.../art/AmbientColors.kt`,
+  `PaletteQuantizer.kt`): BitChord's `MeshGradientBackground` and its four colours from a cover (`MeshGradient.kt`,
+  GPL-3.0), and its port of androidx Palette's colour cut (`PaletteQuantizer.kt`; Palette is the Android Open Source
+  Project's, Apache License 2.0). What AETHER changed is noted at the head of each file.
 - **Sleep timer, moving songs in Up Next, and the songs that keep the music going**: from BitChord (`SleepTimer.kt`,
   `PlayerQueue.kt`, `QueueBuilder.kt`; GPL-3.0), in `player/.../SleepTimer.kt`, Now Playing's Up Next and `Station.kt`.

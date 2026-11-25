@@ -26,6 +26,11 @@ import app.aether.player.cast.CastController
 import app.aether.player.cast.CastMime
 import app.aether.player.cast.CastPlayback
 import app.aether.player.cast.CastSource
+import app.aether.player.audio.DspChain
+import app.aether.player.audio.OutputRoute
+import app.aether.player.audio.ReplayGainProcessor
+import app.aether.player.audio.ReplayGainUtil
+import app.aether.player.audio.bitperfect.BitPerfectOutput
 import app.aether.player.automix.TransitionFilterProcessor
 import app.aether.player.automix.TransitionFilters
 import androidx.media3.exoplayer.ExoPlayer
@@ -82,6 +87,9 @@ interface PlaybackEnvironment {
     /** A song as AETHER knows it in full (kept on the phone, say), to mend a saved queue that lost its details. */
     fun knownTrack(id: MediaId): Track? = null
     val queueStore: QueueStore
+
+    /** What the home-screen widgets show has changed ([WidgetState] has the new answer): redraw them. */
+    fun widgetsChanged() = Unit
     val recorder: PlayRecorder
     val http: OkHttpClient
 
@@ -93,6 +101,12 @@ interface PlaybackEnvironment {
 
     /** Automix: songs measured and mixed into each other (BitChord's). */
     val automix: StateFlow<Boolean> get() = AutomixOff
+
+    /** ReplayGain (Gramophone's): 0 off, 1 by song, 2 by album. */
+    val replayGain: StateFlow<Int> get() = ReplayGainOff
+
+    /** Lossless songs to a USB DAC untouched (BitChord's Android 14 bit-perfect output): the listener's choice. */
+    val bitPerfect: StateFlow<Boolean> get() = AutomixOff
 
     /** What the song's own catalogue would play after [track] (its radio); empty when it has nothing. */
     suspend fun suggestionsAfter(track: Track): List<Track> = emptyList()
@@ -122,8 +136,15 @@ interface PlaybackEnvironment {
  * - Streams resolve when the player first reads an item (`aether://track/<id>`), never earlier, so
  *   an address can't expire waiting in the queue. A stream refused mid-song is resolved afresh
  *   once and picks up where it stopped.
- * - Audio leaves the decoder as float where the device takes it: nothing above 16 bits is cut,
- *   nothing is resampled here. With no tuning chosen, the equaliser passes every sample through.
+ * - Every decoded format goes through BitChord's precision sink: the equaliser, Automix's filters,
+ *   ReplayGain and the meter run in float on 16-bit, 24-bit and float audio alike, and with nothing
+ *   switched on every sample leaves as it came. What leaves is float where the route takes it (a DAC,
+ *   headphones that say so) and 16-bit on the phone's own speaker (BitChord's rule); a decoder is
+ *   asked for float only where a float track will open. Nothing is resampled here.
+ * - FLAC goes to Android's own decoder, never Samsung's, which garbled 16-bit FLAC asked for float
+ *   (issues #15, #16); Apple Lossless to Gramophone's decoder, ahead of any the phone has.
+ * - With the listener's setting and a USB DAC, a lossless song goes to it untouched (BitChord's
+ *   Android 14 bit-perfect output), past everything above.
  * - The queue is written on every change and restored on a cold start, paused where it was.
  * - A song counts as played after 30 s, or half of it if shorter. Nothing else is recorded.
  * - The queue never runs out by surprise (BitChord's AutoPlay): ten songs are kept waiting after the
@@ -146,13 +167,14 @@ class PlaybackService : MediaLibraryService() {
 
     /**
      * One of the engine's two players with the sound path it was built with: its own equaliser,
-     * meter and Automix filter go where it goes.
+     * meter, Automix filter and ReplayGain go where it goes.
      */
     private class Peer(
         val player: ExoPlayer,
         val equaliser: EqualiserProcessor,
         val meter: AudioMeter,
         val filter: TransitionFilterProcessor,
+        val replayGain: ReplayGainProcessor,
     )
 
     /** The session's player: everything the listener sees and hears is from it, but a blend's other half. */
@@ -168,15 +190,20 @@ class PlaybackService : MediaLibraryService() {
     private var retried: Triple<String, Int, Long>? = null
     private var counted: String? = null
 
-    /** The bit-perfect route watcher (Android 14 and later); typed loosely so older phones never load it. */
-    private var bitPerfect: Any? = null
+    /** What the bit-perfect output (BitChord's) last said: the DAC and whether a song is going to it untouched. */
     private var route = Route(null, false)
+
+    /** Where the music is going, and so whether a float track is real there (BitChord's output policy). */
+    private lateinit var output: OutputRoute
 
     /** Crossfade's second player hears through an equaliser of its own, kept in step with the first's. */
     private val helperEqualiser = EqualiserProcessor()
 
     /** Its loudness, measured only while a copy is being lined up with its song by its sound. */
     private val helperMeter = AudioMeter()
+
+    /** And its ReplayGain, so a carried copy is levelled as its song is. */
+    private val helperReplayGain = ReplayGainProcessor()
     private lateinit var audio: CacheDataSource.Factory
     private lateinit var chosen: ChosenSources
     private lateinit var crossfader: Crossfader
@@ -191,12 +218,13 @@ class PlaybackService : MediaLibraryService() {
     private lateinit var analyzer: TrackAnalyzer
     private lateinit var automixAudio: AutomixAudio
 
-    /** The last lead a filter was measured at, standing in while the other's can't be (see [leadMs]). */
-    private var lastLeadMs = 0L
-
     override fun onCreate() {
         super.onCreate()
         env = application as PlaybackEnvironment
+        output = OutputRoute(this).also { it.start() }
+        // Lossless songs to a USB DAC untouched, while the listener has asked for it (BitChord's).
+        BitPerfectOutput.enabled = { env.bitPerfect.value }
+        BitPerfectOutput.watch(this)
         // Kept songs play from the phone; everything else streams (and is never written to the keep).
         audio = CacheDataSource.Factory()
             .setCache(AudioStore.cache(this))
@@ -217,7 +245,7 @@ class PlaybackService : MediaLibraryService() {
             // Bit-perfect, the mixer takes one stream through untouched: two songs at once aren't that.
             // And the sleep timer due at this song's end: there's no next song to run into (BitChord's).
             // And a TV playing: it plays one song at a time, from this phone, with no second player to mix in.
-            blocked = { route.bitPerfect || SleepTimer.afterTrack.value || cast.active },
+            blocked = { BitPerfectOutput.ready.value || SleepTimer.afterTrack.value || cast.active },
             onCarrying = ::onCarrying,
             onCarryEnded = ::onCarryEnded,
             soundAlignment = { SoundAlignment(active.meter, helperMeter) },
@@ -231,20 +259,31 @@ class PlaybackService : MediaLibraryService() {
         session = MediaLibrarySession.Builder(this, SessionPlayer(player, cast), Callback())
             .apply { env.sessionActivity()?.let { setSessionActivity(it) } }
             .build()
+        publishWidget()
         CastController.ensureStarted(this)
         CastController.attach(cast)
-        if (Build.VERSION.SDK_INT >= 34) {
-            bitPerfect = BitPerfect(this, { player }) { now ->
-                route = now
+        scope.launch {
+            // Bit-perfect only where the song reached the DAC as it is: BitChord's own measure of it.
+            BitPerfectOutput.status.collect { status ->
+                route = Route(status.deviceName.takeIf { status.active }, status.active && status.exact)
                 reportRoute()
-            }.also { it.start() }
+            }
         }
+        scope.launch { env.bitPerfect.collect { BitPerfectOutput.refreshReady(this@PlaybackService) } }
         scope.launch {
             env.equaliser.collect {
                 active.equaliser.update(it)
                 spare?.equaliser?.update(it)
                 helperEqualiser.update(it)
                 reportRoute()
+            }
+        }
+        scope.launch {
+            env.replayGain.collect {
+                val mode = replayGainMode(it)
+                active.replayGain.setMode(mode)
+                spare?.replayGain?.setMode(mode)
+                helperReplayGain.setMode(mode)
             }
         }
         // Automix on, it does every song's ending (a plain crossfade where a pair can't be mixed) and
@@ -262,11 +301,14 @@ class PlaybackService : MediaLibraryService() {
         scope.launch { countPlays() }
     }
 
-    /** Samples an equaliser has changed aren't the file's, whatever the path does with them afterwards. */
+    /**
+     * The bit-perfect output takes a song past the equaliser and everything else that changes samples, so
+     * what it says is what reached the DAC (BitChord's status, exact only while no sample was rounded).
+     */
     private fun reportRoute() {
         session?.setSessionExtras(Bundle().apply {
             putString(EXTRA_OUTPUT, route.device)
-            putBoolean(EXTRA_BIT_PERFECT, route.bitPerfect && !active.equaliser.shaping)
+            putBoolean(EXTRA_BIT_PERFECT, route.bitPerfect)
             carried?.let { putBundle(EXTRA_CARRIED, it.toBundle()) }
         })
     }
@@ -348,8 +390,9 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
-        if (Build.VERSION.SDK_INT >= 34) (bitPerfect as? BitPerfect)?.stop()
+        output.stop()
         saveNow()
+        widgetShown?.let { if (it.playing) { WidgetState.save(this, it.copy(playing = false)); env.widgetsChanged() } }
         CastController.detach(cast)
         cast.release()
         automix.release()
@@ -374,14 +417,17 @@ class PlaybackService : MediaLibraryService() {
         val equaliser = EqualiserProcessor().also { it.update(env.equaliser.value) }
         val meter = AudioMeter()
         val filter = TransitionFilterProcessor()
-        val built = ExoPlayer.Builder(this, ShapedRenderers(this, equaliser, meter, filter).setEnableAudioFloatOutput(true))
+        val replayGain = ReplayGainProcessor().also { it.setMode(replayGainMode(env.replayGain.value)) }
+        val dsp = DspChain(equaliser, filter, replayGain, meter)
+        val renderers = ShapedRenderers(this, dsp, output, BitPerfectOutput.forContext(this)).setEnableAudioFloatOutput(true)
+        val built = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(sources)
             .setUseLazyPreparation(true)
             .setAudioAttributes(Music, ownsSession)
             .setHandleAudioBecomingNoisy(ownsSession)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
-        return Peer(built, equaliser, meter, filter)
+        return Peer(built, equaliser, meter, filter, replayGain)
     }
 
     private fun standby(): Peer = spare ?: buildPeer(ownsSession = false).also { spare = it }
@@ -418,8 +464,9 @@ class PlaybackService : MediaLibraryService() {
                 override fun outgoing(lowPassHz: Float, highPassHz: Float) {
                     spare?.filter?.setCutoffs(lowPassHz, highPassHz)
                 }
-                override fun incomingLeadMs(): Long = leadMs(active)
-                override fun outgoingLeadMs(): Long = spare?.let(::leadMs) ?: 0L
+                // How far ahead of what's heard each filter is running: the sink measures it (BitChord's).
+                override fun incomingLeadMs(): Long = active.filter.leadUs / 1000
+                override fun outgoingLeadMs(): Long = spare?.filter?.leadUs?.div(1000) ?: 0L
                 override fun incomingEcho(delaySeconds: Float, send: Float, dry: Float) = active.filter.setEcho(delaySeconds, send, dry)
                 override fun outgoingEcho(delaySeconds: Float, send: Float, dry: Float) {
                     spare?.filter?.setEcho(delaySeconds, send, dry)
@@ -438,26 +485,13 @@ class PlaybackService : MediaLibraryService() {
             // A carry (or a plain crossfade) holds the session's player; the two never run at once.
             versionSwapActive = { crossfader.busy },
             // One stream at a time: bit-perfect, or a TV playing.
-            bitPerfect = { route.bitPerfect || cast.active },
+            bitPerfect = { BitPerfectOutput.ready.value || cast.active },
             mixable = ::mixable,
             // The sleep timer due at this song's end: Automix fades it out instead of mixing (BitChord's).
             sleepAfterTrack = { SleepTimer.afterTrack.value },
             onSleptAfterTrack = { SleepTimer.cancel() },
         )
         automix.start()
-    }
-
-    /**
-     * How far ahead of what's heard [peer]'s filter is running, in its song's milliseconds: what it
-     * last processed against where the player says the music is. Only while that's believable (a
-     * song reached gaplessly is counted from the one before); otherwise the last one that was, since
-     * both players' output buffers are sized alike.
-     */
-    private fun leadMs(peer: Peer): Long {
-        val processed = peer.filter.processedUs
-        if (processed == C.TIME_UNSET) return lastLeadMs
-        val lead = processed / 1000 - peer.player.currentPosition
-        return if (lead in 0..MaxLeadMs) lead.also { lastLeadMs = it } else lastLeadMs
     }
 
     /** AETHER's rule: never across an album's next track (it's mastered to run into it). */
@@ -499,7 +533,7 @@ class PlaybackService : MediaLibraryService() {
         // The incoming song began as its player's first item, which nothing heard: what a song
         // changing does, done here.
         songChanged(incoming.currentMediaItem)
-        if (Build.VERSION.SDK_INT >= 34) (bitPerfect as? BitPerfect)?.reconsider()
+        publishWidget()
         reportRoute()
     }
 
@@ -648,7 +682,12 @@ class PlaybackService : MediaLibraryService() {
      * silent until it carries a song's end. It never takes the audio focus or the session; [player]
      * keeps both.
      */
-    private fun buildHelper(): ExoPlayer = ExoPlayer.Builder(this, ShapedRenderers(this, helperEqualiser, helperMeter).setEnableAudioFloatOutput(true))
+    private fun buildHelper(): ExoPlayer = ExoPlayer.Builder(
+        this,
+        // A filter of its own that nothing moves, so its sound path is the players' own; and no
+        // bit-perfect output, which is one stream at a time (crossfades stand down for it anyway).
+        ShapedRenderers(this, DspChain(helperEqualiser, TransitionFilterProcessor(), helperReplayGain, helperMeter), output).setEnableAudioFloatOutput(true),
+    )
         .setMediaSourceFactory(ChosenSources(this, env, DefaultMediaSourceFactory(audio)))
         .setAudioAttributes(Music, false)
         .build()
@@ -701,6 +740,31 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /** What the widgets last showed, so they're only redrawn when it changes. */
+    private var widgetShown: WidgetState? = null
+
+    /**
+     * The widgets' state, as the session's player has it (a TV's, while one plays): saved, and the widgets
+     * told, when it has changed. On the player's thread, so it hands everything else off.
+     */
+    private fun publishWidget() {
+        val p = speaker
+        val track = p.currentMediaItem?.toTrack()
+        val state = if (track == null) WidgetState.EMPTY else WidgetState(
+            id = track.id.value,
+            title = track.title,
+            artist = track.artistLine,
+            artwork = track.artwork.url(WidgetState.ART_PX),
+            playing = p.playWhenReady && p.playbackState != Player.STATE_ENDED,
+            hasNext = p.hasNextMediaItem(),
+            nextArtwork = p.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET }?.let { p.getMediaItemAt(it).toTrack()?.artwork?.url(WidgetState.ART_PX) },
+        )
+        if (state == widgetShown) return
+        widgetShown = state
+        WidgetState.save(this, state)
+        env.widgetsChanged()
+    }
+
     private fun saveNow() {
         val q = snapshot()
         runBlocking(Dispatchers.IO) { runCatching { env.queueStore.save(q) } }
@@ -711,6 +775,9 @@ class PlaybackService : MediaLibraryService() {
         var ticks = 0
         while (scope.isActive) {
             delay(2_000)
+            // What the widgets show, as the session's player has it: a TV, while one plays, changes without
+            // the phone's player knowing.
+            publishWidget()
             // The session's player: a song heard on a TV counts the same.
             val heard = speaker
             if (!heard.isPlaying) continue
@@ -728,6 +795,7 @@ class PlaybackService : MediaLibraryService() {
     private inner class Watcher : Player.Listener {
         override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
             saveSoon()
+            publishWidget()
             cast.onLocalQueueChanged()
             // A queue just played, or cut short: what plays on after it, once it has settled.
             if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) scope.launch { topUp() }
@@ -739,6 +807,7 @@ class PlaybackService : MediaLibraryService() {
                 (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT)
             ) sleepNow()
             songChanged(mediaItem)
+            publishWidget()
             // A TV, if it's the speaker, is put on whatever became current (or is already there: it moved
             // first, which [CastPlayback] tells apart by the song).
             cast.onLocalTransition(mediaItem, reason)
@@ -748,10 +817,12 @@ class PlaybackService : MediaLibraryService() {
         // the timer is spent.
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (playbackState == Player.STATE_ENDED) SleepTimer.cancel()
+            publishWidget()
         }
 
         // A copy waiting for its moment: a pause, or a seek (which is a wait for the music anyway).
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            publishWidget()
             if (!playWhenReady) pendingCopy?.let { switchToCopy(it, player.currentPosition) }
             // Something started the phone's own player while a TV is the speaker: the TV plays instead.
             if (playWhenReady && cast.active) cast.onLocalStartedPlaying(player)
@@ -761,10 +832,6 @@ class PlaybackService : MediaLibraryService() {
             if (reason == Player.DISCONTINUITY_REASON_SEEK) pendingCopy?.let { switchToCopy(it, player.currentPosition) }
         }
 
-        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-            // A new song may be a new format: the route is looked at again.
-            if (Build.VERSION.SDK_INT >= 34) (bitPerfect as? BitPerfect)?.reconsider()
-        }
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = saveSoon()
         override fun onRepeatModeChanged(repeatMode: Int) {
             saveSoon()
@@ -865,14 +932,24 @@ private const val SuggestAhead = 10
 /** Music, as the players play it. */
 private val Music: AudioAttributes = AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build()
 
-/** No output buffer runs further ahead of the speaker than this. */
-private const val MaxLeadMs = 2_000L
-
 /** How often the sleep timer's fade-out (a crossfade's length, at the song's end) steps the volume. */
 private const val SleepFadeStepMs = 50L
 
-/** Automix's setting for an environment that has none. */
+/** Automix's setting for an environment that has none (and bit-perfect's). */
 private val AutomixOff: StateFlow<Boolean> = kotlinx.coroutines.flow.MutableStateFlow(false)
+
+/** ReplayGain's setting for an environment that has none. */
+private val ReplayGainOff: StateFlow<Int> = kotlinx.coroutines.flow.MutableStateFlow(0)
+
+/** The setting's number as Gramophone's mode: 1 by song, 2 by album, anything else off. */
+private fun replayGainMode(setting: Int): ReplayGainUtil.Mode = when (setting) {
+    1 -> ReplayGainUtil.Mode.Track
+    2 -> ReplayGainUtil.Mode.Album
+    else -> ReplayGainUtil.Mode.None
+}
+
+/** How the music leaves the phone: the DAC it plays to, and whether that path is bit-perfect. */
+internal data class Route(val device: String?, val bitPerfect: Boolean)
 
 internal const val EXTRA_OUTPUT = "aether.output"
 internal const val EXTRA_CARRIED = "aether.carried"

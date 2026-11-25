@@ -59,5 +59,32 @@
         <receiver
             android:name=".update.UpdateInstallReceiver"
             android:exported="false" />
+        <!-- The home-screen widgets: one widget, offered at two sizes (widget/MediaWidget.kt). -->
+        <receiver
+            android:name=".widget.MediaWidgetSquare"
+            android:exported="false"
+            android:label="@string/widget_square_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_square_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.MediaWidgetWide"
+            android:exported="false"
+            android:label="@string/widget_wide_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_wide_info" />
+        </receiver>
+        <!-- The widgets' keys. Reached only by AETHER's own PendingIntents. -->
+        <receiver
+            android:name=".widget.WidgetActions"
+            android:exported="false" />
     </application>
 </manifest>

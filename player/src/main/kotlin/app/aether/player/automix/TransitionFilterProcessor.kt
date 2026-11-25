@@ -401,6 +401,15 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
      * a click. Zeroed state is a filter at rest, which is what an unused one is.
      */
     /**
+     * The blend trim over [block], for the sink's float chain (AETHER's `DspChain`), which runs it after
+     * [process] as [queueInput] does: in BitChord it is its loudness stage's, the last of the chain.
+     */
+    fun trim(block: AudioBlock) {
+        if (block.frameCount == 0 || channelCount < 1) return
+        trim(block.samples, block.frameCount)
+    }
+
+    /**
      * The blend trim over [frames] frames of [samples], glided frame by frame so it never zippers, with
      * the peak catcher under it (see [setBlendTrim]): a peak above the trim is brought down to it.
      */

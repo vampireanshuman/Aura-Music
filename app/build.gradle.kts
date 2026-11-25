@@ -27,8 +27,8 @@ android {
         minSdk = 29
         targetSdk = 36
         // major * 1,000,000 + minor * 1,000 + patch, so it only ever rises.
-        versionCode = 3_000_000
-        versionName = "3.0.0"
+        versionCode = 3_001_000
+        versionName = "3.1.0"
         // The TV's receiver: AETHER's own (site/cast/, once registered with Google Cast and its id
         // given here as -Paether.castReceiverId=XXXXXXXX or in gradle.properties), or Google's standard
         // one, which plays the music on its own plain screen. docs/cast.md says how.

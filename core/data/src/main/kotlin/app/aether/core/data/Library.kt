@@ -40,7 +40,10 @@ data class LocalPlaylist(
     val artworkUri: String?,
     val folderId: Long?,
     val count: Int,
+    /** When its songs, name or picture last changed. */
     val updatedAt: Long,
+    /** When it was made. */
+    val createdAt: Long,
     /** The first few songs, for the folder's face and its peeking files. */
     val preview: List<Track>,
 )
@@ -112,6 +115,9 @@ class Library(private val db: AetherDatabase, private val now: () -> Long = Syst
     val albums: Flow<List<Album>> = dao.saved(ALBUM).map { it.mapNotNull(::albumFromJson) }
     val artists: Flow<List<Artist>> = dao.saved(ARTIST).map { it.mapNotNull(::artistFromJson) }
     val savedPlaylists: Flow<List<Playlist>> = dao.saved(PLAYLIST).map { it.mapNotNull(::playlistFromJson) }
+
+    /** When each saved playlist was saved, by its id: when it came into the library. */
+    val savedPlaylistTimes: Flow<Map<String, Long>> = dao.savedTimes(PLAYLIST).map { rows -> rows.associate { it.id to it.savedAt } }
     fun isSaved(id: MediaId): Flow<Boolean> = dao.isSaved(id.value)
 
     suspend fun save(album: Album, keep: Boolean) = if (keep) dao.save(SavedRow(album.id.value, ALBUM, album.toSavedJson(), now())) else dao.unsave(album.id.value)
@@ -124,7 +130,7 @@ class Library(private val db: AetherDatabase, private val now: () -> Long = Syst
 
     val playlists: Flow<List<LocalPlaylist>> = lists.playlists().map { rows ->
         rows.map { p ->
-            LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, p.count, p.updatedAt, preview = emptyList())
+            LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, p.count, p.updatedAt, p.createdAt, preview = emptyList())
         }
     }
 
@@ -135,7 +141,7 @@ class Library(private val db: AetherDatabase, private val now: () -> Long = Syst
     fun playlistsWithPreview(): Flow<List<LocalPlaylist>> = lists.playlists().map { rows ->
         rows.map { p ->
             val preview = lists.entries(p.id).first().take(3).mapNotNull { trackFromJson(it.json) }
-            LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, p.count, p.updatedAt, preview)
+            LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, p.count, p.updatedAt, p.createdAt, preview)
         }
     }.flowOn(Dispatchers.Default)
 
@@ -143,7 +149,7 @@ class Library(private val db: AetherDatabase, private val now: () -> Long = Syst
         row?.let { p ->
             // Its count and its face need only the first three songs read, not every one.
             val preview = entries.asSequence().mapNotNull { trackFromJson(it.json) }.take(3).toList()
-            LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, entries.size, p.updatedAt, preview)
+            LocalPlaylist(p.id, p.title, p.description, p.artworkUri, p.folderId, entries.size, p.updatedAt, p.createdAt, preview)
         }
     }.onEach { if (it != null) lastPlaylists[id] = it else lastPlaylists.remove(id) }
 

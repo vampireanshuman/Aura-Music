@@ -25,7 +25,7 @@ import app.aether.core.designsystem.theme.Ink
  * hairline marks, its Fill for play, pause, skip and a liked heart: one family, drawn by one hand);
  * the rooms' own marks on the tab bar (Listen, Discover, Library) and the gear stay AETHER's.
  */
-enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Heart, HeartFilled, Queue, Lyrics, More, Down, Back, Search, Close, Plus, Minus, Check, Download, Listen, Discover, Library, Profile, Gear, Share, Video, Forward, Edit, Trash, Sleep, Cast }
+enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Heart, HeartFilled, Queue, Lyrics, More, Down, Back, Search, Close, Plus, Minus, Check, Download, Listen, Discover, Library, Profile, Gear, Share, Video, Forward, Edit, Trash, Sleep, Cast, Sync, Sort }
 
 @Composable
 fun Icon(glyph: Glyph, modifier: Modifier = Modifier, size: Dp = 22.dp, color: Color = Ink.White, weight: Float = 1.4f) {
@@ -187,6 +187,20 @@ fun Icon(glyph: Glyph, modifier: Modifier = Modifier, size: Dp = 22.dp, color: C
                 drawRoundRect(color, p(4f, 5f), Size(16f * u, 2.2f * u), androidx.compose.ui.geometry.CornerRadius(1f * u))
                 drawRoundRect(color, p(9.5f, 2.8f), Size(5f * u, 2.6f * u), androidx.compose.ui.geometry.CornerRadius(1f * u))
                 drawPath(path { moveTo(5.5f * u, 8.6f * u); lineTo(18.5f * u, 8.6f * u); lineTo(17.4f * u, 20.2f * u); quadraticTo(17.3f * u, 21f * u, 16.4f * u, 21f * u); lineTo(7.6f * u, 21f * u); quadraticTo(6.7f * u, 21f * u, 6.6f * u, 20.2f * u); close() }, color)
+            }
+            Glyph.Sync -> {
+                // Two arrows chasing each other round (Phosphor's arrows-clockwise is drawn in its place).
+                drawArc(color, 200f, 130f, false, p(5f, 5f), Size(14f * u, 14f * u), style = stroke)
+                drawArc(color, 20f, 130f, false, p(5f, 5f), Size(14f * u, 14f * u), style = stroke)
+            }
+            Glyph.Sort -> {
+                // One arrow down, one up (Phosphor's arrows-down-up is drawn in its place).
+                line(8f, 4.5f, 8f, 19.5f)
+                line(4.5f, 16f, 8f, 19.5f)
+                line(11.5f, 16f, 8f, 19.5f)
+                line(16f, 19.5f, 16f, 4.5f)
+                line(12.5f, 8f, 16f, 4.5f)
+                line(19.5f, 8f, 16f, 4.5f)
             }
         }
     }

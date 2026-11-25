@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
+import app.aether.core.designsystem.art.SoftArt
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -127,7 +128,6 @@ import app.aether.core.designsystem.component.Icon
 import app.aether.core.designsystem.glass.liquidTouch
 import app.aether.core.designsystem.glass.rememberLiquidState
 import app.aether.core.designsystem.glass.translucent
-import app.aether.core.designsystem.art.SoftArt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.geometry.Offset
@@ -204,6 +204,10 @@ fun NowPlaying(player: DragState, onClose: () -> Unit, menu: (@Composable () -> 
     val dialPosition = remember(position) { HeldWhile(position) { player.visible } }
     val treatmentIndex by container.settings.artwork.collectAsStateWithLifecycle()
     val treatment = ArtTreatment.Cycle[treatmentIndex.mod(ArtTreatment.Cycle.size)]
+    // The words laid across the cover (its tattoo): the listener can have the cover alone.
+    val coverWords by container.settings.coverWords.collectAsStateWithLifecycle()
+    // The cover's light behind it, or black with the cover's faint glow, as it was.
+    val coverLight by container.settings.coverLight.collectAsStateWithLifecycle()
     val queueSheet = rememberDragState()
     // Where the music plays: this phone, or a TV on its Wi-Fi (the cast key, beside the video's).
     val castSheet = rememberDragState()
@@ -274,6 +278,8 @@ fun NowPlaying(player: DragState, onClose: () -> Unit, menu: (@Composable () -> 
         val density = LocalDensity.current
         val printDrawing = rememberGraphicsLayer()
         val printFlying = { window != null && abs(player.value - 1f) > 0.0005f }
+        // The cover as itself is square and whole; a print is 4:5.
+        val printSpot = if (treatment == ArtTreatment.Original) stage.cover else stage.print
         GlassHost(
             Modifier.fillMaxSize(),
             // Its own black is drawn below (it fades in as the window grows): the plane itself is clear.
@@ -281,15 +287,43 @@ fun NowPlaying(player: DragState, onClose: () -> Unit, menu: (@Composable () -> 
             hideContent = hidden,
             content = {
                 Box(Modifier.fillMaxSize().graphicsLayer { alpha = grown(Growth::ground) }.background(Color.Black))
-                // The cover's light, far behind everything. A few dozen
-                // pixels of the cover, blurred once and cached, stretched over the screen.
-                SoftArt(track.artwork, Modifier.fillMaxSize().graphicsLayer { alpha = 0.34f * grown(Growth::ground) }, px = 32)
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { alpha = grown(Growth::ground) }
-                        .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.2f), 0.5f to Color.Black.copy(alpha = 0.6f), 1f to Color.Black)),
-                )
+                // The cover's light, far behind everything: BitChord's mesh of its colours (Apple Music's
+                // backdrop) across the top, orbiting while the song plays, going out round the dial in the
+                // film's own rings.
+                // A song's film is the cover's light itself, in the same rings: the light gives way to it as
+                // it comes up, and isn't drawn at all under one that's fully up.
+                val filmCover = {
+                    if (treatment != ArtTreatment.Original) 0f else {
+                        val videoUp = (videos.maxOfOrNull { it.up.value } ?: 0f).coerceIn(0f, 1f)
+                        val filmUp = films.maxOfOrNull { film ->
+                            val video = videos.lastOrNull { it.track.id == film.track.id }
+                            if (!film.track.isVideo || video?.failed == true) film.up.value else 0f
+                        } ?: 0f
+                        (filmUp * (1f - videoUp) * morph.veil.floatValue * grown(Growth::film)).coerceIn(0f, 1f)
+                    }
+                }
+                if (coverLight) AmbientLight(
+                    track.artwork,
+                    fade = stage.filmFade,
+                    frame = stage.filmFoot,
+                    upcoming = state.queue.getOrNull(state.index + 1)?.artwork,
+                    running = shown && state.isPlaying && !still && !lyricsUp,
+                    // Under a music video the video is the motion: the light holds still, and the screen is
+                    // drawn only as the video's frames come (measured: the video at its full rate, the
+                    // light costing what no light would).
+                    rests = { filmCover() >= 0.999f || videos.any { it.up.value > 0.002f } },
+                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = grown(Growth::ground) * (1f - filmCover()) },
+                ) else {
+                    // Black, as it was: a few dozen pixels of the cover, blurred once and cached, stretched
+                    // over the screen, and gone to black down it.
+                    SoftArt(track.artwork, Modifier.fillMaxSize().graphicsLayer { alpha = 0.34f * grown(Growth::ground) }, px = 32)
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { alpha = grown(Growth::ground) }
+                            .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.2f), 0.5f to Color.Black.copy(alpha = 0.6f), 1f to Color.Black)),
+                    )
+                }
                 // The cover as it is can move; a print of it stays a print. A music video plays as
                 // itself instead, and only gives way to its film if it can't play.
                 if (treatment == ArtTreatment.Original) films.toList().forEach { film ->
@@ -342,12 +376,12 @@ fun NowPlaying(player: DragState, onClose: () -> Unit, menu: (@Composable () -> 
                     },
                     index = state.index,
                     treatment = treatment,
-                    microtype = microtype(track, state, lyrics),
+                    microtype = if (coverWords) microtype(track, state, lyrics) else emptyList(),
                     onSwipe = { dir -> haptics.strong(); if (dir > 0) actions.playback.previous() else actions.playback.next() },
                     veil = { morph.veil.floatValue },
                     instant = { morph.carrying },
                     modifier = Modifier
-                        .at(stage.print)
+                        .at(printSpot)
                         .onPlaced { actions.keep.cover = it }
                         // Its drawing is kept: while the window grows or shrinks it's drawn flying, over
                         // everything else, and here only at rest. The same drawing both ways, so it lands as itself.
@@ -369,7 +403,7 @@ fun NowPlaying(player: DragState, onClose: () -> Unit, menu: (@Composable () -> 
                     currentId = track.id.value,
                     treatment = treatment,
                     state = morph,
-                    modifier = Modifier.at(stage.print).graphicsLayer { alpha = grown(Growth::landed) },
+                    modifier = Modifier.at(printSpot).graphicsLayer { alpha = grown(Growth::landed) },
                 )
                 Song(
                     track = track,
@@ -456,7 +490,7 @@ fun NowPlaying(player: DragState, onClose: () -> Unit, menu: (@Composable () -> 
                 GlassCircle(Glyph.Next, "Next", { haptics.strong(); actions.playback.next() }, Modifier.at(stage.next), size = stage.key, iconSize = 19.dp, backdrop = null)
                }
                if (window != null) {
-                   val place = with(density) { Rect(stage.print.x.toPx(), stage.print.y.toPx(), (stage.print.x + stage.print.w).toPx(), (stage.print.y + stage.print.h).toPx()) }
+                   val place = with(density) { Rect(printSpot.x.toPx(), printSpot.y.toPx(), (printSpot.x + printSpot.w).toPx(), (printSpot.y + printSpot.h).toPx()) }
                    val corner = with(density) { PrintCorner.toPx() }
                    // The print in flight, over everything it passes (the song's lines, the ring), as the
                    // flying thing always is; then the pill's own cover over it, for the first moment.
@@ -532,6 +566,12 @@ private class Stage(w: Dp, h: Dp, top: Dp, bottom: Dp) {
     /** Where a video plays: the screen's full width across the print's place, the picture fitted inside it. */
     val screen: Spot
 
+    /**
+     * The cover shown as itself ([ArtTreatment.Original]): square, the whole of it, as wide as the print and
+     * where the print's middle is. Only the prints (mono, halftone, letters, dots) are cut to 4:5.
+     */
+    val cover: Spot
+
     init {
         val areaTop = close.y + close.h + 16.dp
         val areaH = (song.y - 8.dp - areaTop).coerceAtLeast(120.dp)
@@ -539,6 +579,7 @@ private class Stage(w: Dp, h: Dp, top: Dp, bottom: Dp) {
         val ph = pw * 1.25f
         print = Spot((w - pw) / 2, areaTop + (areaH - ph) / 2, pw, ph)
         screen = Spot(0.dp, print.y, w, ph)
+        cover = Spot(print.x, print.y + (ph - pw) / 2, pw, pw)
     }
 }
 

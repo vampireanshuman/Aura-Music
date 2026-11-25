@@ -497,8 +497,16 @@ internal object YouTubeMusicParser {
             trackCount = counts,
             continuation = shelf?.let { continuationOf(it) },
             isAlbum = albumPage,
+            // Only the listener's own playlists come wrapped in the header that offers to edit them.
+            editable = !albumPage && json.findFirst("musicEditablePlaylistDetailHeaderRenderer") != null,
         )
     }
+
+    /** The id of a playlist just made in the account; null when the answer has none. */
+    fun createdPlaylist(json: JsonObject): String? = json.at("playlistId").str?.takeIf { it.isNotBlank() }
+
+    /** Whether the account took a playlist's changes. */
+    fun edited(json: JsonObject): Boolean = json.at("status").str == "STATUS_SUCCEEDED"
 
     fun songsContinuation(json: JsonObject): Page<Song> {
         val (entries, continuation) = continuationEntries(json)

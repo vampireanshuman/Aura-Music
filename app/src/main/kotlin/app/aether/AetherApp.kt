@@ -108,7 +108,10 @@ class Container(app: Application) {
 
     /** Whether the phone can reach the internet now. */
     val online = Online(app)
-    val accountPlaylists by lazy { AccountPlaylists(app, scope, account, sources, library, online) }
+    val accountPlaylists by lazy { AccountPlaylists(app, scope, account, sources, library, online, linked = { playlistSync.linkedRemotes() }) }
+
+    /** Playlists and Liked songs kept in step with the listener's YouTube Music account, each while its sync key is on. */
+    val playlistSync by lazy { PlaylistSync(app, scope, account, sources, library, online) }
     val playback = PlaybackConnection(app, scope)
 
     /**
@@ -288,6 +291,7 @@ class AetherApp : Application(), PlaybackEnvironment, SingletonImageLoader.Facto
         CrashNote.keep(this)
         container = Container(this)
         keepCoversOffline()
+        container.playlistSync.start()
         container.accountPlaylists.start()
         // Casting: the TVs on this Wi-Fi can be listed from the first screen, and AETHER's own receiver is
         // kept told what's playing.
@@ -330,6 +334,8 @@ class AetherApp : Application(), PlaybackEnvironment, SingletonImageLoader.Facto
     override val equaliser: StateFlow<EqProfile?> get() = container.equaliser.shaping
     override val crossfadeSeconds: StateFlow<Int> get() = container.settings.crossfade
     override val automix: StateFlow<Boolean> get() = container.settings.automix
+    override val replayGain: StateFlow<Int> get() = container.settings.replayGain
+    override val bitPerfect: StateFlow<Boolean> get() = container.settings.bitPerfect
     override suspend fun suggestionsAfter(track: Track): List<Track> {
         val source = container.sources.of(track.id) ?: return emptyList()
         // Its radio, whatever it was chosen from: what follows a song, not the rest of its list.
@@ -341,6 +347,8 @@ class AetherApp : Application(), PlaybackEnvironment, SingletonImageLoader.Facto
     override fun hearingCopy(id: MediaId, hearing: Boolean) = if (hearing) container.sources.hearing(id) else container.sources.notHearing(id)
     override fun adoptCopy(id: MediaId): Boolean = container.sources.adopt(id)
     override fun dropLateCopy(id: MediaId) = container.sources.dropLate(id)
+
+    override fun widgetsChanged() = app.aether.widget.MediaWidget.refresh(this)
 
     override fun sessionActivity(): PendingIntent? = PendingIntent.getActivity(
         this,

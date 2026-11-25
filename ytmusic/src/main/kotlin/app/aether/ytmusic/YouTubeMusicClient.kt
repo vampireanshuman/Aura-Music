@@ -110,6 +110,25 @@ internal class YouTubeMusicClient(
 
     suspend fun accountMenu(): YtResult<JsonObject> = call("account/account_menu", null) {}
 
+    /** A new playlist in the signed-in account, as YouTube Music's own page makes one. */
+    suspend fun createPlaylist(title: String, description: String?, privacy: String, videoIds: List<String>): YtResult<JsonObject> =
+        call("playlist/create", null) {
+            put("title", title)
+            put("description", description.orEmpty())
+            put("privacyStatus", privacy)
+            if (videoIds.isNotEmpty()) putJsonArray("videoIds") { videoIds.forEach { add(it) } }
+        }
+
+    /** Changes to one of the account's playlists ([playlistId] without "VL"), as the page's editor sends them. */
+    suspend fun editPlaylist(playlistId: String, actions: List<JsonObject>): YtResult<JsonObject> =
+        call("browse/edit_playlist", null) {
+            put("playlistId", playlistId)
+            putJsonArray("actions") { actions.forEach { add(it) } }
+        }
+
+    suspend fun deletePlaylist(playlistId: String): YtResult<JsonObject> =
+        call("playlist/delete", null) { put("playlistId", playlistId) }
+
     // --- Requests ------------------------------------------------------------------------------------
 
     private suspend fun call(endpoint: String, continuation: Continuation?, fields: JsonObjectBuilder.() -> Unit): YtResult<JsonObject> {

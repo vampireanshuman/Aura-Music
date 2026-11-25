@@ -88,7 +88,9 @@ internal object AudioStore {
      */
     fun upstream(context: Context, purpose: StreamPurpose): DataSource.Factory {
         val env = context.applicationContext as PlaybackEnvironment
-        return ResolvingDataSource.Factory(DefaultDataSource.Factory(context.applicationContext, http(env)), Resolver(env, purpose))
+        // In bounded ranges (BitChord's [ChunkedDataSource]): asked for whole, googlevideo sends a song at
+        // about playback speed, so keeping one took minutes.
+        return ResolvingDataSource.Factory(ChunkedDataSource.Factory(DefaultDataSource.Factory(context.applicationContext, http(env))), Resolver(env, purpose))
     }
 
     /**
@@ -98,7 +100,8 @@ internal object AudioStore {
      */
     fun listening(context: Context): DataSource.Factory {
         val env = context.applicationContext as PlaybackEnvironment
-        val network = DefaultDataSource.Factory(context.applicationContext, http(env))
+        // In bounded ranges, so the song being heard buffers ahead at the line's speed, not the song's.
+        val network = ChunkedDataSource.Factory(DefaultDataSource.Factory(context.applicationContext, http(env)))
         val fetchedAhead = CacheDataSource.Factory()
             .setCache(automixCache(context))
             .setUpstreamDataSourceFactory(network)
@@ -191,9 +194,12 @@ class Downloads(
     private fun refresh() {
         val map = LinkedHashMap<MediaId, Entry>()
         var busy = false
-        manager.downloadIndex.getDownloads().use { cursor ->
-            while (cursor.moveToNext()) {
-                val d = cursor.download
+        val all = ArrayList<Download>()
+        manager.downloadIndex.getDownloads().use { cursor -> while (cursor.moveToNext()) all += cursor.download }
+        // The last asked for first.
+        all.sortByDescending { it.startTimeMs }
+        run {
+            for (d in all) {
                 val track = trackFromBytes(d.request.data) ?: continue
                 val status = when (d.state) {
                     Download.STATE_COMPLETED -> Status.Kept
@@ -226,12 +232,14 @@ class Downloads(
     /**
      * What the screens see: a song is kept once it's whole on the phone, in the Music folder or still
      * in the app's store while it's being written out there (it plays from either); writing it out is
-     * the app's own business, and shows nowhere.
+     * the app's own business, and shows nowhere. The last kept first: what's being kept, or was a moment
+     * ago, then the Music folder's from the newest (a song kept now used to go to the foot of the list).
      */
     private fun publish() {
         val out = LinkedHashMap<MediaId, Entry>()
-        files.entries.value.forEach { (id, f) -> out[id] = Entry(f.track, Status.Kept, 1f) }
-        downloading.forEach { (id, e) -> if (id !in out) out[id] = e }
+        val written = files.entries.value
+        downloading.forEach { (id, e) -> if (id !in written) out[id] = e }
+        written.entries.reversed().forEach { (id, f) -> if (id !in out) out[id] = Entry(f.track, Status.Kept, 1f) }
         _entries.value = out
     }
 

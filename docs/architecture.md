@@ -21,7 +21,7 @@ Canvas. No analytics, no tracking.
 | Delivering YouTube streams | **LastWave** `ChunkedRangeDataSource` | ~1 MB range requests avoid googlevideo's throttling of open-ended ranges |
 | Playback engine and output | **LastWave**: `MusicPlaybackService`, `NativeProcessingAudioSink`, `NativeAudioEngine` and `cpp/` (C++17 DSP on Oboe, libsoxr), `UsbBitPerfectOutput`, `ExclusiveUsbOutput` with `audio/decent-usb-audio-driver`, `UacFeatureVolume`, `UsbDacMonitor`, `DirectTrackStream`, `InternalDirectStream`/`DirectOutputStream`, `SignalPath`, `QualityBadge`, `LoudnessNormalizer`, parametric EQ and AutoEQ, crossfade (`CrossfadeSchedule`) and AutoMix, Android Auto, Cast | Far ahead on every quality measure (§3) |
 | Quality honesty | **Both**: PODIUM's rule (the measured format wins over the reported one; "Lossless" and "Hi-Res" only when measured) with LastWave's `QualityBadge` and `SignalPath`, which already refuse to guess a bit depth or call a mixed path bit-perfect | Never claim what isn't measured |
-| ALAC | **PODIUM** `AlacAudioRenderer` (bit-exact port of Apple's decoder) | Phones without a working ALAC decoder |
+| ALAC | **Gramophone** `AlacRenderer`/`AlacDecoder` over Peter McQuillan's Java port of Apple's decoder (BSD-3-Clause), ahead of any decoder the phone has (2026-11-24) | Samsung phones have no ALAC decoder; BitChord found Qualcomm's unreliable |
 | Offline library | **PODIUM**: MediaStore scan, Room database, offline playability, local full-text search, downloads, stream cache keyed by song and quality | LastWave only lists picked folders as one playlist |
 | Custom sources | **Both**: the addon protocol they share (`manifest.json`, `/search`, `/stream/{id}`); LastWave's quality metadata (bit depth, sample rate, hi-res and Atmos flags, not stopping at a downgraded answer) and `StreamAlignment`; PODIUM's exact-recording matcher, per-source health and circuit breaker, 5 s budget, background retries and mid-song crossfade to the better copy | §4 |
 | Playlists in and out | **LastWave**'s import pipeline, ported to `:core:transfer`: its CSV, TSV, M3U and text-list reading (`CsvPlaylistImporter`), the public Spotify embed page and Apple Music page readers, a link checked against the words beside it, its query order, its same-song rule and never saving a playlist twice (`PlaylistRepository.save`). **PODIUM**'s exact-recording rules decide a match (a live take never stands in for the studio one). AETHER's own: its file (`AetherFile`), Spotify's data download, and each playlist's origin (`Origins`), so a playlist imported again only gains what it's missing | Every playlist the listener has elsewhere, with no account there; 38 + 16 tests |
@@ -150,9 +150,42 @@ voice model open-unmix's UMX-HQ vocals (MIT), both as BitChord quantised them; O
   plays files straight from the phone.
 - **Sign-in**: YouTube Music on Google's own page in a locked-down web view; the session cookies are
   sealed with a Keystore key (`core/data/Account.kt`).
-- **Bit-perfect**: Android 14's preferred mixer attributes, asked only for formats known exactly
-  (streamed songs decode to 16-bit at their rate); reported only when the phone confirms the mixer
-  took it and media is playing to that DAC. LastWave's own USB driver and native DSP are not ported.
+- **The sound path (2026-11-24, after issues #15 and #16)**: ported from BitChord, ALAC and ReplayGain from
+  Gramophone (`player/.../audio`). The fault the issues described (16-bit FLAC as loud, fast static on
+  Samsung phones) was Samsung's own FLAC decoder, `c2.sec.flac.decoder`, asked for float by Media3 on every
+  track: BitChord had found it ("one extra 232.2 ms timestamp advance per decoded buffer"). FLAC now goes to
+  a software decoder, Android's own first, and never Samsung's (`flacSafeCodecs`).
+  - `PrecisionAudioSink` (BitChord's, ported line for line): every linear-PCM format is decoded to float
+    blocks, run through `DspChain` (equaliser, Automix's filters and trim, ReplayGain, meter) and encoded to
+    float or 16-bit for Media3's own sink. Media3 1.11.1 skips every custom processor on its float path, so
+    before this the equaliser and Automix's filters did nothing to FLAC or anything else a decoder handed
+    over as float. With nothing switched on, a 16- or 24-bit sample comes out as it went in. Its side of
+    BitChord's loop mix came with it, so Automix's loop mix, ported in 3.0 but never able to run
+    (`LoopMixPort.supportsLoopMix` waited for this sink), can now be planned.
+  - Float only where it's real (BitChord's `AudioOutputPolicy`, `DirectAudioProbe`, `OutputRoute`): the
+    phone's own speaker gets 16-bit, always (some phones' speaker paths take a float track and distort it);
+    elsewhere float where Android offers it directly at the song's rate or the device says it takes it. A
+    decoder is asked for float only where a float track will open. BitChord rebuilds its players when that
+    changes; AETHER's sink asks the route each time a decoder or a song's track is set up instead. Not
+    ported: BitChord's Bluetooth codec telemetry (LDAC at 24 bits), its readout, its Output precision setting.
+  - Bit-perfect (BitChord's `BitPerfectRoutingSink`, `BitPerfectAudioSink`, `BitPerfectOutput` and its
+    Android 14 `MixerTransport`, after Mornye's): Settings ▸ Sound ▸ Bit-perfect to a USB DAC, off by default.
+    A lossless song a DAC offers at its own rate and depth (no encoder priming, one or two channels) goes to
+    its own AudioTrack under Android's bit-perfect mixer, past the sink above; anything else plays as usual.
+    The DAC sets the volume. "Bit-perfect" is shown only while that output is open and no sample was rounded.
+    Not ported: BitChord's direct USB and AAudio exclusive drivers (native), and its conversion for a DAC that
+    can't take a song as it is. AETHER 3.0's own bit-perfect, for streams, automatic, setting the mixer under
+    Media3's own track, is gone: streams carry encoder priming that only Media3's track trims, and a mixer
+    asked for 16-bit under a float track mutes it.
+  - ReplayGain (Gramophone's `ReplayGainUtil`, every way the levels are written: Vorbis comments, R128,
+    ID3 TXXX, RVA2, RVAD, RGAD, iTunes' Sound Check): Settings ▸ Sound, off, by song or by album, applied in
+    the chain at the song's first sample. Gramophone's compressor is native and not ported, so the gain is
+    held to the song's own peak; AETHER adds two guards Gramophone doesn't need: tags that can't be read
+    leave the song alone instead of throwing on the audio thread, and no tag raises a song more than 15 dB.
+  - Checked on the A059 (2026-11-24) with a release build beside the listener's: a 16-bit/44.1 kHz FLAC,
+    a 24-bit/96 kHz FLAC and an ALAC file each played at their own speed (0.98 to 0.99 of the clock over
+    6 s), FLAC through `c2.android.flac.decoder`, ALAC through Gramophone's decoder, 16-bit on the speaker.
+    A Samsung phone, where the fault was, wasn't to hand; a USB DAC neither, so bit-perfect is unmeasured.
 - **Custom sources**: `:sources:addon`, PODIUM's lenient protocol reader (`manifest.json`, `/search`,
   `/stream/{id}`); encrypted streams refused. Exact-copy matching is built (2026-11-10, below);
   mid-song switching to a copy that answers late is not.
@@ -654,3 +687,175 @@ voice model open-unmix's UMX-HQ vocals (MIT), both as BitChord quantised them; O
 - **Privacy.** Google Play services' Cast framework is the one closed part, as in every app that
   casts; AETHER adds no analytics to it. The TV is sent the song's details and its stream, from the
   phone; Google's receiver library is the only thing the TV page fetches from Google.
+
+## 12. Now Playing's light, and what came with it (2026-11-24)
+
+- **The light** (`ui/player/Ambient.kt`) is BitChord's `MeshGradientBackground`, ported with its numbers:
+  four blobs at (0.20, 0.25), (0.80, 0.20), (0.75, 0.80), (0.25, 0.75) of their frame, each straying 0.16 of
+  it on an orbit of its own (speeds 1, -0.7, 0.85, -1.15; one turn of the drift every 32 s, BitChord's
+  `continuous`), 0.62 of the frame's longer side across, 0.85 strong at the centre falling off along
+  smootherstep, over the first colour dimmed to lightness 0.12, the whole drawn 1.3 times its frame, with
+  its scrim (10% black at the top to 38% at the foot). Its colours are BitChord's `paletteOf`
+  (`AmbientColors`, over its port of androidx Palette's colour cut): the swatches by population, near
+  duplicates dropped, a shortfall made from the art's own hues, each made richer and kept between
+  lightness 0.28 and 0.58.
+- **What AETHER changed, and why.** (1) One AGSL shader instead of a canvas of gradients under a 64 dp
+  blur: BitChord's own notes call the full-screen blur its most expensive drawing, and blobs that fall
+  off along smootherstep over half the screen don't need it. (2) The mesh fills the song film's frame
+  (the screen's width, down to where the film's rings meet the screen's edges) and goes out in the film's
+  own rings round the dial: the foot of the screen stays black, as the listener asked, and all four
+  lights show above it. (3) A cover with no colour gives no light; BitChord tops one up with stock
+  purples. (4) Colours cross over on a spring (response 1.4 s) instead of a 1.4 s tween. (5) The last
+  step of every colour is grained (a hash, plus or minus half a step), none where it's black, so the
+  fade has no bands and the black by the dial stays #000.
+- **What it costs, measured on the A059** (a release build beside the listener's, compiled in full).
+  The first version ran its shader on every frame at 90 a second: with a music video playing, the video
+  reached the screen at 18 pictures a second (23 for another video), and the listener saw it stall to a
+  frame or two. An always-drawn full-screen shader starves a `TextureView` of the frames it needs; held
+  still but drawn every time the video asked, it was worse (8 a second). So the light is now a drawing of
+  its own that's kept (`Modifier.retained`): the shader runs only when the light moves, opening and
+  closing Now Playing, the glass over it and a video's frames all reuse it. It moves in about thirty
+  steps a second (a blob shifts about a pixel between them), and holds still under a playing video or a
+  film that covers it, the video being the motion then. Measured after: the video at its full rate
+  (29.3 to 29.8 pictures a second, as with no light at all), the GPU at 9 ms a frame against 8 with no
+  light; Now Playing opened and closed three times, 1.7 to 2.1% of frames late against 2.3 to 3.0%
+  before and 1.9% with no light.
+- **A change of song.** First, each blob's colour crossed over on its own spring: the whole light was
+  drawn again every frame of the change, on the busiest frames there are (a cover developing, the dial
+  going back), and the listener saw it step. Now two lights are kept, the new song's drawn once over the
+  last one's and only made less transparent, on a spring of BitChord's 1.4 s; songs skipped quickly make
+  one change, to the last. The next song's colours are read while the one before it plays, so the change
+  starts with its cover. Measured with `--es aether.preview light` (debug builds; again, back to the
+  cover's own): about 100 levels of colour crossed with no step over 2.5 levels between frames, 90 frames
+  a second, 1.1% late, the GPU at 8 to 9 ms a frame.
+- **The film's fade round the dial** (`RingFade` in `Ambient.kt`, used by `SongFilm`): the same rings,
+  drawn as one smoothstep with the same grain instead of a gradient of six stops, whose corners showed as
+  bands. Below Android 13 the gradient stays.
+- **The cover as itself** is square and whole (`Stage.cover`, centred in the print's 4:5 place); the
+  prints stay 4:5. **Words on the cover** (Settings, Now Playing; on by default) takes the caption
+  capitals off it.
+- **An artist's music videos** play as a list: a song or video in one of an artist page's rows plays
+  with the row's others after it (`SectionBlock(playAsList = true)`, on artist pages only), as the
+  page's own song list does; elsewhere a card plays with its radio, as before.
+- **The pull** (`PullRipple`, the download's and the cast's): a point gives way toward a screen edge only
+  as far as there's room, along tanh, so the picture stays held at the edges and stretches, instead of
+  coming away from them and opening a gap at the sides (the listener saw it on the cast's, where the
+  light and the film reach the edges). Debug builds play the cast's alone with
+  `--es aether.preview handoff`, with no TV.
+- **Ending a cast** (`CastController`): the route the phone played to before the cast (headphones, a
+  speaker) is remembered and chosen again once the session has ended; failing that, Bluetooth, if the
+  phone's own speaker was left chosen. Not yet checked with a Bluetooth headset and a TV together, nor
+  the stutter the listener reported after turning Bluetooth off and on once the cast had ended.
+- **Not changed, seen while measuring:** a music video's sync nudges its speed (by 5 to 15%) every few
+  seconds, as the controller's estimate of the music's place falls behind and then jumps ahead by about
+  230 ms; it does this with the light or without, and the picture doesn't stall. The sound path reports
+  the sink's own clock (less only what the loop mix inserts), so the jumps are the controller's estimate.
+  Not compared with 3.0.
+
+## 13. Playlists kept in step with YouTube Music (2026-11-24)
+
+- **What it is.** A sync key on each of the listener's playlists, on Liked songs, and on the pages of
+  their own YouTube Music playlists. On, the two copies are kept as one: what either side gains or lets go
+  of goes to the other, and so does a playlist's name. A playlist made here is made there first, private.
+  One of the account's own playlists, turned on from its page, becomes one of this phone's playlists tied
+  to it (its reference in the Library gives way to it). Liked songs are the account's liked songs. Off, a
+  list stays as it last was; on again, it catches up from where both last agreed. Deleting a playlist here
+  ends its sync and leaves its copy in the account (the listener's choice, 2026-11-24). A playlist saved
+  from someone else has no key: the account can't change it, and its page already reads it live.
+- **How** (`core:model` `SyncPlan`, `app` `PlaylistSync`, the account calls on `MusicSource`, made in
+  `sources:youtube` from `ytmusic`'s): a three-way merge of the two lists against what both held when they
+  last agreed, kept per list on the phone (`playlist-sync.json`, with the account's id for its copy and
+  nothing else of the account's). It runs when a key is turned on, when the phone is signed in and online
+  (at start and on coming back), when a list's page opens (if not in the last minute), and two seconds
+  after a change here. One list at a time. Order isn't merged: what comes from the other side goes at the
+  end, in that side's order.
+- **What can't be trusted, and what's done about it** (each measured live, docs/ytmusic-verification.md §7):
+  the account's copy is read whole or not at all (a page missing would read as songs taken out); every
+  change sent is read back before it counts, so a step that didn't take is made again next time (none of
+  them does anything twice); a song the account won't keep (offered twice, not there either time) stays
+  here only and isn't offered again; a playlist just made is read back after a second; a name read back as
+  it was before this phone renamed it is the account lagging, so it's sent again rather than taken back; a
+  playlist deleted in the account (unreadable, not "not found") is known by its absence from the
+  account's library, and its sync turns off with a note. What a sync left each list as is worked out
+  from its own changes, so a change the listener makes while it runs is still sent.
+- **Checked live**, on the listener's account with their leave: making, adding and taking out on both
+  sides, renaming, turning off, taking in one of the account's own playlists, a copy deleted in the
+  account, a like and an unlike: 19 + 4 + 4 checks, all passing on the last run. The merge's rules:
+  `SyncPlanTest` (11). Not run live: Liked songs' own sync (it would have merged the listener's whole
+  liked library both ways); its rules are the playlists', and its account calls were checked.
+
+## 14. Keeping songs fast, Latin letters first, the light as a choice (2026-11-25)
+
+- **Keeping songs** (and every other read of a YouTube stream): BitChord's `ChunkedDataSource` and its
+  per-client range sizes (`rangeBytesFor`), ported (GPL-3.0; its logging and its report of a refused range
+  to its resolver left out). googlevideo paces one open-ended response down to about playback speed
+  (BitChord measured 15.5 kB/s for a whole track asked for at once, 5.7 MB/s for 2 MB ranges of it), and
+  Media3's downloader asks for a song whole: a four-minute song took minutes to keep. Every read now goes
+  as bounded ranges (a megabyte each for VISIONOS's URLs, half that for ANDROID_VR's and TVHTML5's),
+  transparent to what reads above it: keeping (`AudioStore.upstream`), listening (`AudioStore.listening`),
+  Automix's fetch of the next song (`AutomixAudio.write`) and the TV's stream (`CastStreamServer`). A
+  stream that isn't googlevideo's (no `clen`) passes through as it was. Sequential, as BitChord's; LastWave
+  can also run a few ranges at once, which would mean replacing Media3's downloader, for a song that
+  arrives in about a second either way. Measured on the A059 with the debug check
+  `--es aether.debug dlspeed` (player/src/debug/StreamSpeedCheck.kt): see the CHANGELOG's note once run.
+- **Latin letters first** (Settings; `VLine.latin`): each timed word of a line is given in Latin letters on
+  its own and keeps its own start and end, so the Latin line lights, lifts and swells word by word as the
+  line's own words do; the line's own words go beneath it in an upright serif at the aside's size (a script
+  with no italic of its own would only be slanted), lit as the Latin line is. A word's syllables belong to
+  its own script and don't carry over. Worked out once a song, off the main thread. Tested: `VerseModelTest`.
+- **The light as a choice** (Settings, Light from the cover): off, Now Playing is drawn exactly as it was
+  before it: a few dozen pixels of the cover, blurred once, at 0.34, under the same fade to black.
+
+## 15. Home-screen widgets (2026-11-25)
+
+- **BitChord's widget, ported** (`app/.../widget`, `player/.../WidgetState.kt`; GPL-3.0, noted in each file):
+  two providers that are one widget (2×2 and 4×2 in the picker; the layout an instance draws goes by its
+  measured width, 215 dp), its playback state saved by the service and only read by the widget (so it's right
+  while the app is closed), drawn off the broadcast's thread within its window, the words and keys sent before
+  a slow cover, and its keys reaching the player by binding a MediaController (starting a service from the
+  background is refused). Left out: BitChord's like and shuffle keys and its 4×1 pill. Added: the keys wait
+  for the queue a cold start restores.
+- **Its pace (AETHER's).** One worker draws every widget, the newest ask replacing one it hasn't finished
+  (`collectLatest`), so a slow cover for an earlier song can't land after a newer one. Each widget is sent only
+  what changed: nothing for the same again; its keys alone, as a partial update, for play or pause (no
+  picture sent); for a new song, its words and keys at once as a partial update over the picture it has, then
+  the whole with the song's picture. The play key turns at the tap (`MediaWidget.showPlaying`, from
+  `WidgetActions`) and the next drawing turns it back if the tap didn't take. The service names the next
+  song's cover (`WidgetState.nextArtwork`), whose picture is drawn while this one plays; a picture is drawn
+  once however many ask for it (a shared `Deferred`, on the process's scope, so a replaced ask doesn't stop it).
+- **AETHER's face.** BitChord's picture is the cover with a blurred band; AETHER's is the cover going out to
+  black in rings round the keys (`WidgetArt`), Now Playing's smoothstep over half the widget's height,
+  dithered: round the right edge's middle on the 4×2 (wide enough that the black takes the whole panel where
+  the words go), round the foot's middle on the 2×2. A widget can't draw a gradient over a picture of its own,
+  so it's one picture per song and size, as BitChord's is. The words are Now Playing's: Montserrat's capitals
+  at 600 for the name, EB Garamond in Now Playing's grey for the artists. The keys are AETHER's glass key as a
+  widget can draw it (a rim lit from above round a dark body; play lit, as the dial's key is), with Now
+  Playing's own Phosphor marks.
+- **The service's side** (`PlaybackService.publishWidget`): the state as the session's player has it (a TV's,
+  while one plays), saved and the app told (`PlaybackEnvironment.widgetsChanged`) when it changes: on a
+  song's change, play or pause, the queue's change, a crossfade's handover, and every two seconds while
+  playing (a TV changes without the phone's player knowing). Paused, as the service ends.
+- **Looking at them without the home screen:** debug builds have `WidgetPreviewActivity`
+  (`adb shell am start -n app.aether.debug/app.aether.widget.WidgetPreviewActivity`), the views a launcher is
+  sent, inflated at the A059's 2×2 and 4×2 sizes.
+
+## 16. List order (2026-11-25)
+
+- **AETHER's own** (`app/.../ui/common/ListOrder.kt`, `OrderKey.kt`, `ChoiceMenu.kt`). `ListOrder` is every
+  order there is; each list offers the ones it can honour (`ListOrder.Songs`, `PhoneSongs`, `OwnPlaylist`,
+  `CataloguePlaylist`, `Playlists`, `Albums`, `Artists`). Sorting (`inOrder`, unit-tested in `ListOrderTest`):
+  names by `Collator` at primary strength (case and accents aside) through collation keys, an item with nothing
+  to sort on last either way, ties as they stood; times newest first; lengths shortest first. "Date added"
+  with no time given is the list as it stands: liked songs, saved albums, artists and playlists are read
+  newest first, and Kept is published newest first (`Downloads.publish`).
+- **What each order reads:** a playlist's own songs, their entry numbers (made in the order they came); the
+  Library's playlists, `PlaylistSummary.createdAt`/`updatedAt` for the listener's, the saved row's time
+  (`Library.savedPlaylistTimes`) or when songs were first kept from it (`PlaylistSnapshots.Snapshot.keptAt`)
+  for the catalogue's; the phone's songs, the media store's `DATE_ADDED` and `DATE_MODIFIED`
+  (`PhoneSong.modifiedAt`); folders, the newest song under each.
+- **Kept per list** in `Settings.songOrders`, under the list's key (`local:12`, `yt:…`, `playlists`, `kept`,
+  `liked`, `phone`, `albums`, `artists`); a playlist's old keys (own, title, artist, album, added, length) read
+  as before, "title" as A to Z. Choosing a list's first order again forgets the choice.
+- **The menu** is the shell's (`Actions.choices`), drawn above the frost and the dock like the page's ⋯ menu,
+  so its glass samples the page and the touches round it only close it: it grows from the key's place on the
+  screen, under it or, near the foot, over it.

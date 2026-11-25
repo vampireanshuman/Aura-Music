@@ -62,7 +62,15 @@ data class PlaylistPage(
     val details: String? = null,
     val description: String? = null,
     val next: PageToken? = null,
+    /** The listener's own, in their account: it can be changed there (and kept in step with this phone). */
+    val editable: Boolean = false,
 )
+
+/** A playlist in the listener's account, as changing it there needs it. */
+data class AccountPlaylist(val playlist: Playlist, val entries: List<AccountEntry>, val editable: Boolean)
+
+/** A song in an account's playlist, with the account's own id for it there (what taking it out takes). */
+data class AccountEntry(val track: Track, val entryId: String?)
 
 data class ArtistPage(
     val artist: Artist,

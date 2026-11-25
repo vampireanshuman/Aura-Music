@@ -142,7 +142,9 @@ internal class AutomixAudio(
 
     /** [stream] whole into [cache] (only what isn't there already is downloaded); its length. */
     private fun write(cache: Cache, stream: Stream): Long {
-        val upstream = DefaultDataSource.Factory(context, AudioStore.http(env)).createDataSource()
+        // In bounded ranges: the next song is fetched whole for measuring, and asked for whole googlevideo
+        // sends it at about playback speed.
+        val upstream = ChunkedDataSource(DefaultDataSource.Factory(context, AudioStore.http(env)).createDataSource(), CHUNK_BYTES)
         // Blocking on the cache: should the player be reading this song from it just then, the
         // writer waits its turn rather than going round the cache and keeping nothing.
         val source = CacheDataSource(cache, upstream, CacheDataSource.FLAG_BLOCK_ON_CACHE)

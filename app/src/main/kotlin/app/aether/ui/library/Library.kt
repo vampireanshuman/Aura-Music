@@ -10,9 +10,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.zIndex
-import app.aether.ui.detail.inOrder
-import app.aether.ui.detail.SongOrderBar
-import app.aether.ui.detail.SongOrder
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -105,6 +102,11 @@ import app.aether.ui.FolderLink
 import app.aether.player.Downloads
 import app.aether.ui.FolderPreview
 import app.aether.ui.rememberStagedRows
+import app.aether.ui.common.ListOrder
+import app.aether.ui.common.OrderBy
+import app.aether.ui.common.OrderKey
+import app.aether.ui.common.inOrder
+import app.aether.ui.common.rememberOrdering
 
 private enum class Shelf(val label: String) { Playlists("Playlists"), Kept("Kept"), Phone("On this phone"), Songs("Songs"), Albums("Albums"), Artists("Artists"), History("History") }
 
@@ -137,6 +139,18 @@ fun LibraryScreen() {
     }
     // The phone's own music: read only with the listener's permission.
     val music = rememberPhoneMusic()
+    // Each shelf as the listener last ordered it; newest first until they choose.
+    val playlistOrder = rememberOrdering("playlists", ListOrder.Playlists)
+    val keptOrder = rememberOrdering("kept", ListOrder.Songs)
+    val likedOrder = rememberOrdering("liked", ListOrder.Songs)
+    val phoneOrder = rememberOrdering("phone", ListOrder.PhoneSongs)
+    val albumOrder = rememberOrdering("albums", ListOrder.Albums)
+    val artistOrder = rememberOrdering("artists", ListOrder.Artists)
+    val savedTimes by container.library.savedPlaylistTimes.collectAsStateWithLifecycle(emptyMap())
+    val likedShown = remember(liked, likedOrder.order) { liked.inOrder(likedOrder.order, OrderBy.Songs) }
+    val keptShown = remember(kept, keptOrder.order) { kept.values.filter { it.status == Downloads.Status.Kept }.map { it.track }.inOrder(keptOrder.order, OrderBy.Songs) }
+    val albumsShown = remember(albums, albumOrder.order) { albums.inOrder(albumOrder.order, OrderBy(name = { it.title }, artist = { a -> a.artists.joinToString { it.name } })) }
+    val artistsShown = remember(artists, artistOrder.order) { artists.inOrder(artistOrder.order, OrderBy(name = { it.name })) }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), state = rememberPageListState(), contentPadding = PaddingValues(bottom = 0.dp)) {
@@ -155,23 +169,21 @@ fun LibraryScreen() {
             }
             when (shelf) {
                 Shelf.Playlists -> {
-                    val cards = buildList<@Composable () -> Unit> {
-                        add {
-                            FolderLink(
-                                FolderPreview(LikedFolderKey, "Liked songs", songCount(liked.size), liked.firstOrNull()?.artwork ?: Artwork.None, liked.take(3).map { FolderFile(it.title, it.artwork) }),
-                                Route.Liked,
-                            )
-                        }
+                    item(key = "order:playlists") { OrderKey(playlistOrder, Modifier.padding(bottom = 6.dp)) }
+                    // Made or saved, then changed: the listener's own by when they made and last changed them, the
+                    // catalogue's by when they came into the library.
+                    val shelved = buildList<Shelved> {
                         playlists.forEach { p ->
-                            add {
+                            add(Shelved(p.title, p.createdAt, p.updatedAt) {
                                 FolderLink(
                                     FolderPreview("folder:local:${p.id}", p.title, songCount(p.count), p.preview.firstOrNull()?.artwork ?: Artwork.None, p.preview.map { FolderFile(it.title, it.artwork) }),
                                     Route.LocalPlaylist(p.id),
                                 )
-                            }
+                            })
                         }
                         fromCatalogue.forEach { p ->
-                            add {
+                            val at = savedTimes[p.id.value] ?: snapshots[p.id]?.keptAt ?: 0L
+                            add(Shelved(p.title, at, at) {
                                 val songs = snapshots[p.id]?.tracks.orEmpty()
                                 val here = songs.count { kept[it.id]?.status == Downloads.Status.Kept }
                                 if (!online && here == 0) {
@@ -184,8 +196,17 @@ fun LibraryScreen() {
                                     val detail = if (!online) "$here of ${songs.size} kept" else p.author
                                     FolderLink(FolderPreview("folder:${p.id}", p.title, detail, p.artwork, emptyList()), Route.Playlist(p.id))
                                 }
-                            }
+                            })
                         }
+                    }.inOrder(playlistOrder.order, OrderBy(name = { it.title }, added = { it.added }, modified = { it.modified }))
+                    val cards = buildList<@Composable () -> Unit> {
+                        add {
+                            FolderLink(
+                                FolderPreview(LikedFolderKey, "Liked songs", songCount(liked.size), liked.firstOrNull()?.artwork ?: Artwork.None, liked.take(3).map { FolderFile(it.title, it.artwork) }),
+                                Route.Liked,
+                            )
+                        }
+                        shelved.forEach { add(it.card) }
                         add { NewTile(onClick = { naming = true }) }
                         add {
                             // How far an import running in the background has got, under its key.
@@ -208,12 +229,13 @@ fun LibraryScreen() {
                 Shelf.Songs -> {
                     if (liked.isEmpty()) item { Notice("No liked songs yet", "Tap the heart on Now Playing to keep a song here.") }
                     else {
-                        item { PlayRow(liked) }
-                        item { TrackList(liked, playContext = liked) }
+                        item { PlayRow(likedShown) }
+                        item(key = "order:liked") { OrderKey(likedOrder, Modifier.padding(bottom = 18.dp)) }
+                        item { TrackList(likedShown, playContext = likedShown) }
                     }
                 }
                 Shelf.Kept -> {
-                    val ready = kept.values.filter { it.status == Downloads.Status.Kept }.map { it.track }
+                    val ready = keptShown
                     val under = kept.values.filter { it.status == Downloads.Status.Keeping || it.status == Downloads.Status.Queued }
                     if (kept.isEmpty()) item { Notice("Nothing kept yet", "Hold a song and choose Keep on this phone, or keep a whole playlist from its page. Kept songs play without a connection.") }
                     else {
@@ -224,26 +246,33 @@ fun LibraryScreen() {
                         }
                         if (ready.isNotEmpty()) {
                             item { PlayRow(ready) }
+                            item(key = "order:kept") { OrderKey(keptOrder, Modifier.padding(bottom = 18.dp)) }
                             item { TrackList(ready, playContext = ready) }
                         }
                     }
                 }
-                Shelf.Phone -> phoneShelf(music)
+                Shelf.Phone -> phoneShelf(music, phoneOrder)
                 Shelf.Albums -> {
                     if (albums.isEmpty()) item { Notice("No albums yet", "Save an album with the heart on its page.") }
-                    else items(albums.chunked(2)) { pair ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = Space.edge, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            pair.forEach { AlbumCard(it, onClick = { actions.open(it) }, width = 160.dp) }
-                            if (pair.size == 1) Spacer(Modifier.width(160.dp))
+                    else {
+                        item(key = "order:albums") { OrderKey(albumOrder, Modifier.padding(bottom = 6.dp)) }
+                        items(albumsShown.chunked(2)) { pair ->
+                            Row(Modifier.fillMaxWidth().padding(horizontal = Space.edge, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                pair.forEach { AlbumCard(it, onClick = { actions.open(it) }, width = 160.dp) }
+                                if (pair.size == 1) Spacer(Modifier.width(160.dp))
+                            }
                         }
                     }
                 }
                 Shelf.Artists -> {
                     if (artists.isEmpty()) item { Notice("No artists yet", "Follow an artist from their page.") }
-                    else items(artists.chunked(2)) { pair ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = Space.edge, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            pair.forEach { ArtistCard(it, onClick = { actions.open(it) }, width = 140.dp) }
-                            if (pair.size == 1) Spacer(Modifier.width(140.dp))
+                    else {
+                        item(key = "order:artists") { OrderKey(artistOrder, Modifier.padding(bottom = 6.dp)) }
+                        items(artistsShown.chunked(2)) { pair ->
+                            Row(Modifier.fillMaxWidth().padding(horizontal = Space.edge, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                pair.forEach { ArtistCard(it, onClick = { actions.open(it) }, width = 140.dp) }
+                                if (pair.size == 1) Spacer(Modifier.width(140.dp))
+                            }
                         }
                     }
                 }
@@ -264,6 +293,9 @@ fun LibraryScreen() {
         if (importing) ImportPane(onClose = { importing = false })
     }
 }
+
+/** A playlist on the Library's shelf, with what it's ordered by. */
+private class Shelved(val title: String, val added: Long, val modified: Long, val card: @Composable () -> Unit)
 
 private fun dayLabel(day: LocalDate): String {
     val today = LocalDate.now()
@@ -313,7 +345,7 @@ private fun NewTile(onClick: () -> Unit) {
 }
 
 @Composable
-internal fun PlayRow(tracks: List<Track>) {
+internal fun PlayRow(tracks: List<Track>, last: (@Composable () -> Unit)? = null) {
     val actions = LocalActions.current
     Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         GlassCircle(Glyph.Shuffle, "Shuffle", { actions.shuffle(tracks) }, size = 52.dp)
@@ -321,6 +353,10 @@ internal fun PlayRow(tracks: List<Track>) {
         GlassButton("Play", onClick = { actions.play(tracks, 0) })
         Spacer(Modifier.width(14.dp))
         GlassCircle(Glyph.Plus, "Add to queue", { actions.playback.addToQueue(tracks) }, size = 52.dp)
+        last?.let {
+            Spacer(Modifier.width(14.dp))
+            it()
+        }
     }
 }
 
@@ -338,22 +374,31 @@ fun LikedScreen() {
     // Null until the library has answered, so "no liked songs" never shows for a moment while it loads.
     val loaded by container.library.liked.collectAsStateWithLifecycle(container.library.likedNow())
     val liked = loaded.orEmpty()
+    // Shared with the Library's Songs: one list, one order.
+    val ordering = rememberOrdering("liked", ListOrder.Songs)
+    val shown = remember(liked, ordering.order) { liked.inOrder(ordering.order, OrderBy.Songs) }
     val playback by container.playback.state.collectAsStateWithLifecycle()
     val preview = folderPreview(LikedFolderKey)
     val staged = rememberStagedRows()
+    // Opened, synced: brought up to date with the account.
+    LaunchedEffect(Unit) { container.playlistSync.refresh(app.aether.PlaylistSync.LIKED) }
     LazyColumn(Modifier.fillMaxSize(), state = rememberPageListState(), contentPadding = PaddingValues(bottom = 0.dp)) {
         item { BackLine() }
         item(key = "head") {
             // As it was when touched: the folder never reloads into something else on its page.
             val files = preview?.files ?: liked.take(3).map { FolderFile(it.title, it.artwork) }
             SleeveHead("Liked songs", songCount(liked.size), preview?.artwork ?: liked.firstOrNull()?.artwork ?: Artwork.None, files) {
-                if (liked.isNotEmpty()) PlayRow(liked)
+                if (liked.isNotEmpty()) PlayRow(shown) { SyncKey(app.aether.PlaylistSync.LIKED, size = 52.dp) }
+                else SyncKey(app.aether.PlaylistSync.LIKED, size = 52.dp)
             }
         }
         val n = staged.value
         if (n <= 0 || loaded == null) return@LazyColumn
         if (liked.isEmpty()) item { Notice("No liked songs yet", "Tap the heart on Now Playing to keep a song here.") }
-        else sleeveTracks(liked.take(n), playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "l") { i -> actions.play(liked, i) }
+        else {
+            if (liked.size > 1) item(key = "order") { OrderKey(ordering, Modifier.padding(top = 10.dp, bottom = 30.dp)) }
+            sleeveTracks(shown.take(n), playing = playback.current?.id, isPlaying = playback.isPlaying, keyPrefix = "l") { i -> actions.play(shown, i) }
+        }
         if (n == Int.MAX_VALUE) item(key = "colophon") { Colophon() }
     }
 }
@@ -385,11 +430,11 @@ fun LocalPlaylistScreen(id: Long) {
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val p = playlist
-    val orders by container.settings.songOrders.collectAsStateWithLifecycle()
-    val order = SongOrder.of(orders["local:$id"])
+    val ordering = rememberOrdering("local:$id", ListOrder.OwnPlaylist, ListOrder.Own)
+    val order = ordering.order
     val own = entries.map { it.track }
-    // As the listener chose them to stand; Added is when each came, newest first.
-    val tracks = remember(entries, order) { own.inOrder(order) { i -> entries[i].entryId } }
+    // As the listener chose them to stand; Date added is when each came (its entry's number), newest first.
+    val tracks = remember(entries, order) { entries.inOrder(order, OrderBy.songs({ it.track }, added = { it.entryId })).map { it.track } }
     // What the search finds: every word typed, somewhere in a song's name, its artists or its album.
     val found = remember(tracks, query) {
         val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -400,6 +445,8 @@ fun LocalPlaylistScreen(id: Long) {
     // shows once the page has landed.
     val preview = folderPreview("folder:local:$id")
     val staged = rememberStagedRows()
+    // Opened, synced: brought up to date with the account.
+    LaunchedEffect(id) { container.playlistSync.refresh(app.aether.PlaylistSync.playlist(id)) }
     Box(Modifier.fillMaxSize()) {
         // Searching, the page rises so the field stands near the top and what it finds has the room below,
         // with a screen's room at the foot to rise into however little is found.
@@ -439,9 +486,11 @@ fun LocalPlaylistScreen(id: Long) {
                                 hint = "Search this playlist",
                                 modifier = Modifier.padding(horizontal = 24.dp),
                             ) {
-                                SleeveActions(tracks, saved = null, onSave = null, keepKey = false) {
-                                    GlassCircle(Glyph.Search, "Search this playlist", { searching = true }, size = 50.dp)
-                                }
+                                SleeveActions(
+                                    tracks, saved = null, onSave = null, keepKey = false,
+                                    third = { GlassCircle(Glyph.Search, "Search this playlist", { searching = true }, size = 50.dp) },
+                                    last = { SyncKey(app.aether.PlaylistSync.playlist(id)) },
+                                )
                             }
                         }
                         if (editing) {
@@ -457,9 +506,7 @@ fun LocalPlaylistScreen(id: Long) {
             }
             val n = staged.value
             if (n <= 0) return@LazyColumn
-            if (entries.size > 1 && !editing && !searching) item(key = "order") {
-                SongOrderBar(order, { container.settings.setSongOrder("local:$id", it.key.takeIf { k -> k != "own" }) }, withAdded = true, Modifier.padding(horizontal = Space.edge).padding(top = 10.dp, bottom = 30.dp))
-            }
+            if (entries.size > 1 && !editing && !searching) item(key = "order") { OrderKey(ordering, Modifier.padding(top = 10.dp, bottom = 30.dp)) }
             if (entries.isEmpty()) item { Notice("No songs yet", "Hold a song anywhere and choose Add to playlist.") }
             if (searching && query.isNotBlank() && found.isEmpty()) item { Notice("Unavailable", "No song in this playlist matches \u201c${query.trim()}\u201d.") }
             if (!editing) {
