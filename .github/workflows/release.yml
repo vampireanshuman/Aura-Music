@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g., v2.3.0)'
+        description: 'Release Tag (e.g., v3.1.0)'
         required: true
-        default: 'v2.3.0'
+        default: 'v3.1.0'
 
 permissions:
   contents: write
@@ -23,12 +23,12 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -71,8 +71,9 @@ jobs:
 
       - name: Stage Release APK & Checksums
         run: |
+          rm -rf release_assets
           mkdir -p release_assets
-          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v1.2.2' }}"
+          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v3.1.0' }}"
           
           # Find release APK
           APK_FILE=$(find app/build/outputs/apk/release/ -type f -name "*.apk" | head -n 1)
@@ -99,29 +100,28 @@ jobs:
           ls -lh
 
       - name: Publish to GitHub Releases
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.6.2
         with:
           files: |
-            release_assets/AuraMusic-release.apk
-            release_assets/AuraMusic-release.apk.sha256
-            release_assets/Aura-Music-*.apk
-            release_assets/Aura-Music-*.apk.sha256
-            release_assets/Aura-*.apk
-            release_assets/Aura-*.apk.sha256
+            release_assets/*.apk
+            release_assets/*.apk.sha256
+          fail_on_unmatched_files: true
           tag_name: ${{ github.ref_name || inputs.tag_name }}
           name: "Aura Music ${{ github.ref_name || inputs.tag_name }}"
           body: |
-            **Aura Music ${{ github.ref_name || inputs.tag_name }}** brings upstream AETHER v2.3.0 fixes and source improvements to Aura — resolving unsupported locale/country errors on YouTube Music, matching region to your connection, tagging kept M4A songs with covers and lyrics, BitChord-compatible lossless-output & Bluetooth codec checks for addons, automatic addon reconnection, and Aura's mark on the media notification.
+            **Aura Music ${{ github.ref_name || inputs.tag_name }}** keeps your playlists in step with YouTube Music, puts the song playing on your home screen, lights Now Playing in the cover's own colours, and keeps songs in seconds.
 
             > Powered by [AETHER](https://github.com/GHOSTxASR/AETHER) by [GHOSTxASR](https://github.com/GHOSTxASR) under [GPL-3.0](LICENSE).
 
             ### What's new
-            - **Fixed Unsupported Language / Country Errors**: Resolved `"The music service didn't answer"` across all pages on phones set to languages or regions YouTube Music rejects (e.g. Santali, Konkani, Kashmiri, Sindhi, Dogri, Maithili, Bodo, Manipuri, Yiddish, and restricted countries), and aligned offered content to the region YouTube Music detects.
-            - **Clearer Sign-In Expiry**: Expired Google sessions now report `"Your sign-in has ended"` rather than claiming a page requires an account.
-            - **Kept M4A Tagging & Retried Covers**: Kept M4A files now embed cover art (always converted to JPEG/PNG), title, artist, album, and lyrics for file managers and external players, with automatic cover download retries.
-            - **Addon Reliability & Lossless Output Matching**: Addons that fail at launch automatically retry when connectivity returns and every 2 minutes (plus a **Try again** button in Settings), report refusal reasons directly, follow BitChord's stream-first protocol with covers, and wait for lossless wired/USB/HDMI or Bluetooth LDAC/LHDC/aptX Lossless output when required (requesting Nearby devices / Android 14+ companion permission only from that source's row when needed).
-            - **Media Notification Icon & Artist Grid Browsing**: Uses Aura's mark in the status bar / notification and lays out an artist's Albums and Singles & EPs in a clean two-column grid.
-            
+            - **Sync with YouTube Music**: Bidirectional playlist and Liked songs sync with your YouTube Music account, with animated sync status and safe playlist lifecycle handling.
+            - **Home-Screen Widgets**: 2x2 and 4x2 playback widgets with rounded cover art fade rings and responsive playback controls.
+            - **Ambient Cover Lighting**: Four softly orbiting lights sampled from the cover's palette behind Now Playing (togglable in Settings).
+            - **Per-List Sorting**: Sort playlists, Kept songs, on-phone music, songs, albums, and artists by custom order, title, artist, album, date added/modified, or duration.
+            - **Truer Sound & Bit-Perfect Audio**: Equaliser and Automix for hi-res/FLAC, native Apple Lossless (ALAC) playback, EBU R128 ReplayGain loudness normalisation, and USB DAC bit-perfect output on Android 14+.
+            - **Lyrics & Now Playing Controls**: Latin transliteration first in Verse, toggleable words on cover, and uncropped square Now Playing cover framing.
+            - **Fixes & Improvements**: Fast parallel chunked downloads, Samsung FLAC static fix, continuous artist music videos, cast-end audio output restoration, and band-free dial fade.
+
             ### Installation
             Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required).
           draft: false
