@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-11-26
+
+### Fixed
+- Restored in-app updates (**Download and install**) for Aura release builds (`RELEASE_PACKAGE = "com.auramusic.app"`), replacing the `"Open on GitHub"` fallback introduced in `3.0.0`.
+- Restored `Aura-Music` / `Aura` APK asset selection for multi-APK GitHub releases, `**Aura …**` opening summary parsing in `ReleaseNotes`, and Aura copy across the updater UI.
+- Upgraded `softprops/action-gh-release` to `@v3` (Node 24) in `.github/workflows/release.yml`.
+
 ## [3.1.0] - 2026-11-25
 
 ### Aura Music
@@ -178,7 +185,8 @@ The first release.
 - **Cards:** a metal charge card of your profile or any song, black or silver, at 1080 by 1920.
 - **Privacy:** no ads, no analytics, no tracking, no account and no server of ours.
 
-[Unreleased]: https://github.com/GHOSTxASR/AETHER/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/vampireanshuman/Aura-Music/compare/v3.1.1...HEAD
+[3.1.1]: https://github.com/vampireanshuman/Aura-Music/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/GHOSTxASR/AETHER/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/GHOSTxASR/AETHER/compare/v2.3.0...v3.0.0
 [2.3.0]: https://github.com/GHOSTxASR/AETHER/compare/v2.2.0...v2.3.0

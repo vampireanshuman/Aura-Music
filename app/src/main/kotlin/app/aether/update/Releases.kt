@@ -56,8 +56,10 @@ internal object Releases {
         val page = o.str("html_url")?.takeIf { it.startsWith("https://github.com/") } ?: return null
         val assets = (o["assets"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
             .filter { it.str("name")?.endsWith(".apk", ignoreCase = true) == true }
-        // The release's app is named for AETHER (`AETHER.v1.apk`, docs/releasing.md); any one APK otherwise.
-        val asset = assets.firstOrNull { it.str("name")?.startsWith("AETHER", ignoreCase = true) == true } ?: assets.singleOrNull()
+        // The release's app is named for Aura (`Aura-Music-v3.1.1.apk`); any one APK otherwise.
+        val asset = assets.firstOrNull { it.str("name")?.startsWith("Aura-Music", ignoreCase = true) == true }
+            ?: assets.firstOrNull { it.str("name")?.startsWith("Aura", ignoreCase = true) == true }
+            ?: assets.singleOrNull()
         val apk = asset?.let { a ->
             val url = a.str("browser_download_url")?.takeIf { it.startsWith("https://github.com/") } ?: return@let null
             ReleaseApk(
@@ -77,13 +79,13 @@ internal object Releases {
 
 /**
  * A release's notes in short, for the update sheet: the one-line summary the notes open with
- * (`**AETHER 1.1** adds …`), then the headline of each change, what's new first, at most [max].
+ * (`**Aura Music 3.1.1** …`), then the headline of each change, what's new first, at most [max].
  * Markdown is taken out (bold, code, links); nothing is shown that the notes don't say.
  */
 internal object ReleaseNotes {
     fun short(notes: String, max: Int = 5): List<String> {
         val paragraphs = notes.replace("\r", "").split(Regex("\n\\s*\n")).map { p -> p.lines().joinToString(" ") { it.trim() }.trim() }
-        val summary = paragraphs.firstOrNull { it.startsWith("**AETHER", ignoreCase = true) }?.let(::plain)?.takeIf { it.isNotBlank() }
+        val summary = paragraphs.firstOrNull { it.startsWith("**Aura", ignoreCase = true) || it.startsWith("**AETHER", ignoreCase = true) }?.let(::plain)?.takeIf { it.isNotBlank() }
         val sections = LinkedHashMap<String, MutableList<String>>()
         var section = ""
         var bullet: StringBuilder? = null

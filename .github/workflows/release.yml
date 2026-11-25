@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g., v3.1.0)'
+        description: 'Release Tag (e.g., v3.1.1)'
         required: true
-        default: 'v3.1.0'
+        default: 'v3.1.1'
 
 permissions:
   contents: write
@@ -73,7 +73,7 @@ jobs:
         run: |
           rm -rf release_assets
           mkdir -p release_assets
-          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v3.1.0' }}"
+          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v3.1.1' }}"
           
           # Find release APK
           APK_FILE=$(find app/build/outputs/apk/release/ -type f -name "*.apk" | head -n 1)
@@ -100,7 +100,7 @@ jobs:
           ls -lh
 
       - name: Publish to GitHub Releases
-        uses: softprops/action-gh-release@v2.6.2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             release_assets/*.apk
@@ -109,21 +109,19 @@ jobs:
           tag_name: ${{ github.ref_name || inputs.tag_name }}
           name: "Aura Music ${{ github.ref_name || inputs.tag_name }}"
           body: |
-            **Aura Music ${{ github.ref_name || inputs.tag_name }}** keeps your playlists in step with YouTube Music, puts the song playing on your home screen, lights Now Playing in the cover's own colours, and keeps songs in seconds.
+            **Aura Music ${{ github.ref_name || inputs.tag_name }}** restores one-tap in-app updates (**Download and install**) for Aura release builds alongside all v3.1.0 features.
 
             > Powered by [AETHER](https://github.com/GHOSTxASR/AETHER) by [GHOSTxASR](https://github.com/GHOSTxASR) under [GPL-3.0](LICENSE).
 
-            ### What's new
-            - **Sync with YouTube Music**: Bidirectional playlist and Liked songs sync with your YouTube Music account, with animated sync status and safe playlist lifecycle handling.
-            - **Home-Screen Widgets**: 2x2 and 4x2 playback widgets with rounded cover art fade rings and responsive playback controls.
-            - **Ambient Cover Lighting**: Four softly orbiting lights sampled from the cover's palette behind Now Playing (togglable in Settings).
-            - **Per-List Sorting**: Sort playlists, Kept songs, on-phone music, songs, albums, and artists by custom order, title, artist, album, date added/modified, or duration.
-            - **Truer Sound & Bit-Perfect Audio**: Equaliser and Automix for hi-res/FLAC, native Apple Lossless (ALAC) playback, EBU R128 ReplayGain loudness normalisation, and USB DAC bit-perfect output on Android 14+.
-            - **Lyrics & Now Playing Controls**: Latin transliteration first in Verse, toggleable words on cover, and uncropped square Now Playing cover framing.
-            - **Fixes & Improvements**: Fast parallel chunked downloads, Samsung FLAC static fix, continuous artist music videos, cast-end audio output restoration, and band-free dial fade.
+            ### Fixed in v3.1.1
+            - **In-App Updates Restored**: Fixed `RELEASE_PACKAGE` (`com.auramusic.app`) and `Aura-Music` / `Aura` APK release asset matching so release builds automatically check for updates and show **Download and install** instead of **Open on GitHub**.
+            - **Updater Branding & Summary Notes**: Restored Aura branding in updater UI strings and `**Aura …**` summary parsing.
+
+            ### Also in 3.1
+            - Bidirectional YouTube Music playlist & Liked songs sync, 2x2 and 4x2 home-screen widgets, ambient cover art lighting behind Now Playing, per-list sorting, ALAC decoding, EBU R128 ReplayGain, USB DAC bit-perfect output on Android 14+, parallel chunked downloads, and Samsung FLAC fix.
 
             ### Installation
-            Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required).
+            Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required). *(Users currently on v3.0.0 or v3.1.0 install this release once from GitHub; subsequent updates install directly inside Aura.)*
           draft: false
           prerelease: false
         env:

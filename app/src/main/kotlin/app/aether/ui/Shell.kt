@@ -324,7 +324,7 @@ fun Shell() {
     val updateState by container.updates.state.collectAsStateWithLifecycle()
     val offered = (updateState as? app.aether.update.UpdateState.Offer)?.release?.version?.toString()
     LaunchedEffect(offered) {
-        if (offered != null && player.visible) keep.note("AETHER $offered is out")
+        if (offered != null && player.visible) keep.note("Aura $offered is out")
     }
 
     AutoQueue(actions)

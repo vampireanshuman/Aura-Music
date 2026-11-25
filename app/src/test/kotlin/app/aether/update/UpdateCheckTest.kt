@@ -74,4 +74,48 @@ class UpdateCheckTest {
         advanceUntilIdle()
         assertEquals(1, net.asked)
     }
+
+    @Test
+    fun auraReleaseParsesMultiApkAssetsAndSummaryAndOffersInstall() = runTest {
+        val digest = "a".repeat(64)
+        val payload = """
+            {
+              "tag_name": "v3.1.1",
+              "html_url": "https://github.com/vampireanshuman/Aura-Music/releases/tag/v3.1.1",
+              "body": "**Aura Music 3.1.1** restores one-tap in-app updates.\n\n### Fixed\n- **In-app updates:** Restored direct APK installation.\n- **Release notes:** Parsed Aura summaries.",
+              "draft": false,
+              "prerelease": false,
+              "assets": [
+                {"name": "AuraMusic-release.apk", "browser_download_url": "https://github.com/vampireanshuman/Aura-Music/releases/download/v3.1.1/AuraMusic-release.apk", "size": 100, "digest": "sha256:$digest"},
+                {"name": "Aura-Music-v3.1.1.apk", "browser_download_url": "https://github.com/vampireanshuman/Aura-Music/releases/download/v3.1.1/Aura-Music-v3.1.1.apk", "size": 200, "digest": "sha256:$digest"},
+                {"name": "Aura-v3.1.1.apk", "browser_download_url": "https://github.com/vampireanshuman/Aura-Music/releases/download/v3.1.1/Aura-v3.1.1.apk", "size": 300, "digest": "sha256:$digest"}
+              ]
+            }
+        """.trimIndent()
+        assertEquals("com.auramusic.app", UpdateCenter.RELEASE_PACKAGE)
+        val parsed = Releases.parse(payload)
+        assertEquals("Aura-Music-v3.1.1.apk", parsed?.apk?.name)
+        assertEquals(digest, parsed?.apk?.sha256)
+        assertEquals(
+            listOf("Aura Music 3.1.1 restores one-tap in-app updates.", "In-app updates", "Release notes"),
+            ReleaseNotes.short(parsed!!.notes),
+        )
+
+        val updates = UpdateCenter(
+            net = Net(payload),
+            store = Store(lastAnswer = null, lastCheckedAt = 0L),
+            installer = Installer,
+            current = Version.of("3.1.0")!!,
+            downloads = File("build/tmp"),
+            scope = this,
+            now = { 1000L },
+            checksByItself = true,
+            canInstallReleases = true,
+        )
+        updates.checkNow()
+        advanceUntilIdle()
+        val offer = assertIs<UpdateState.Offer>(updates.state.value)
+        assertEquals(true, offer.canInstall)
+        assertEquals("Aura-Music-v3.1.1.apk", offer.release.apk?.name)
+    }
 }

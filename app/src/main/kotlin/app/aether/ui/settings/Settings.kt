@@ -390,13 +390,13 @@ fun SettingsScreen() {
                 if (container.updates.looksByItself) {
                     Toggle(
                         "Look for updates",
-                        "When AETHER opens, it asks GitHub, at most every few hours, whether there's a newer release, and offers it. Nothing about you goes with the question. The update is checked against the release and signed like your AETHER before Android is asked to install it.",
+                        "When Aura opens, it asks GitHub, at most every few hours, whether there's a newer release, and offers it. Nothing about you goes with the question. The update is checked against the release and signed like your Aura before Android is asked to install it.",
                         updatesAutomatic,
                     ) { container.updates.setAutomatic(!updatesAutomatic) }
                 }
                 Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Words(
-                        "AETHER ${container.updates.version}",
+                        "Aura ${container.updates.version}",
                         if (container.updates.looksByItself) "The version on this phone." else "A test build: it looks for updates only when asked, and a release installs from GitHub.",
                         Modifier.weight(1f),
                     )

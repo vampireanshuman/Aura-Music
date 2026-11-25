@@ -190,7 +190,7 @@ class UpdateCenter internal constructor(
         val apk = release.apk ?: return fail(release, UpdateProblem.NOTHING_TO_DOWNLOAD)
         job?.cancel()
         job = scope.launch {
-            val file = File(downloads, "aether-${release.tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' }}.apk")
+            val file = File(downloads, "aura-${release.tag.filter { it.isLetterOrDigit() || it == '.' || it == '-' }}.apk")
             downloads.listFiles()?.filter { it != file }?.forEach { it.delete() }
             if (!(file.isFile && apk.sha256 != null && file.sha256() == apk.sha256)) {
                 val part = File(downloads, file.name + ".part")
@@ -324,10 +324,10 @@ class UpdateCenter internal constructor(
             val app = context.applicationContext
             val name = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName }.getOrNull().orEmpty()
             // A test build ends `.debug`, a release candidate beside the phone's own `.rc`: neither can
-            // take a release's APK, and only the listener's own AETHER looks for one by itself.
+            // take a release's APK, and only the listener's own Aura looks for one by itself.
             val release = app.packageName == RELEASE_PACKAGE
             return UpdateCenter(
-                net = HttpsUpdateNet("AETHER/$name (Android music player; update check)"),
+                net = HttpsUpdateNet("Aura/$name (Android music player; update check)"),
                 store = PrefsUpdateStore(app),
                 installer = PackageUpdateInstaller(app),
                 current = Version.of(name) ?: Version(listOf(0), "0"),
@@ -338,6 +338,6 @@ class UpdateCenter internal constructor(
             )
         }
 
-        private const val RELEASE_PACKAGE = "app.aether"
+        internal const val RELEASE_PACKAGE = "com.auramusic.app"
     }
 }
