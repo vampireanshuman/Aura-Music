@@ -1064,7 +1064,7 @@ private fun Microtype(lines: List<String>, modifier: Modifier) {
 
 /** What the tattoo says: the house and the song's place, its words where it has them, its name. */
 private fun microtype(track: Track, state: PlaybackState, lyrics: Load<Lyrics?>): List<String> {
-    val head = listOf("AETHER", "N\u00ba ${state.index + 1}", track.year?.toString() ?: (track.album?.title ?: ""), quality(state.heard)?.substringBefore("   ") ?: "")
+    val head = listOf("AURA", "N\u00ba ${state.index + 1}", track.year?.toString() ?: (track.album?.title ?: ""), quality(state.heard)?.substringBefore("   ") ?: "")
     val words = (lyrics as? Load.Ready)?.value?.text?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() && it.length < 40 }?.distinct()?.take(9)
     val middle = words ?: listOfNotNull(track.artistLine, track.album?.title, track.durationMs?.let { clock(it) }, track.plays, if (track.explicit) "Explicit" else null)
     val tail = listOf(track.title, track.artists.firstOrNull()?.name ?: "", track.durationMs?.let { clock(it) } ?: "")

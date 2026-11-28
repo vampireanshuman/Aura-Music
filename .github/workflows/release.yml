@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g., v3.1.1)'
+        description: 'Release Tag (e.g., v3.1.2)'
         required: true
-        default: 'v3.1.1'
+        default: 'v3.1.2'
 
 permissions:
   contents: write
@@ -73,7 +73,7 @@ jobs:
         run: |
           rm -rf release_assets
           mkdir -p release_assets
-          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v3.1.1' }}"
+          TAG_VAL="${{ github.ref_name || inputs.tag_name || 'v3.1.2' }}"
           
           # Find release APK
           APK_FILE=$(find app/build/outputs/apk/release/ -type f -name "*.apk" | head -n 1)
@@ -109,19 +109,18 @@ jobs:
           tag_name: ${{ github.ref_name || inputs.tag_name }}
           name: "Aura Music ${{ github.ref_name || inputs.tag_name }}"
           body: |
-            **Aura Music ${{ github.ref_name || inputs.tag_name }}** restores one-tap in-app updates (**Download and install**) for Aura release builds alongside all v3.1.0 features.
+            **Aura Music ${{ github.ref_name || inputs.tag_name }}** restores Aura branding across every screen of the app alongside all v3.1 features and in-app updates.
 
             > Powered by [AETHER](https://github.com/GHOSTxASR/AETHER) by [GHOSTxASR](https://github.com/GHOSTxASR) under [GPL-3.0](LICENSE).
 
-            ### Fixed in v3.1.1
-            - **In-App Updates Restored**: Fixed `RELEASE_PACKAGE` (`com.auramusic.app`) and `Aura-Music` / `Aura` APK release asset matching so release builds automatically check for updates and show **Download and install** instead of **Open on GitHub**.
-            - **Updater Branding & Summary Notes**: Restored Aura branding in updater UI strings and `**Aura …**` summary parsing.
+            ### Fixed in v3.1.2
+            - **Aura Branding Restored Everywhere**: Replaced leftover `Aether` / `AETHER` UI copy in onboarding, colophon, Now Playing cover microtype (`AURA`), Profile & Song cards (`Pictures/Aura`, `Aura card`), Kept music folder (`Music/Aura`), Settings, lyrics attribution, sign-in & permission prompts, and crash notes.
 
             ### Also in 3.1
-            - Bidirectional YouTube Music playlist & Liked songs sync, 2x2 and 4x2 home-screen widgets, ambient cover art lighting behind Now Playing, per-list sorting, ALAC decoding, EBU R128 ReplayGain, USB DAC bit-perfect output on Android 14+, parallel chunked downloads, and Samsung FLAC fix.
+            - In-app updates (**Download and install**), bidirectional YouTube Music sync, 2x2 and 4x2 home-screen widgets, ambient cover lighting, per-list sorting, ALAC decoding, EBU R128 ReplayGain, USB DAC bit-perfect output on Android 14+, parallel chunked downloads, and Samsung FLAC fix.
 
             ### Installation
-            Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required). *(Users currently on v3.0.0 or v3.1.0 install this release once from GitHub; subsequent updates install directly inside Aura.)*
+            Download `Aura-Music-${{ github.ref_name || inputs.tag_name }}.apk` and open it on your Android device (Android 10+ required), or update directly inside Aura (`v3.1.1`).
           draft: false
           prerelease: false
         env:

@@ -68,7 +68,7 @@ class SignInActivity : ComponentActivity() {
                     GlassPill("Cancel", onClick = { finish() }, small = true)
                 }
                 Txt(
-                    "You sign in on Google's own page. AETHER never sees your password; it keeps only the session, sealed on this phone.",
+                    "You sign in on Google's own page. Aura never sees your password; it keeps only the session, sealed on this phone.",
                     Type.Meta,
                     color = Ink.Grey,
                     modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 10.dp),

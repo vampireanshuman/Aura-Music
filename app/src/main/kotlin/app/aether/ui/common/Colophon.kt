@@ -38,7 +38,7 @@ fun Colophon(modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(top = 96.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         LightCross(size = 48.dp, intensity = 0.7f)
         Spacer(Modifier.height(14.dp))
-        Txt("Aether", Type.Inscription.copy(fontSize = 30.sp, lineHeight = 34.sp), color = Ink.Grey)
+        Txt("Aura", Type.Inscription.copy(fontSize = 30.sp, lineHeight = 34.sp), color = Ink.Grey)
         Box(Modifier.fillMaxWidth().aspectRatio(740f / 493f)) {
             Image(
                 painterResource(R.drawable.art_earth),

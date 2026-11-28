@@ -120,7 +120,7 @@ private fun Choose(onFile: () -> Unit, onLink: (String) -> Unit) {
     GlassButton("Choose a file", onClick = onFile)
     Spacer(Modifier.height(12.dp))
     Txt(
-        "AETHER's own, M3U, CSV (Exportify's too) or a list of songs; or Spotify's data download, which has every playlist whole and your liked songs.",
+        "Aura's own, M3U, CSV (Exportify's too) or a list of songs; or Spotify's data download, which has every playlist whole and your liked songs.",
         Type.Meta,
         color = Ink.Grey,
         align = TextAlign.Center,

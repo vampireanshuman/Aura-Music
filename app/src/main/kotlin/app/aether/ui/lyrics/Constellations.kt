@@ -193,7 +193,7 @@ fun LyricsStage(track: Track, pane: DragState, following: androidx.compose.runti
         }
         val credit = when (words) {
             is Words.Timed -> "Words: ${words.credit}" + when {
-                words.estimated -> "  ·  timed by AETHER"
+                words.estimated -> "  ·  timed by Aura"
                 words.lines.any { it.words.isNotEmpty() } -> "  ·  word by word"
                 else -> ""
             }
