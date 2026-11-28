@@ -70,7 +70,7 @@ fun Wordmark(modifier: Modifier = Modifier, crossSize: Dp = 132.dp, showYear: Bo
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         LightCross(size = crossSize)
         Spacer(Modifier.height(20.dp))
-        Txt("Aether", Type.Inscription)
+        Txt("Aura", Type.Inscription)
         if (aside != null) {
             Spacer(Modifier.height(6.dp))
             Txt(aside, Type.Aside, color = Ink.Grey)
